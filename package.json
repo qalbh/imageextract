@@ -10,15 +10,22 @@
 		"build": "astro build",
 		"preview": "astro build && astro preview",
 		"astro": "astro",
+		"test": "vitest run",
+		"test:watch": "vitest",
 		"generate-types": "wrangler types",
 		"deploy": "astro build && wrangler deploy",
 		"cf-typegen": "wrangler types"
 	},
 	"dependencies": {
 		"@astrojs/cloudflare": "^14.1.7",
-		"astro": "^7.1.6"
+		"@tailwindcss/vite": "^4.3.3",
+		"astro": "^7.1.6",
+		"tailwindcss": "^4.3.3",
+		"zod": "^4.4.3"
 	},
 	"devDependencies": {
+		"@cloudflare/vitest-pool-workers": "^0.20.1",
+		"vitest": "^4.1.10",
 		"wrangler": "^4.118.0"
 	}
 }

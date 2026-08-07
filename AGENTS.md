@@ -31,7 +31,7 @@ A free web tool that takes a public webpage URL and lists every image on it, so 
 
 ## Non-negotiable constraints
 
-**Nothing is persisted.** No database, no KV, no R2, no D1, no cache of user-submitted URLs. No page URL or image URL appears in any log line. Bytes stream through and are forgotten. If a task seems to require storage, stop and ask before adding it.
+**Nothing is persisted.** No database, no KV, no R2, no D1, no cache of user-submitted URLs — sole carve-out: the in-isolate DoH verdict cache (see Security). No page URL or image URL appears in any log line. Bytes stream through and are forgotten. If a task seems to require storage, stop and ask before adding it.
 
 **Zero persistence is not zero traffic.** Image bytes must pass through our proxy for downloads, because CORS prevents the browser from reading cross-origin image data and browsers ignore the `download` attribute on cross-origin links. The proxy is required; storage is not.
 
@@ -39,7 +39,7 @@ A free web tool that takes a public webpage URL and lists every image on it, so 
 
 ## Stack
 
-- Astro 5, TypeScript strict, Tailwind
+- Astro 7, TypeScript strict, Tailwind
 - React only as an Astro island, and only for the interactive results grid
 - Cloudflare Workers with static assets — site and API deploy as one unit
 - `HTMLRewriter` for HTML parsing (built into Workers, streaming, no dependency)
@@ -53,9 +53,9 @@ State the license of any new dependency when you introduce it. No AGPL.
 
 Two endpoints, both stateless:
 
-**`GET /api/scan?url=<encoded>`** — fetches the target page, parses it with `HTMLRewriter`, returns a JSON manifest of image URLs. No dimensions, no byte sizes. 1–3 subrequests total.
+**`GET /api/scan?url=<encoded>`** — fetches the target page, parses it with `HTMLRewriter`, returns a JSON manifest of image URLs. No dimensions, no byte sizes. Typically 4 subrequests (robots.txt, the page, one DoH pair). Each redirect hop adds a fetch plus a DoH pair for a new hostname, and each linked stylesheet adds a fetch — bounded by the 3-redirect and 3-stylesheet caps.
 
-**`GET /api/proxy?url=<encoded>&download=1`** — streams exactly one image. Pass the `ReadableStream` straight through; never buffer. 1 subrequest, near-zero CPU.
+**`GET /api/proxy?url=<encoded>&download=1`** — streams exactly one image. Pass the `ReadableStream` straight through; never buffer. Near-zero CPU. Worst case 12 subrequests (4 fetches across a full redirect chain plus a DoH pair per hostname); amortized ~1 per image — with the in-isolate DoH cache, a 300-image ZIP from a single host costs one DoH pair per warm isolate, not one per image. Each isolate/colo warms its own cache, so the ceiling applies to cold starts.
 
 Everything expensive happens in the browser: previews, dimension detection, filtering, sorting, selection state, ZIP assembly.
 
@@ -69,7 +69,7 @@ type ScanResult = {
     url: string;         // absolute, resolved
     filename: string;    // derived from path, sanitized
     ext: 'png'|'jpeg'|'svg'|'gif'|'webp'|'avif'|'ico'|'unknown';
-    source: 'img'|'srcset'|'picture'|'css'|'inline-svg'|'meta'|'poster'|'favicon'|'json-ld';
+    source: 'img'|'srcset'|'picture'|'css'|'inline-svg'|'meta'|'poster'|'favicon'|'json-ld'|'lazy'|'object'|'embed';
   }>;
   truncated: boolean;
   robotsBlocked?: true;
@@ -89,7 +89,7 @@ The browser fetches each selected image through `/api/proxy` and assembles the Z
 | Type filter, search, sort, select | Client state | Zero |
 | Copy URLs | Clipboard | Zero |
 | Byte-size badge | `HEAD` via proxy — **lazy only** | 1 subrequest |
-| Download / ZIP | Proxy | 1 subrequest per image + bandwidth |
+| Download / ZIP | Proxy | 1 subrequest per image (+ amortized DoH pair per hostname) + bandwidth |
 
 Byte-size badges must be lazy: show `—` until the user selects an image or sorts by size. Probing every image upfront on an 800-image page is the difference between a free tool and a bill.
 
@@ -97,19 +97,62 @@ Hotlink-protected origins will 403 the direct preview. Detect `onerror` and fall
 
 ## Security
 
-The SSRF guard applies to **both** endpoints, on the initial URL and after **every** redirect:
+The SSRF guard applies to **both** endpoints, on the initial URL and after
+**every** redirect.
+
+Platform note: Cloudflare Workers expose no DNS resolution API, so
+"resolve the hostname and connect to the validated IP" is not implementable
+here. Do not pretend otherwise. The guard is built from what IS available:
 
 1. Scheme must be `http` or `https`
-2. Reject private and reserved ranges: `127.0.0.0/8`, `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `169.254.0.0/16`, `0.0.0.0/8`, `::1`, `fc00::/7`, `fe80::/10`, and IPv4-mapped IPv6 such as `::ffff:10.0.0.1`
-3. Reject ports outside 80 and 443
-4. Maximum 3 redirects, re-validating every hop
-5. Hard timeouts: 10s for scan, 30s for proxy
+2. Reject ports outside 80 and 443
+3. If the hostname is an IP literal, reject any in a reserved range:
+   `127.0.0.0/8`, `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`,
+   `169.254.0.0/16`, `100.64.0.0/10`, `0.0.0.0/8`, `::1`, `fc00::/7`,
+   `fe80::/10`, and IPv4-mapped IPv6 such as `::ffff:10.0.0.1`. Handle
+   decimal, octal, and hex-encoded IPv4 forms — `2130706433` and
+   `0x7f000001` are both localhost.
+4. Reject hostnames that resolve internally by convention: `localhost`,
+   anything ending `.local`, `.internal`, `.localdomain`, and known cloud
+   metadata hostnames
+5. Use `redirect: 'manual'` and follow redirects yourself, re-running the
+   full guard on every hop. Maximum 3 hops. Never use `redirect: 'follow'` —
+   it silently bypasses per-hop validation.
+6. Hard timeouts via AbortSignal: 10s for scan, 30s for proxy
 
-Other limits: 100 KB cap on `robots.txt`, 5 MB cap on the fetched HTML, per-image size cap, cap on images per ZIP, 1,000 images per scan with a `truncated` flag.
+Optional hardening, decide explicitly: resolve the hostname via
+DNS-over-HTTPS before fetching and reject if any A/AAAA record is in a
+reserved range. Costs one extra subrequest per scan. This narrows but does
+not close the DNS-rebinding window, because we still fetch by hostname and
+cannot pin the connection to a validated IP.
 
-The proxy must reject non-image `Content-Type`, and must set `X-Content-Type-Options: nosniff` plus `Content-Disposition: attachment` when `download=1`.
+Decision (2026-08-05): DoH pre-check enabled, on both endpoints and on every
+redirect hop, skipped for IP-literal hostnames. Actual cost is two extra
+subrequests per fetched hostname (separate A and AAAA lookups). If DoH
+itself fails, the request is rejected — fail closed. A clean zero-record
+answer is distinguished as `dns-nxdomain` (usually a typo) and gets its own
+user-facing message; the rejection is identical.
 
-Sanitize filenames on download: strip path separators, control characters, and leading dots; cap length; deduplicate with a numeric suffix.
+Decision (2026-08-08): in-isolate DoH verdict cache — hostname → verdict,
+60 s TTL, ≤256 entries, isolate memory only, never logged. The explicit
+carve-out from the no-cache rule; it amortizes the DoH pair across a
+download batch. A cached "public" verdict extends the rebinding window by
+at most the TTL, a window the per-request check cannot close anyway.
+
+**Never add a Workers VPC binding or a service binding to this project.**
+Those are the mechanisms that would actually give this Worker reach into
+private networks.
+
+Other limits: 100 KB cap on `robots.txt`, 5 MB cap on the fetched HTML,
+per-image size cap, cap on images per ZIP, 1,000 images per scan with a
+`truncated` flag.
+
+The proxy must reject non-image `Content-Type`, and must set
+`X-Content-Type-Options: nosniff` plus `Content-Disposition: attachment`
+when `download=1`.
+
+Sanitize filenames on download: strip path separators, control characters,
+and leading dots; cap length; deduplicate with a numeric suffix.
 
 ## Politeness
 
@@ -128,7 +171,7 @@ Then dedupe by normalized URL (strip fragment, sort query params) and drop `data
 
 ## Code conventions
 
-- Errors are typed and enumerated, never bare strings: `BlockedHostError`, `RobotsBlockedError`, `TimeoutError`, `SizeLimitError`, `NotAnImageError`. Each maps to a specific user-facing message and HTTP status. No catch-all "Something went wrong."
+- Errors are typed and enumerated, never bare strings: `BlockedHostError`, `RobotsBlockedError`, `TimeoutError`, `SizeLimitError`, `NotAnImageError`, `TooManyRedirectsError`. Each maps to a specific user-facing message and HTTP status. No catch-all "Something went wrong."
 - Astro pages ship zero JavaScript by default. Add `client:*` directives only to the results grid.
 - Comments explain *why* — a spec quirk, a workaround for a class of malformed page — not *what*.
 - Every `URL.createObjectURL` has a matching `revokeObjectURL`.

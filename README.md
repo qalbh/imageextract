@@ -1,46 +1,61 @@
-# Astro Starter Kit: Basics
+# imageextract.pics
 
-```sh
-npm create astro@latest -- --template basics
+Extract every image from any public webpage. Preview, filter, and download individually or as a ZIP.
+
+**Nothing is stored.** No database, no object storage, no cache of submitted URLs, no URLs in logs. Image bytes stream through and are forgotten.
+
+---
+
+## Status
+
+In development. Not yet deployed.
+
+| Phase | State |
+|---|---|
+| Foundation, SSRF guard | Done |
+| Core engine (`/api/scan`, `/api/proxy`) | `/api/scan` done, proxy next |
+| Results UI | Not started |
+| Download and ZIP | Not started |
+| Abuse controls | Not started |
+| Trust pages, SEO, deploy | Not started |
+
+See `STATUS.md` for the full breakdown.
+
+## Stack
+
+- Astro 7, TypeScript strict, Tailwind v4
+- Cloudflare Workers with static assets — site and API deploy as one unit
+- `HTMLRewriter` for streaming HTML parsing
+- React as a single island for the results grid; every other page ships zero JS
+- Vitest running in real workerd via `@cloudflare/vitest-pool-workers`
+
+## Architecture in one paragraph
+
+Two stateless endpoints. `/api/scan` fetches a page, checks robots.txt, stream-parses the HTML, and returns a JSON manifest of image URLs. `/api/proxy` streams exactly one image, pass-through, near-zero CPU. Everything expensive — previews, dimensions, filtering, sorting, ZIP assembly — happens in the browser. Thumbnails load directly from the origin, so browsing costs nothing; only downloads pass through the proxy.
+
+## Security
+
+The proxy accepts a URL from anyone and fetches it, which is textbook SSRF exposure. `src/lib/ssrf-guard.ts` is the mitigation and is the most security-critical code in the repo. It enforces scheme and port allowlists, rejects every reserved IP range across encodings, rejects internal hostname conventions, follows redirects manually with per-hop revalidation, and runs a fail-closed DNS-over-HTTPS pre-check.
+
+Cloudflare Workers expose no DNS resolution API, so pinning a connection to a validated IP is not possible. DNS rebinding is narrowed, not closed. This is documented rather than hidden.
+
+## Development
+
+```bash
+npm install
+astro dev --background     # astro dev status | logs | stop
+npm test                   # runs in workerd, not Node
+npm run build
 ```
 
-> 🧑‍🚀 **Seasoned astronaut?** Delete this file. Have fun!
+## Politeness
 
-## 🚀 Project Structure
+`robots.txt` is respected with no override path. The User-Agent identifies the tool and links to a page explaining it. Rate limits apply per IP. Abuse reports are welcome at the contact address in the footer.
 
-Inside of your Astro project, you'll see the following folders and files:
+Images retrieved through this tool may be under copyright. Obtaining permission to use them is the user's responsibility.
 
-```text
-/
-├── public/
-│   └── favicon.svg
-├── src
-│   ├── assets
-│   │   └── astro.svg
-│   ├── components
-│   │   └── Welcome.astro
-│   ├── layouts
-│   │   └── Layout.astro
-│   └── pages
-│       └── index.astro
-└── package.json
-```
+## Docs
 
-To learn more about the folder structure of an Astro project, refer to [our guide on project structure](https://docs.astro.build/en/basics/project-structure/).
-
-## 🧞 Commands
-
-All commands are run from the root of the project, from a terminal:
-
-| Command                   | Action                                           |
-| :------------------------ | :----------------------------------------------- |
-| `npm install`             | Installs dependencies                            |
-| `npm run dev`             | Starts local dev server at `localhost:4321`      |
-| `npm run build`           | Build your production site to `./dist/`          |
-| `npm run preview`         | Preview your build locally, before deploying     |
-| `npm run astro ...`       | Run CLI commands like `astro add`, `astro check` |
-| `npm run astro -- --help` | Get help using the Astro CLI                     |
-
-## 👀 Want to learn more?
-
-Feel free to check [our documentation](https://docs.astro.build) or jump into our [Discord server](https://astro.build/chat).
+- `AGENTS.md` — architecture, constraints, conventions (read by coding agents automatically)
+- `STATUS.md` — phase-by-phase progress and known risks
+- `DECISIONS.md` — why things are the way they are

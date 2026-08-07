@@ -1,0 +1,95 @@
+# Decision log
+
+Why things are the way they are. Append, don't rewrite — a decision that was reversed is more useful with its original reasoning intact.
+
+Format: what was decided, what it cost, and what would make us revisit it.
+
+---
+
+## Client-side processing everywhere except this tool
+
+The wider toolkit runs entirely in the browser so marginal cost per job is zero. This tool is the exception: CORS prevents the browser from reading cross-origin image bytes, and browsers ignore the `download` attribute on cross-origin links. A proxy is unavoidable.
+
+**Cost:** a server exists, with the abuse surface and bandwidth exposure that implies.
+**Revisit if:** never — the constraint is a browser security model, not a preference.
+
+## Cloudflare Workers over Vercel and Hostinger
+
+This tool moves other people's bytes. Vercel meters transfer in both directions and has no default spend cap, so an open proxy there is a billing risk proportional to abuse. Cloudflare does not bill egress. Hostinger shared hosting cannot run the required runtime at all, and a VPS would put a real localhost behind the SSRF guard.
+
+**Cost:** learning a less familiar platform; Workers' constraints shape the architecture.
+**Revisit if:** Cloudflare changes egress billing, or the product stops proxying bytes.
+
+## Astro over Next.js
+
+The competitive landscape shows this product is a content surface with one interactive widget, not an app. Astro ships zero JS by default and content collections generate landing pages from data.
+
+**Cost:** a second framework in the wider portfolio if the toolkit uses Next.js.
+**Revisit if:** the interactive surface grows past one island.
+
+## Static HTML parsing, no headless browser
+
+Competitors run headless browsers and consequently need sign-in, quotas, and ads to cover per-request cost. Static parsing is fast and nearly free, and lets us be the no-signup option.
+
+**Cost:** we will miss images on JavaScript-heavy sites. The size of that gap is currently unmeasured.
+**Revisit if:** Phase 8 data shows zero-result scans above 30%. Cloudflare Browser Rendering is the escape hatch, on the same platform.
+
+## Zero persistence
+
+No database, no KV, no R2, no cache of submitted URLs, no URLs in logs. Storing other people's images makes us a host rather than a conduit; storing nothing keeps the legal position simple and removes an entire class of liability.
+
+**Cost:** no scan history, no resumable jobs, no analytics richer than aggregates.
+**Revisit if:** never, without an explicit conversation.
+
+**Carve-out:** the DoH verdict cache holds hostnames in isolate memory for up to 60s. Never written, never logged, not queryable, dies with the isolate — the same category as a local variable. Documented explicitly so it isn't later read as a quiet violation.
+
+## ZIP assembly in the browser
+
+The browser fetches each image through the proxy and assembles the ZIP locally. Each Worker invocation stays at a single subrequest, so per-invocation subrequest and CPU limits never bind, and a large download cannot time out a Worker.
+
+**Cost:** ZIP behaviour now depends on the client device. A large selection must be verified on a mid-range phone.
+
+## SSRF guard shaped by platform limits
+
+Workers expose no DNS resolution API, so "resolve the hostname and connect to the validated IP" is not implementable. The guard is built from what exists: scheme and port allowlists, reserved-range rejection across all IP encodings, internal hostname conventions, manual redirect following with per-hop revalidation, and a fail-closed DNS-over-HTTPS pre-check.
+
+**Cost:** DNS rebinding is narrowed, not closed. Documented rather than papered over.
+**Revisit if:** Cloudflare ever exposes connection pinning.
+
+A compatibility flag was initially believed to block private-IP fetches at the platform level. Checking the documentation showed it governs same-zone routing instead. **No platform-level SSRF protection is assumed anywhere in this codebase.**
+
+## Tests run in workerd, not Node
+
+URL parsing and redirect semantics can differ between runtimes. A guard that passes in Node and behaves differently in production is worse than no guard, because it gets trusted.
+
+**Cost:** one dev dependency and a config file that must track `wrangler.jsonc`.
+
+## robots.txt respected, no override
+
+The tool is public, named, and runs from fixed infrastructure. Honouring a site's stated preference is the defensible position in every abuse complaint that will ever arrive. An override button turns a good-faith tool into a circumvention tool.
+
+**Cost:** some sites cannot be scanned at all.
+**Revisit if:** never.
+
+## DoH included now rather than deferred to launch
+
+Without it, the guard only catches a literal private IP in the URL — the naive case. With it, a public hostname resolving to a private address is also caught, which is how the attack is normally delivered. Deferred security work gets built under launch pressure, and retrofitting an async check into synchronous validation is a refactor.
+
+**Cost:** two subrequests per uncached hostname.
+
+## `truncated` carries a reason, not a boolean
+
+Hitting the 1000-image cap and hitting the 5 MB page cap are different failures with different user remedies. One means the list was trimmed; the other means part of the page was never parsed. A shared boolean would produce a UI that gives the wrong advice.
+
+## `source` enum is granular
+
+Every extraction origin gets its own value, including the three CSS variants, which resolve against different bases and fail in different ways. When a site returns garbage, `source` is the only debugging handle — "all from `css-external`" points at stylesheet base resolution; "all from `img`" points nowhere.
+
+## Open questions
+
+| Question | Trigger |
+|---|---|
+| Headless-browser deep scan | Phase 8 coverage data |
+| Sign-in or quotas | Only if abuse outpaces rate limits |
+| Monetization | Not before real traffic exists |
+| Open-sourcing the repo | Post-launch |
