@@ -51,8 +51,8 @@ async function walk(dir) {
 // it lands, so the gate then covers it (self-retiring, like doc-sync's
 // allowlist). The landing surface (index.astro, ScanForm, Layout) is in scope.
 const PRE_RESTYLE = new Set([
-  'src/components/ResultsGrid.tsx',
-  'src/components/ImageCard.tsx',
+  // ResultsGrid.tsx and ImageCard.tsx were restyled onto tokens and now pass
+  // the gate. results.astro (page shell) is not yet migrated.
   'src/pages/results.astro',
 ]);
 

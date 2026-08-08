@@ -100,6 +100,8 @@
   --radius-3xl: 4px;
 
   --container-content: 1280px;
+  /* Centered state-message column (error/empty/robots on /results). */
+  --container-message: 34rem;
 }
 
 /* Layout constants that don't generate utilities. */
@@ -110,4 +112,34 @@
   /* Derived from the landing demo grid's final content — revisit if that
      section's contents change. */
   --layout-demo: 1040px;
+  /* Results grid tile floor for auto-fill columns. 220px yields 4 columns in
+     the post-sidebar grid area (1280 − 260 sidebar − 24 gutter = 996; 4×220 +
+     3×24 = 952 ≤ 996, 5×220 + 4×24 = 1196 > 996). Full-width (no sidebar yet)
+     it renders 5; auto-fill settles to 4 once the sidebar lands. */
+  --layout-tile-min: 220px;
+}
+
+/* Loading skeleton for the results grid — border + surface tokens, gentle
+   pulse. No animation token exists; this keyframe is the one exception,
+   disabled under reduced motion. */
+@keyframes skeleton-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+.skeleton-tile {
+  aspect-ratio: 1 / 1;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-tile {
+    animation: none;
+  }
 }

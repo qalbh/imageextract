@@ -12,13 +12,15 @@ export default function ImageCard({ image }: { image: ScanImage }) {
   const [failed, setFailed] = useState(false);
 
   return (
-    <li className="flex flex-col overflow-hidden rounded-lg border border-neutral-200 bg-white">
+    <li className="flex flex-col overflow-hidden rounded-sm border border-border bg-surface">
       {/* The img is absolutely positioned so a very tall intrinsic size
           (sprite sheets, strip SVGs) cannot stretch the square box — with
           in-flow content, min-height:auto lets the image blow up the row. */}
-      <div className="relative flex aspect-square items-center justify-center bg-neutral-50">
+      <div className="relative flex aspect-square items-center justify-center bg-bg">
         {failed ? (
-          <span className="px-2 text-center text-xs text-neutral-400">preview unavailable</span>
+          <span className="px-xs text-center font-mono text-label text-muted">
+            preview unavailable
+          </span>
         ) : (
           <img
             src={image.url}
@@ -37,16 +39,21 @@ export default function ImageCard({ image }: { image: ScanImage }) {
             onError={() => setFailed(true)}
           />
         )}
+        {/* Source badge, top-right. Raw ImageSource value; no competitor
+            surfaces it. Top-left is reserved for the selection checkbox
+            (next pass), so the two never collide. Dark chip stays legible
+            over any photo. */}
+        <span className="absolute right-xs top-xs rounded-sm bg-text px-xs font-mono text-label uppercase text-surface">
+          {image.source}
+        </span>
       </div>
-      <div className="flex flex-col gap-1 p-2">
-        <span className="truncate text-xs text-neutral-700" title={image.filename}>
+      <div className="flex flex-col gap-xs p-xs">
+        <span className="truncate font-mono text-label text-text" title={image.filename}>
           {image.filename}
         </span>
-        <span className="flex gap-2 text-[11px] text-neutral-500">
-          <span className="rounded bg-neutral-100 px-1 uppercase">
-            {image.ext === 'unknown' ? '?' : image.ext}
-          </span>
+        <span className="flex gap-xs font-mono text-label uppercase text-muted">
           <span>{dimensions ?? '…'}</span>
+          <span>{image.ext === 'unknown' ? '?' : image.ext}</span>
           {/* Byte size stays an em dash until probing ships — no HEAD fired. */}
           <span>{'—'}</span>
         </span>

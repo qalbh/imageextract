@@ -66,12 +66,21 @@ Scale (px): 88 / 48 / 32 / 20 / 16 / 14 / 13 / 11 —
 
 ## Layout constants
 
-Content max-width 1280px (`max-w-content`) · sidebar 260px
-(`--layout-sidebar`) · grid gutter 24px (`--layout-gutter`) · sticky bar
-64px (`--layout-stickybar`) · landing demo-grid height 1040px
+Content max-width 1280px (`max-w-content`) · message column 34rem
+(`--container-message` → `max-w-message`, for centered state messages) ·
+sidebar 260px (`--layout-sidebar`) · grid gutter 24px (`--layout-gutter`) ·
+sticky bar 64px (`--layout-stickybar`) · landing demo-grid height 1040px
 (`--layout-demo` — derived from the demo grid's final content; changes if
-that section's contents change) · tile reveal cap **120** (a JS constant —
-recorded here, lands in code with the grid-scaling step).
+that section's contents change) · results tile floor 220px
+(`--layout-tile-min` — auto-fill columns via inline
+`repeat(auto-fill, minmax(var(--layout-tile-min), 1fr))`; yields 4 columns
+in the post-sidebar grid area, 5 at full width until the sidebar lands) ·
+tile reveal cap **120** (a JS constant — recorded here, lands in code with
+the grid-scaling step).
+
+**Tile badge corners:** on results tiles the **source badge is top-right**
+and the **selection checkbox (next pass) is top-left** — opposite corners so
+they never collide.
 
 ## Interaction
 

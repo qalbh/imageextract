@@ -74,7 +74,7 @@ function TruncatedBanner({ reason }: { reason: 'image-cap' | 'size-cap' }) {
   // seen and the list was trimmed; size-cap means part of the page was never
   // parsed at all.
   return (
-    <p className="mb-4 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+    <p className="mb-sm rounded-sm border border-warning-border bg-warning-bg px-sm py-xs text-small text-warning-text">
       {reason === 'image-cap'
         ? 'The whole page was scanned, but it has more than 1,000 images — showing the first 1,000.'
         : 'This page was too large to read completely, so some images may be missing entirely. Scanning a more specific page on the same site may find more.'}
@@ -106,40 +106,54 @@ export default function ResultsGrid() {
     case 'idle':
       // Reached on /results with no ?url= — never leave the page blank.
       return (
-        <p className="py-8 text-center text-sm text-neutral-500">
+        <p className="py-lg text-center text-small text-muted">
           Paste a page URL above and hit Scan — every image on the page shows up here.
         </p>
       );
     case 'loading':
+      // Skeleton grid rather than a static line — scanning runs for seconds
+      // and a frozen message provokes re-submits. Status text is announced
+      // for screen readers; the tiles carry the visible progress.
       return (
-        <p role="status" className="animate-pulse py-8 text-center text-neutral-500">
-          Scanning {state.hostname}…
-        </p>
+        <div>
+          <p role="status" className="sr-only">
+            Scanning {state.hostname}…
+          </p>
+          <ul
+            className="grid gap-md"
+            style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(var(--layout-tile-min), 1fr))' }}
+            aria-hidden="true"
+          >
+            {Array.from({ length: 10 }).map((_, i) => (
+              <li key={i} className="skeleton-tile" />
+            ))}
+          </ul>
+        </div>
       );
     case 'error':
       return (
-        <div role="alert" className="mx-auto max-w-md py-8 text-center">
-          <h2 className="mb-1 font-semibold text-neutral-800">{state.heading}</h2>
-          <p className="text-sm text-neutral-600">{state.message}</p>
+        <div role="alert" className="mx-auto max-w-message py-lg text-center">
+          <h2 className="mb-xs font-semibold text-text">{state.heading}</h2>
+          <p className="text-small text-muted">{state.message}</p>
           {state.retry && (
-            <p className="mt-2 text-sm text-neutral-500">This is usually temporary — try again in a moment.</p>
+            <p className="mt-xs text-small text-muted">This is usually temporary — try again in a moment.</p>
           )}
         </div>
       );
     case 'robots-blocked':
       return (
-        <div className="mx-auto max-w-md py-8 text-center">
-          <h2 className="mb-1 font-semibold text-neutral-800">
+        <div className="mx-auto max-w-message py-lg text-center">
+          <h2 className="mb-xs font-semibold text-text">
             This site has asked automated tools not to access this page.
           </h2>
-          <p className="text-sm text-neutral-600">We respect that, so there is nothing to show.</p>
+          <p className="text-small text-muted">We respect that, so there is nothing to show.</p>
         </div>
       );
     case 'empty':
       return (
-        <div className="mx-auto max-w-md py-8 text-center">
-          <h2 className="mb-1 font-semibold text-neutral-800">No images found</h2>
-          <p className="text-sm text-neutral-600">
+        <div className="mx-auto max-w-message py-lg text-center">
+          <h2 className="mb-xs font-semibold text-text">No images found</h2>
+          <p className="text-small text-muted">
             The page was scanned successfully, but nothing on it looks like an image.
           </p>
         </div>
@@ -148,10 +162,16 @@ export default function ResultsGrid() {
       return (
         <div>
           {state.result.truncated !== undefined && <TruncatedBanner reason={state.result.truncated} />}
-          <p className="mb-3 text-sm text-neutral-500">
+          <p className="mb-sm font-mono text-label uppercase text-muted">
             {state.result.images.length} image{state.result.images.length === 1 ? '' : 's'}
           </p>
-          <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+          {/* Columns from --layout-tile-min via auto-fill (inline style — an
+              arbitrary Tailwind utility would be off-token). gap = --spacing-md
+              (24px, the grid gutter). */}
+          <ul
+            className="grid gap-md"
+            style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(var(--layout-tile-min), 1fr))' }}
+          >
             {state.result.images.map((image) => (
               <ImageCard key={image.id} image={image} />
             ))}
