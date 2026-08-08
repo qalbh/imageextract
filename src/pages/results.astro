@@ -1,0 +1,30 @@
+---
+import Layout from '../layouts/Layout.astro';
+import ScanForm from '../components/ScanForm.astro';
+import ResultsGrid from '../components/ResultsGrid';
+---
+
+<Layout title="Scan results — imageextract">
+	<Fragment slot="head">
+		{/* Scans of arbitrary third-party pages: keep them out of the index and
+		    don't let crawlers follow out to them. */}
+		<meta name="robots" content="noindex, nofollow" />
+		{/* Thumbnails load direct from origin; without this, every image host
+		    would receive a Referer containing the scanned page's URL. */}
+		<meta name="referrer" content="no-referrer" />
+		{/* The ?url= space is unbounded; collapse it to one canonical URL. */}
+		<link rel="canonical" href="https://imageextract.pics/results" />
+	</Fragment>
+
+	<main class="mx-auto max-w-5xl px-4 py-10">
+		<ScanForm />
+
+		<p class="mt-8 border-b border-neutral-200 pb-2 text-xs text-neutral-500">
+			Images belong to their creators. Only download what you have the right to use.
+		</p>
+
+		<div class="mt-6">
+			<ResultsGrid client:load />
+		</div>
+	</main>
+</Layout>

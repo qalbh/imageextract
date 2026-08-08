@@ -1,5 +1,11 @@
 ---
 import '../styles/global.css';
+
+interface Props {
+	title?: string;
+}
+
+const { title = 'imageextract — extract images from any web page' } = Astro.props;
 ---
 
 <!doctype html>
@@ -14,7 +20,8 @@ import '../styles/global.css';
 			name="description"
 			content="Free tool that lists every image on a public web page — preview, check formats and dimensions, and download."
 		/>
-		<title>imageextract — extract images from any web page</title>
+		<title>{title}</title>
+		<slot name="head" />
 	</head>
 	<body>
 		<slot />

@@ -1,0 +1,18 @@
+{/* Native GET form: submitting navigates to /results?url= with zero
+    JavaScript, which is what makes shared scan links work at all. */}
+<form method="get" action="/results" class="mt-6 flex gap-2">
+	<input
+		id="scan-url"
+		name="url"
+		type="url"
+		required
+		placeholder="https://example.com/gallery"
+		class="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-500 focus:outline-none"
+	/>
+	<button
+		type="submit"
+		class="shrink-0 rounded-md bg-neutral-900 px-5 py-2 text-sm font-medium text-white hover:bg-neutral-700"
+	>
+		Scan
+	</button>
+</form>

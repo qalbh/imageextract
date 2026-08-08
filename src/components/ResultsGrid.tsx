@@ -104,7 +104,12 @@ export default function ResultsGrid() {
 
   switch (state.kind) {
     case 'idle':
-      return null;
+      // Reached on /results with no ?url= — never leave the page blank.
+      return (
+        <p className="py-8 text-center text-sm text-neutral-500">
+          Paste a page URL above and hit Scan — every image on the page shows up here.
+        </p>
+      );
     case 'loading':
       return (
         <p role="status" className="animate-pulse py-8 text-center text-neutral-500">
