@@ -65,6 +65,18 @@ describe('validateTargetUrl: reserved IPv4 ranges (rule 3)', () => {
     'http://100.64.0.0/', 'http://100.100.100.200/', 'http://100.127.255.255/',
     // 0.0.0.0/8
     'http://0.0.0.0/', 'http://0.255.255.255/',
+    // TEST-NET-1 192.0.2.0/24
+    'http://192.0.2.0/', 'http://192.0.2.255/',
+    // TEST-NET-2 198.51.100.0/24
+    'http://198.51.100.0/', 'http://198.51.100.255/',
+    // TEST-NET-3 203.0.113.0/24
+    'http://203.0.113.0/', 'http://203.0.113.255/',
+    // benchmarking 198.18.0.0/15
+    'http://198.18.0.0/', 'http://198.19.255.255/',
+    // multicast 224.0.0.0/4
+    'http://224.0.0.0/', 'http://239.255.255.255/',
+    // reserved 240.0.0.0/4, incl. broadcast
+    'http://240.0.0.0/', 'http://255.255.255.255/',
   ];
   it.each(blocked)('rejects %s', (raw) => expectRejected(raw, 'private-ip'));
 
@@ -76,6 +88,14 @@ describe('validateTargetUrl: reserved IPv4 ranges (rule 3)', () => {
     'http://169.253.255.255/', 'http://169.255.0.0/',
     'http://100.63.255.255/', 'http://100.128.0.0/',
     'http://1.0.0.0/', 'http://93.184.216.34/',
+    // TEST-NET neighbors
+    'http://192.0.1.255/', 'http://192.0.3.0/',
+    'http://198.51.99.255/', 'http://198.51.101.0/',
+    'http://203.0.112.255/', 'http://203.0.114.0/',
+    // benchmarking neighbors
+    'http://198.17.255.255/', 'http://198.20.0.0/',
+    // just below multicast; everything above it is reserved through 255/32
+    'http://223.255.255.255/',
   ];
   it.each(allowed)('allows %s', (raw) => expectAllowed(raw));
 });
@@ -110,6 +130,9 @@ describe('validateTargetUrl: reserved IPv6 ranges (rule 3)', () => {
     'http://[::ffff:127.0.0.1]/',
     'http://[::ffff:169.254.169.254]/',
     'http://[::ffff:192.168.1.1]/',
+    'http://[::ffff:192.0.2.1]/',                         // mapped TEST-NET
+    'http://[2001:db8::1]/', 'http://[2001:db8:ffff:ffff::1]/', // documentation range edges
+    'http://[ff00::1]/', 'http://[ff02::1]/', 'http://[ffff::1]/', // multicast edges
   ];
   it.each(blocked)('rejects %s', (raw) => expectRejected(raw, 'private-ip'));
 
@@ -117,6 +140,8 @@ describe('validateTargetUrl: reserved IPv6 ranges (rule 3)', () => {
     'http://[2606:4700::1111]/',
     'http://[fe00::1]/',  // below fc00::/7's neighbors but outside both ranges
     'http://[fec0::1]/',  // just above fe80::/10
+    'http://[feff::1]/',  // just below ff00::/8
+    'http://[2001:db7:ffff::1]/', 'http://[2001:db9::1]/', // documentation neighbors
     // Mapped-to-public connects to the public IPv4; the doc only blocks
     // mapped forms whose embedded address is reserved.
     'http://[::ffff:8.8.8.8]/',

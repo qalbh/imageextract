@@ -59,6 +59,12 @@ const RESERVED_V4: ReadonlyArray<readonly [cidr: string, base: number, bits: num
   ['169.254.0.0/16', 0xa9fe0000, 16],
   ['100.64.0.0/10', 0x64400000, 10],
   ['0.0.0.0/8', 0x00000000, 8],
+  ['192.0.2.0/24', 0xc0000200, 24], // TEST-NET-1
+  ['198.51.100.0/24', 0xc6336400, 24], // TEST-NET-2
+  ['203.0.113.0/24', 0xcb007100, 24], // TEST-NET-3
+  ['198.18.0.0/15', 0xc6120000, 15], // benchmarking
+  ['224.0.0.0/4', 0xe0000000, 4], // multicast
+  ['240.0.0.0/4', 0xf0000000, 4], // reserved; subsumes 255.255.255.255
 ];
 
 function reservedV4Range(ip: number): string | null {
@@ -165,6 +171,8 @@ function reservedV6Range(groups: number[]): string | null {
   if (zeroThrough(8)) return ':: (unspecified)';
   if (((groups[0] as number) & 0xfe00) === 0xfc00) return 'fc00::/7';
   if (((groups[0] as number) & 0xffc0) === 0xfe80) return 'fe80::/10';
+  if (((groups[0] as number) & 0xff00) === 0xff00) return 'ff00::/8'; // multicast
+  if (groups[0] === 0x2001 && groups[1] === 0x0db8) return '2001:db8::/32'; // documentation
   if (zeroThrough(5) && (groups[5] === 0xffff || groups[5] === 0)) {
     // IPv4-mapped (::ffff:a.b.c.d) or the deprecated IPv4-compatible form —
     // either way the connection target is the embedded IPv4, so judge that.

@@ -13,19 +13,29 @@
 
 export type ImageExt = 'png' | 'jpeg' | 'svg' | 'gif' | 'webp' | 'avif' | 'ico' | 'unknown';
 
-export type ImageSource =
-  | 'img'
-  | 'srcset'
-  | 'picture'
-  | 'css'
-  | 'inline-svg'
-  | 'meta'
-  | 'poster'
-  | 'favicon'
-  | 'json-ld'
-  | 'lazy'
-  | 'object'
-  | 'embed';
+// Canonical list — the ImageSource type and the AGENTS.md manifest snippet
+// both derive from it (a doc-sync test enforces the latter). The three
+// style-ish variants stay distinct because they resolve against different
+// bases and fail in different ways: style-attr and style-block resolve
+// against the document base; stylesheet resolves against the sheet's own
+// URL and can be missing entirely when a sheet fetch fails.
+export const IMAGE_SOURCES = [
+  'img',
+  'srcset',
+  'picture',
+  'style-attr',
+  'style-block',
+  'stylesheet',
+  'inline-svg',
+  'meta',
+  'poster',
+  'favicon',
+  'json-ld',
+  'lazy',
+  'object',
+  'embed',
+] as const;
+export type ImageSource = (typeof IMAGE_SOURCES)[number];
 
 export interface ScanImage {
   id: string;
@@ -35,10 +45,16 @@ export interface ScanImage {
   source: ImageSource;
 }
 
+// 'image-cap': the whole page was parsed but the list was trimmed at the
+// image cap. 'size-cap': part of the page was never parsed, so images may be
+// missing entirely — which is why size-cap wins when both fire.
+export const TRUNCATION_REASONS = ['image-cap', 'size-cap'] as const;
+export type TruncationReason = (typeof TRUNCATION_REASONS)[number];
+
 export interface ScanResult {
   pageUrl: string;
   images: ScanImage[];
-  truncated: boolean;
+  truncated?: TruncationReason;
   robotsBlocked?: true;
 }
 
@@ -328,7 +344,7 @@ export async function extractFromHtml(
       element(el) {
         const style = el.getAttribute('style');
         if (style && (style.includes('url(') || style.includes('image-set(')))
-          for (const url of extractCssUrls(style)) addCandidate(url, 'css');
+          for (const url of extractCssUrls(style)) addCandidate(url, 'style-attr');
       },
     })
     .on('style', {
@@ -338,7 +354,7 @@ export async function extractFromHtml(
           styleTotal += chunk.text.length;
         }
         if (chunk.lastInTextNode) {
-          for (const url of extractCssUrls(styleBuf)) addCandidate(url, 'css');
+          for (const url of extractCssUrls(styleBuf)) addCandidate(url, 'style-block');
           styleBuf = '';
         }
       },
@@ -460,7 +476,7 @@ function extFromDataUri(uri: string): ImageExt {
   return EXT_BY_MIME[match?.[1]?.toLowerCase() ?? ''] ?? 'unknown';
 }
 
-function sanitizeFilename(name: string): string {
+export function sanitizeFilename(name: string): string {
   let out = name
     .replace(/[/\\]/g, '-')
     .replace(/[\u0000-\u001f\u007f]/g, '')
@@ -543,25 +559,30 @@ export interface FinalizeInput {
   pageUrl: URL;
   baseHref: string | null;
   candidates: RawCandidate[];
-  /** True when upstream truncated the HTML or the raw-candidate cap was hit. */
-  truncatedHint?: boolean;
+  /** The HTML byte cap cut the document short. */
+  sizeCapHit?: boolean;
+  /** The raw-candidate cap dropped collection partway — reported as image-cap. */
+  volumeCapHit?: boolean;
 }
 
-export function finalizeManifest(input: FinalizeInput): { images: ScanImage[]; truncated: boolean } {
+export function finalizeManifest(input: FinalizeInput): {
+  images: ScanImage[];
+  truncated: TruncationReason | undefined;
+} {
   const base = resolveDocumentBase(input.baseHref, input.pageUrl);
   const seen = new Set<string>();
   const usedFilenames = new Map<string, number>();
   let inlineCount = 0;
   const inlineCounter = (): number => ++inlineCount;
   const images: ScanImage[] = [];
-  let truncated = input.truncatedHint === true;
+  let imageCapHit = input.volumeCapHit === true;
 
   for (const candidate of input.candidates) {
     const resolved = resolveCandidate(candidate.raw, base);
     if (resolved === null || seen.has(resolved)) continue;
     seen.add(resolved);
     if (images.length >= MAX_IMAGES) {
-      truncated = true;
+      imageCapHit = true;
       break;
     }
     const ext = resolved.startsWith('data:')
@@ -575,5 +596,10 @@ export function finalizeManifest(input: FinalizeInput): { images: ScanImage[]; t
       source: candidate.source,
     });
   }
+  const truncated: TruncationReason | undefined = input.sizeCapHit
+    ? 'size-cap'
+    : imageCapHit
+      ? 'image-cap'
+      : undefined;
   return { images, truncated };
 }

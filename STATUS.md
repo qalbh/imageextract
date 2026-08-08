@@ -1,6 +1,6 @@
 # STATUS — imageextract.pics
 
-Last updated: 7 August 2026
+Last updated: 8 August 2026
 
 Living document. Update it at the end of each working session rather than trying to remember what state things were in.
 
@@ -8,9 +8,9 @@ Living document. Update it at the end of each working session rather than trying
 
 ## Where we are right now
 
-**Phase 1 of 8. Roughly 15% of the way to a launchable product.**
+**Phase 2 of 8. Roughly 30% of the way to a launchable product.**
 
-The foundation and the hardest security piece are done. What remains is mostly volume rather than difficulty — with two exceptions flagged below.
+Phase 1 is complete: the whole server-side engine — scan, extraction, robots, proxy, and the security layer around all of it — is built, tested (212 tests in real workerd), and verified against live sites. What remains is mostly volume rather than difficulty — with two exceptions flagged below.
 
 ### Done
 
@@ -22,38 +22,39 @@ The foundation and the hardest security piece are done. What remains is mostly v
 - [x] `AGENTS.md` / `CLAUDE.md` written — architecture, constraints, conventions
 - [x] `SESSION` KV and `IMAGES` bindings removed (they contradicted no-persistence)
 - [x] Vitest + `@cloudflare/vitest-pool-workers` configured, tests run in real workerd
-- [x] **SSRF guard shipped** — `validateTargetUrl`, `dohCheckHostname`, `safeFetch`, 107 passing tests
-- [x] DNS-over-HTTPS pre-check, fail-closed, in-isolate cache
+- [x] **SSRF guard shipped** — `validateTargetUrl`, `dohCheckHostname`, `safeFetch`, all reserved ranges incl. TEST-NET/benchmarking/multicast
+- [x] DNS-over-HTTPS pre-check, fail-closed, in-isolate cache, `dns-nxdomain` distinguished for typo-friendly messaging
+- [x] **Phase 1 complete** — see checked list below; suite at 212 tests, `tsc` clean, verified live against real sites
 
 ### In progress
 
-- [ ] `/api/scan` — the extraction endpoint (current task)
+- [ ] Phase 2, first pass: URL input + results grid (current task — filters, sorting, selection, and ZIP deliberately later)
 
 ---
 
 ## Remaining work
 
-### Phase 1 — Core engine
+### Phase 1 — Core engine — **complete**
 
-- [ ] `/api/scan` endpoint with `prerender = false`
-- [ ] `robots.txt` fetch, parse, and enforcement (100 KB cap)
-- [ ] HTMLRewriter extraction covering the full surface in AGENTS.md
-- [ ] `<base href>` ordering handled correctly in a streaming parser
-- [ ] URL normalization + dedupe
-- [ ] 1000-image cap with `truncated` flag
-- [ ] `/api/proxy` — single-image streaming pass-through
-- [ ] `HEAD` variant for lazy byte-size probing
-- [ ] Mid-stream size abort (unannounced bodies exceeding the cap)
-- [ ] Error taxonomy mapped to HTTP statuses, end to end
+- [x] `/api/scan` endpoint with `prerender = false`
+- [x] `robots.txt` fetch, parse, and enforcement (100 KB cap, wildcard/`$` support, ReDoS-safe matching)
+- [x] HTMLRewriter extraction covering the full surface in AGENTS.md
+- [x] `<base href>` ordering handled correctly in a streaming parser (deferred resolution)
+- [x] URL normalization + dedupe
+- [x] 1000-image cap — `truncated` is now a reason, `'image-cap' | 'size-cap'`, not a flag
+- [x] `/api/proxy` — single-image streaming pass-through, dual size caps (50 MB announced / 20 MB unannounced)
+- [x] `HEAD` variant for lazy byte-size probing
+- [x] Mid-stream size abort (errors the stream — complete ⇔ body ends without error)
+- [x] Error taxonomy mapped to HTTP statuses, end to end (`src/lib/api-errors.ts`)
 
 ### Phase 2 — Results UI
 
-- [ ] URL input with client-side validation and loading state
-- [ ] Results grid as a React island
-- [ ] Thumbnails loaded direct from origin (the zero-cost path)
-- [ ] Proxy fallback on hotlink 403
-- [ ] Dimension badges from `naturalWidth`/`naturalHeight`
-- [ ] Byte-size badges, lazy only
+- [x] URL input (native GET form → `?url=`, zero JS; browser-level validation) with loading state
+- [x] Results grid as a React island
+- [x] Thumbnails loaded direct from origin (the zero-cost path, `loading="lazy"`)
+- [ ] Proxy fallback on hotlink 403 (card shows "preview unavailable" for now)
+- [x] Dimension badges from `naturalWidth`/`naturalHeight`
+- [ ] Byte-size badges, lazy only (badge renders an em dash; probing not wired)
 - [ ] Type filter with live counts
 - [ ] Search across filename, URL, type, dimensions
 - [ ] Sort by size and dimensions
@@ -61,10 +62,10 @@ The foundation and the hardest security piece are done. What remains is mostly v
 - [ ] Invert-background toggle
 - [ ] Copy selected URLs
 - [ ] **Virtualized rendering** — see risks below
-- [ ] Empty state (zero images found)
-- [ ] Error states per failure type
+- [x] Empty state (zero images found)
+- [x] Error states per failure type (incl. distinct `truncated` wording per reason)
 - [ ] Mobile layout
-- [ ] `robotsBlocked` state, no override path
+- [x] `robotsBlocked` state, no override path
 
 ### Phase 3 — Download
 
@@ -91,7 +92,7 @@ The foundation and the hardest security piece are done. What remains is mostly v
 
 - [ ] `/about` page — **hard dependency of the User-Agent string, must exist before the first real scan**
 - [ ] Abuse contact address, live and monitored
-- [ ] Copyright notice above the results grid
+- [x] Copyright notice above the results grid (shipped early, with the Phase 2 first pass)
 - [ ] Privacy policy (short: we store nothing)
 - [ ] Terms of use
 - [ ] DMCA / takedown contact

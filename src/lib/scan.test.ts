@@ -34,7 +34,8 @@ describe('scanPage', () => {
     );
     expect(result.robotsBlocked).toBeUndefined();
     expect(result.pageUrl).toBe('https://site.example/gallery');
-    expect(result.truncated).toBe(false);
+    expect(result.truncated).toBeUndefined();
+    expect('truncated' in result).toBe(false);
     expect(result.images.map((i) => i.url)).toEqual([
       'https://site.example/a.png',
       // relative b.jpg resolves as a sibling of /gallery (no trailing slash)
@@ -53,7 +54,6 @@ describe('scanPage', () => {
     expect(result).toEqual({
       pageUrl: 'https://site.example/private/album',
       images: [],
-      truncated: false,
       robotsBlocked: true,
     });
     expect(fetchImpl).toHaveBeenCalledTimes(1);
@@ -110,7 +110,7 @@ describe('scanPage', () => {
       'https://site.example/inline.png',
       'https://cdn.example/img/hero.jpg',
     ]);
-    expect(result.images.find((i) => i.url.includes('hero'))?.source).toBe('css');
+    expect(result.images.find((i) => i.url.includes('hero'))?.source).toBe('stylesheet');
   });
 
   it('a failing stylesheet degrades the manifest instead of failing the scan', async () => {
@@ -143,7 +143,7 @@ describe('scanPage', () => {
     expect(fetchImpl).toHaveBeenCalledTimes(2);
   });
 
-  it('truncates a page bigger than the HTML cap and flags it', async () => {
+  it('truncates a page bigger than the HTML cap and reports size-cap', async () => {
     // 6 MB page: 5 MB of filler, then an image tag past the cap.
     const filler = `<p>${'x'.repeat(6_000_000)}</p>`;
     const result = await scanPage(
@@ -154,7 +154,21 @@ describe('scanPage', () => {
       }),
     );
     expect(result.images.map((i) => i.url)).toEqual(['https://site.example/first.png']);
-    expect(result.truncated).toBe(true);
+    expect(result.truncated).toBe('size-cap');
+  });
+
+  it('reports size-cap when both the size and image caps fire', async () => {
+    const tags = Array.from({ length: 1200 }, (_, i) => `<img src="/img/${i}.png">`).join('');
+    const filler = `<p>${'x'.repeat(6_000_000)}</p>`;
+    const result = await scanPage(
+      'https://site.example/huge-gallery',
+      deps({
+        'https://site.example/robots.txt': { status: 404 },
+        'https://site.example/huge-gallery': { body: `${tags}${filler}` },
+      }),
+    );
+    expect(result.images).toHaveLength(1000);
+    expect(result.truncated).toBe('size-cap');
   });
 
   it('rejects a blocked initial URL before any fetch', async () => {

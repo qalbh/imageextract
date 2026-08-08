@@ -6,17 +6,20 @@ import {
   finalizeManifest,
   parseSrcset,
   type ScanImage,
+  type TruncationReason,
 } from './extract';
 
 const PAGE = new URL('https://site.example/articles/post/');
 
-async function scan(html: string): Promise<{ images: ScanImage[]; truncated: boolean }> {
+async function scan(
+  html: string,
+): Promise<{ images: ScanImage[]; truncated: TruncationReason | undefined }> {
   const extraction = await extractFromHtml(html);
   return finalizeManifest({
     pageUrl: PAGE,
     baseHref: extraction.baseHref,
     candidates: extraction.candidates,
-    truncatedHint: extraction.hitRawCap,
+    volumeCapHit: extraction.hitRawCap,
   });
 }
 
@@ -49,7 +52,7 @@ describe('extractCssUrls', () => {
 describe('extractFromHtml + finalizeManifest', () => {
   it('produces the full manifest shape', async () => {
     const { images, truncated } = await scan('<img src="/pics/cat photo.jpg">');
-    expect(truncated).toBe(false);
+    expect(truncated).toBeUndefined();
     expect(images).toHaveLength(1);
     const image = images[0] as ScanImage;
     expect(image.url).toBe('https://site.example/pics/cat%20photo.jpg');
@@ -147,11 +150,23 @@ describe('extractFromHtml + finalizeManifest', () => {
     expect(images.map((i) => i.filename)).toEqual(['pic.png', 'pic-2.png']);
   });
 
-  it(`caps at ${MAX_IMAGES} images and sets truncated`, async () => {
+  it(`caps at ${MAX_IMAGES} images and reports image-cap`, async () => {
     const tags = Array.from({ length: 1200 }, (_, i) => `<img src="/img/${i}.png">`).join('');
     const { images, truncated } = await scan(tags);
     expect(images).toHaveLength(MAX_IMAGES);
-    expect(truncated).toBe(true);
+    expect(truncated).toBe('image-cap');
+  });
+
+  it('size-cap wins when both caps fire', async () => {
+    const extraction = await extractFromHtml('<img src="/a.png">');
+    const { truncated } = finalizeManifest({
+      pageUrl: PAGE,
+      baseHref: extraction.baseHref,
+      candidates: extraction.candidates,
+      sizeCapHit: true,
+      volumeCapHit: true,
+    });
+    expect(truncated).toBe('size-cap');
   });
 
   it('keeps small data: URIs and drops oversized ones', async () => {
@@ -195,7 +210,7 @@ describe('extractFromHtml + finalizeManifest', () => {
       'https://site.example/css/block.jpg',
       'https://site.example/css/set.webp',
     ]);
-    expect(images.every((i) => i.source === 'css')).toBe(true);
+    expect(images.map((i) => i.source)).toEqual(['style-attr', 'style-block', 'style-block']);
   });
 
   it('collects video posters, object data, and embed src', async () => {

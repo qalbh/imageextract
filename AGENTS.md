@@ -10,6 +10,22 @@ astro dev --background
 
 Manage the background server with `astro dev stop`, `astro dev status`, and `astro dev logs`.
 
+## Troubleshooting
+
+The dev server 500s with `The file does not exist at
+"…/node_modules/.vite/deps_ssr/…"` (sometimes `.vite/deps/…`) after any
+dependency install. This is Vite's optimizer holding stale references, not a
+code problem. Fix:
+
+```
+astro dev stop
+rm -rf node_modules/.vite .astro
+astro dev --background
+```
+
+Then hard-reload the browser. Restart the dev server after every
+`npm install` or `astro add`.
+
 ## Documentation
 
 Full documentation: https://docs.astro.build
@@ -39,6 +55,8 @@ A free web tool that takes a public webpage URL and lists every image on it, so 
 
 ## Stack
 
+**Status: `client-zip` and Playwright not yet installed.**
+
 - Astro 7, TypeScript strict, Tailwind
 - React only as an Astro island, and only for the interactive results grid
 - Cloudflare Workers with static assets — site and API deploy as one unit
@@ -53,7 +71,7 @@ State the license of any new dependency when you introduce it. No AGPL.
 
 Two endpoints, both stateless:
 
-**`GET /api/scan?url=<encoded>`** — fetches the target page, parses it with `HTMLRewriter`, returns a JSON manifest of image URLs. No dimensions, no byte sizes. Typically 4 subrequests (robots.txt, the page, one DoH pair). Each redirect hop adds a fetch plus a DoH pair for a new hostname, and each linked stylesheet adds a fetch — bounded by the 3-redirect and 3-stylesheet caps.
+**`GET /api/scan?url=<encoded>`** — fetches the target page, parses it with `HTMLRewriter`, returns a JSON manifest of image URLs. No dimensions, no byte sizes. Typically 4 subrequests (robots.txt, the page, one DoH pair). Each redirect hop adds a fetch plus a DoH pair for a new hostname, and each linked stylesheet adds a fetch — plus a DoH pair when the sheet lives on a hostname not yet checked — bounded by the 3-redirect and 3-stylesheet caps.
 
 **`GET /api/proxy?url=<encoded>&download=1`** — streams exactly one image. Pass the `ReadableStream` straight through; never buffer. Near-zero CPU. Worst case 12 subrequests (4 fetches across a full redirect chain plus a DoH pair per hostname); amortized ~1 per image — with the in-isolate DoH cache, a 300-image ZIP from a single host costs one DoH pair per warm isolate, not one per image. Each isolate/colo warms its own cache, so the ceiling applies to cold starts.
 
@@ -69,18 +87,35 @@ type ScanResult = {
     url: string;         // absolute, resolved
     filename: string;    // derived from path, sanitized
     ext: 'png'|'jpeg'|'svg'|'gif'|'webp'|'avif'|'ico'|'unknown';
-    source: 'img'|'srcset'|'picture'|'css'|'inline-svg'|'meta'|'poster'|'favicon'|'json-ld'|'lazy'|'object'|'embed';
+    // mirrors IMAGE_SOURCES in src/lib/extract.ts — the canonical list;
+    // a doc-sync test fails if this line drifts from it
+    source: 'img'|'srcset'|'picture'|'style-attr'|'style-block'|'stylesheet'|'inline-svg'|'meta'|'poster'|'favicon'|'json-ld'|'lazy'|'object'|'embed';
   }>;
-  truncated: boolean;
+  // omitted when complete. 'image-cap': whole page parsed, list trimmed.
+  // 'size-cap': part of the page never parsed, images may be missing
+  // entirely — size-cap wins when both fire.
+  truncated?: 'image-cap' | 'size-cap';
   robotsBlocked?: true;
 };
 ```
 
 ### Why ZIP assembly is client-side
 
+**Status: not built.**
+
 The browser fetches each selected image through `/api/proxy` and assembles the ZIP locally. This keeps each Worker invocation to a single subrequest, so Cloudflare's per-invocation subrequest and CPU limits never become a constraint, and a 400-image download cannot time out a Worker. Do not build ZIPs server-side.
 
+Phase 3 design constraint, flagged early: the download concurrency cap and
+the per-file size cap interact. Six concurrent fetches against the 50 MB
+announced cap is 300 MB potentially in flight, which will not survive a
+mid-range phone. The ZIP assembler must bound *bytes* in flight, not just
+request count — e.g. by streaming each file into the archive as it arrives
+rather than buffering, or by scaling concurrency down as announced sizes go
+up. Not solved yet; do not design the ZIP path without addressing it.
+
 ## Cost model — memorize this
+
+**Status: UI not built; the proxy costs (download, HEAD probing) are live server-side.**
 
 | Feature | Where it runs | Cost |
 |---|---|---|
@@ -88,7 +123,7 @@ The browser fetches each selected image through `/api/proxy` and assembles the Z
 | Dimension badge | `naturalWidth`/`naturalHeight` on load | Zero |
 | Type filter, search, sort, select | Client state | Zero |
 | Copy URLs | Clipboard | Zero |
-| Byte-size badge | `HEAD` via proxy — **lazy only** | 1 subrequest |
+| Byte-size badge | `HEAD` via proxy — **lazy only** | 1 subrequest (+ amortized DoH pair per hostname) |
 | Download / ZIP | Proxy | 1 subrequest per image (+ amortized DoH pair per hostname) + bandwidth |
 
 Byte-size badges must be lazy: show `—` until the user selects an image or sorts by size. Probing every image upfront on an 800-image page is the difference between a free tool and a bill.
@@ -108,10 +143,13 @@ here. Do not pretend otherwise. The guard is built from what IS available:
 2. Reject ports outside 80 and 443
 3. If the hostname is an IP literal, reject any in a reserved range:
    `127.0.0.0/8`, `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`,
-   `169.254.0.0/16`, `100.64.0.0/10`, `0.0.0.0/8`, `::1`, `fc00::/7`,
-   `fe80::/10`, and IPv4-mapped IPv6 such as `::ffff:10.0.0.1`. Handle
-   decimal, octal, and hex-encoded IPv4 forms — `2130706433` and
-   `0x7f000001` are both localhost.
+   `169.254.0.0/16`, `100.64.0.0/10`, `0.0.0.0/8`, `192.0.2.0/24`,
+   `198.51.100.0/24`, `203.0.113.0/24` (TEST-NET 1/2/3), `198.18.0.0/15`
+   (benchmarking), `224.0.0.0/4` (multicast), `240.0.0.0/4` (reserved,
+   subsumes `255.255.255.255`), `::1`, `fc00::/7`, `fe80::/10`,
+   `2001:db8::/32`, `ff00::/8`, and IPv4-mapped IPv6 such as
+   `::ffff:10.0.0.1`. Handle decimal, octal, and hex-encoded IPv4 forms —
+   `2130706433` and `0x7f000001` are both localhost.
 4. Reject hostnames that resolve internally by convention: `localhost`,
    anything ending `.local`, `.internal`, `.localdomain`, and known cloud
    metadata hostnames
@@ -122,9 +160,10 @@ here. Do not pretend otherwise. The guard is built from what IS available:
 
 Optional hardening, decide explicitly: resolve the hostname via
 DNS-over-HTTPS before fetching and reject if any A/AAAA record is in a
-reserved range. Costs one extra subrequest per scan. This narrows but does
-not close the DNS-rebinding window, because we still fetch by hostname and
-cannot pin the connection to a validated IP.
+reserved range. Costs two extra subrequests per fetched hostname (separate
+A and AAAA lookups). This narrows but does not close the DNS-rebinding
+window, because we still fetch by hostname and cannot pin the connection
+to a validated IP.
 
 Decision (2026-08-05): DoH pre-check enabled, on both endpoints and on every
 redirect hop, skipped for IP-literal hostnames. Actual cost is two extra
@@ -144,8 +183,20 @@ Those are the mechanisms that would actually give this Worker reach into
 private networks.
 
 Other limits: 100 KB cap on `robots.txt`, 5 MB cap on the fetched HTML,
-per-image size cap, cap on images per ZIP, 1,000 images per scan with a
-`truncated` flag.
+cap on images per ZIP, 1,000 images per scan with a `truncated` reason.
+
+Per-image size caps — two constants, deliberately asymmetric (mirrors
+`MAX_ANNOUNCED_IMAGE_BYTES` / `MAX_STREAMED_IMAGE_BYTES` in
+`src/lib/proxy.ts`). 50 MB checked against an announced `Content-Length`
+before streaming begins — generous, because rejecting there is free; nothing
+has been transferred. 20 MB abort threshold for bodies with no
+`Content-Length` — tighter, because by the time it fires the 200 and headers
+are already sent and every byte is paid for; an unannounced body that large
+is a mistake or someone using us as a pipe. A body exceeding its own
+announced length is aborted at the announced length. Aborts **error** the
+stream, never close it cleanly: a complete download is exactly one whose
+body stream ends without error, which is how the client (and later
+`client-zip`) tells truncated from complete.
 
 The proxy must reject non-image `Content-Type`, and must set
 `X-Content-Type-Options: nosniff` plus `Content-Disposition: attachment`
@@ -155,6 +206,8 @@ Sanitize filenames on download: strip path separators, control characters,
 and leading dots; cap length; deduplicate with a numeric suffix.
 
 ## Politeness
+
+**Status: robots enforcement and the honest User-Agent are live; rate limits and user-facing notices not built.**
 
 - Respect `robots.txt` before scanning. On a block, return `robotsBlocked` and show "This site has asked automated tools not to access this page." **No override button.**
 - Honest User-Agent naming the tool with a URL explaining it.
@@ -171,12 +224,14 @@ Then dedupe by normalized URL (strip fragment, sort query params) and drop `data
 
 ## Code conventions
 
-- Errors are typed and enumerated, never bare strings: `BlockedHostError`, `RobotsBlockedError`, `TimeoutError`, `SizeLimitError`, `NotAnImageError`, `TooManyRedirectsError`. Each maps to a specific user-facing message and HTTP status. No catch-all "Something went wrong."
+- Errors are typed and enumerated, never bare strings: `BlockedHostError`, `TimeoutError`, `TooManyRedirectsError`, `SizeLimitError`, `NotAnImageError`, `UpstreamHttpError`. Each maps to a specific user-facing message and HTTP status in `src/lib/api-errors.ts`. No catch-all "Something went wrong." A robots block is not an error — it is a successful scan of a page we were asked not to read, returned as a 200 manifest with `robotsBlocked`.
 - Astro pages ship zero JavaScript by default. Add `client:*` directives only to the results grid.
 - Comments explain *why* — a spec quirk, a workaround for a class of malformed page — not *what*.
 - Every `URL.createObjectURL` has a matching `revokeObjectURL`.
 
 ## SEO
+
+**Status: not built.**
 
 Traffic is the entire acquisition channel, so this is an architectural concern rather than a marketing afterthought. Every tool variant gets its own statically generated page with real explanatory copy, generated from a content collection. Budget: LCP under 2.0s on 4G.
 

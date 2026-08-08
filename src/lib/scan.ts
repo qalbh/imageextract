@@ -110,7 +110,7 @@ export async function scanPage(rawUrl: string, deps: ScanDeps = {}): Promise<Sca
       : robots.text;
     const rules = parseRobotsGroups(robotsText, UA_TOKEN);
     if (!isPathAllowed(rules, pageUrl.pathname + pageUrl.search)) {
-      return { pageUrl: pageUrl.href, images: [], truncated: false, robotsBlocked: true };
+      return { pageUrl: pageUrl.href, images: [], robotsBlocked: true };
     }
   } else {
     await robotsResponse.body?.cancel();
@@ -162,7 +162,7 @@ export async function scanPage(rawUrl: string, deps: ScanDeps = {}): Promise<Sca
       const css = await readTextCapped(sheetResponse, MAX_STYLESHEET_BYTES);
       for (const cssUrl of extractCssUrls(css.text)) {
         try {
-          candidates.push({ raw: new URL(cssUrl, sheetBase).href, source: 'css' });
+          candidates.push({ raw: new URL(cssUrl, sheetBase).href, source: 'stylesheet' });
         } catch {
           // unparseable url() value — skip
         }
@@ -177,7 +177,8 @@ export async function scanPage(rawUrl: string, deps: ScanDeps = {}): Promise<Sca
     pageUrl,
     baseHref: extraction.baseHref,
     candidates,
-    truncatedHint: cappedHtml.hit() || extraction.hitRawCap,
+    sizeCapHit: cappedHtml.hit(),
+    volumeCapHit: extraction.hitRawCap,
   });
-  return { pageUrl: pageUrl.href, images, truncated };
+  return { pageUrl: pageUrl.href, images, ...(truncated !== undefined && { truncated }) };
 }
