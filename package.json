@@ -12,6 +12,7 @@
 		"astro": "astro",
 		"test": "vitest run",
 		"test:watch": "vitest",
+		"verify:landing": "astro build && node scripts/verify-landing.mjs",
 		"generate-types": "wrangler types",
 		"deploy": "astro build && wrangler deploy",
 		"cf-typegen": "wrangler types"
@@ -27,6 +28,7 @@
 	},
 	"devDependencies": {
 		"@cloudflare/vitest-pool-workers": "^0.20.1",
+		"playwright-core": "^1.62.1",
 		"vitest": "^4.1.10",
 		"wrangler": "^4.118.0"
 	}
