@@ -13,6 +13,10 @@
       "./worker-configuration.d.ts"
     ],
     "jsx": "react-jsx",
-    "jsxImportSource": "react"
+    "jsxImportSource": "preact",
+    "paths": {
+      "react": ["./node_modules/preact/compat/src/index.d.ts"],
+      "react-dom": ["./node_modules/preact/compat/src/index.d.ts"]
+    }
   }
 }

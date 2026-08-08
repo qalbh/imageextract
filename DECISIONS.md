@@ -114,6 +114,22 @@ The landing-page demo grid ships its images from our own repo rather than hotlin
 **Cost:** ~120 KB committed to the repo, and refreshing the demo set is a manual step.
 **Revisit if:** the demo set grows large enough that repo weight outweighs the privacy, performance, and optics case.
 
+## Preact (via `@astrojs/preact` compat) over React
+
+The `/results` island is one component using only `useState` and `useEffect`, but React shipped 197 KB of runtime to render it — on the page a mid-range Android loads with potentially hundreds of tiles. We moved to Preact through `@astrojs/preact` with `compat: true`, which aliases react and react-dom to `preact/compat` on the integration's supported path, so we keep writing React-flavoured JSX while shipping Preact's runtime. `preact-render-to-string` arrives as a proper transitive dependency of the integration, not a manual patch.
+
+Measured: `/results` fell from 197,189 B to 26,645 B of module JavaScript — a 170,544 B saving (86.5%). `/` stays zero-JS. All six island behaviours were verified in a real browser (bare prompt, form-submit scan, shared-link navigation, live scan, dimension badges from `naturalWidth`, hotlink fallback). `@tanstack/react-virtual` — the named virtualization escalation — was verified genuinely windowing under compat (10,000 rows, 14 in the DOM, scroll updates the window, no errors) before the sidebar is built on top. tsc now validates against the compat types (tsconfig `paths` + `jsxImportSource: preact`), not `@types/react`, and nothing surfaced.
+
+**Cost:** a compat shim sits between us and React's real behaviour, and some ecosystem packages misbehave under it. Exposure today is small — only `useState` and `useEffect` — and grows with the sidebar, filter state, and selection model.
+**Revisit if:** we need a React feature compat does not cover (concurrent rendering, Suspense-for-data, or a library that reaches past the compat surface).
+
+## `nodejs_compat` rejected for the Preact SSR renderer
+
+An earlier attempt kept `@astrojs/react` and aliased react to `preact/compat` at the Vite level. It failed to build on Cloudflare because `preact-render-to-string` imports `node:stream`, which the workerd prerender environment does not provide. Enabling the `nodejs_compat` flag would have cleared it — and was rejected: it permanently broadens the Worker's runtime surface to work around one transitive import in a build-time renderer. `@astrojs/preact` renders through the supported path and sidesteps the import entirely, so the flag is unnecessary.
+
+**Cost:** none beyond choosing the integration over the hand-rolled alias.
+**Revisit if:** never for this reason.
+
 ## Open questions
 
 | Question | Trigger |

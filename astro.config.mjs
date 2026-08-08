@@ -5,7 +5,7 @@ import cloudflare from '@astrojs/cloudflare';
 
 import tailwindcss from '@tailwindcss/vite';
 
-import react from '@astrojs/react';
+import preact from '@astrojs/preact';
 
 // https://astro.build/config
 export default defineConfig({
@@ -23,5 +23,9 @@ export default defineConfig({
     plugins: [tailwindcss()]
   },
 
-  integrations: [react()]
+  // compat: true aliases react/react-dom to preact/compat through the
+  // supported integration path, so we keep writing React-flavoured JSX while
+  // shipping Preact's runtime. preact-render-to-string arrives as a proper
+  // transitive dependency of the integration.
+  integrations: [preact({ compat: true })]
 });

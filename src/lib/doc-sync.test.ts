@@ -55,6 +55,11 @@ const ALLOWLIST: Allow[] = [
     kind: 'external',
     note: 'HTML referrer-policy value; set in src/pages/results.astro, outside the scanned lib corpus',
   },
+  {
+    token: 'preact-render-to-string',
+    kind: 'external',
+    note: 'transitive npm dependency of @astrojs/preact (SSR renderer); named in DECISIONS.md, not imported by our lib',
+  },
 ];
 const allowed = new Set(ALLOWLIST.map((a) => a.token));
 
