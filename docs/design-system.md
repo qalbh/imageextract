@@ -84,6 +84,14 @@ recorded here, lands in code with the grid-scaling step).
 Tiles on `/results` are **uniform `aspect-square`**. Masonry is used only
 in the landing-page demo grid.
 
+## Component class names
+
+Don't name a component class the same as a Tailwind utility — the utility
+wins and silently overrides your scoped CSS. The demo grid's `class="grid"`
+was shadowed by Tailwind's `.grid` (`display: grid`), which killed its
+`column-count` masonry; renaming to `masonry` fixed it. Use distinctive
+names (`masonry`, `tilebtn`, not `grid`, `flex`, `hidden`).
+
 ## NEVER
 
 Gradients · glows · box-shadows · dark theme · purple/violet · any radius

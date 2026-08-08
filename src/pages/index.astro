@@ -1,6 +1,7 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import ScanForm from '../components/ScanForm.astro';
+import DemoGrid from '../components/DemoGrid.astro';
 
 const capabilities = [
 	{
@@ -92,14 +93,11 @@ const steps = [
 				<p class="mt-lg text-caption text-muted">
 					Nothing is stored or logged. Bytes stream through and are forgotten.
 				</p>
-				<p class="mt-xs text-label text-muted">
-					Images belong to their creators. Only download what you have the right to use.
-				</p>
 			</div>
 		</section>
 
-		{/* Demo grid lands here next — reserved at final height, deliberately empty. */}
-		<div class="demo-placeholder mx-auto max-w-content px-md" aria-hidden="true"></div>
+		{/* Demo extraction grid — fills the reserved --layout-demo band. */}
+		<DemoGrid />
 
 		<section id="features" class="bg-bg">
 			<div class="mx-auto max-w-content px-md py-2xl">
@@ -273,9 +271,5 @@ const steps = [
 	   diverge from the container. */
 	.hero-form {
 		max-width: calc(var(--container-content) / 2);
-	}
-
-	.demo-placeholder {
-		min-height: var(--layout-demo);
 	}
 </style>

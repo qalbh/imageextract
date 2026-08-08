@@ -28,3 +28,8 @@ pnpm-debug.log*
 .dev.vars*
 !.dev.vars.example
 !.env.example
+
+# Demo source PNGs (~7MB): the committed webp in src/assets/demo/*.webp are
+# the deliverable; keep the ~120KB budget (see DECISIONS.md). Originals stay
+# local for re-conversion.
+src/assets/demo/*.png

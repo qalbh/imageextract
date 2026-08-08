@@ -1,0 +1,532 @@
+---
+import { demoScan, demoTileMeta } from '../fixtures/demo-scan';
+
+// Content-hashed webp URLs for the demo assets. Astro imports src/assets
+// images as ImageMetadata ({ src, width, height, format }), so the hashed URL
+// is `.default.src`, not the module value itself.
+const webpModules = import.meta.glob('../assets/demo/*.webp', { eager: true }) as Record<
+  string,
+  { default: { src: string } }
+>;
+const webps = Object.fromEntries(
+  Object.entries(webpModules).map(([k, m]) => [k, m.default.src]),
+) as Record<string, string>;
+
+const tiles = demoScan.images.map((img, i) => {
+  const meta = demoTileMeta[img.id];
+  if (!meta) throw new Error(`demo tile meta missing for ${img.id}`);
+  return {
+    ...img,
+    ...meta,
+    src: webps[`../assets/demo/${meta.asset}.webp`],
+    eager: i < 4, // first row loads eagerly; the rest lazily
+  };
+});
+
+// Format chip counts, in a stable order.
+const order = ['jpeg', 'png', 'webp', 'avif'] as const;
+const counts = order
+  .map((ext) => ({ ext, n: tiles.filter((t) => t.ext === ext).length }))
+  .filter((c) => c.n > 0);
+
+const label = (ext: string) => (ext === 'jpeg' ? 'JPG' : ext.toUpperCase());
+const sourceHost = new URL(demoScan.pageUrl).host + new URL(demoScan.pageUrl).pathname;
+---
+
+<section id="demo" class="mx-auto max-w-content px-md" aria-label="Example scan (demo)">
+	{/* Label row */}
+	<div class="flex items-center justify-between border-b border-border py-sm font-mono text-label uppercase">
+		<span class="text-text">Demo — example scan</span>
+		<span class="text-muted">Source: {sourceHost}</span>
+	</div>
+
+	{/* Toolbar */}
+	<div class="flex flex-wrap items-center gap-sm py-sm" data-toolbar>
+		<input
+			type="text"
+			placeholder="Filter by name"
+			data-search
+			aria-label="Filter by filename"
+			class="rounded-sm border border-border bg-surface px-sm py-xs font-mono text-caption text-text placeholder:text-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+		/>
+		<div class="flex flex-wrap gap-xs" role="group" aria-label="Filter by format">
+			<button type="button" data-chip="all" aria-pressed="true" class="chip">All <span class="text-muted">{tiles.length}</span></button>
+			{counts.map((c) => (
+				<button type="button" data-chip={c.ext} aria-pressed="false" class="chip">{label(c.ext)} <span class="text-muted">{c.n}</span></button>
+			))}
+		</div>
+		<button type="button" data-sort aria-label="Sort order" class="ctrl">Sort: <span data-sortlabel>Name</span></button>
+		<button type="button" data-view aria-pressed="false" aria-label="Toggle list view" class="ctrl">Grid</button>
+		<button type="button" data-invert aria-pressed="false" aria-label="Invert tile background" class="ctrl">Invert BG</button>
+		<button type="button" data-replay hidden class="ctrl">↻ Replay</button>
+	</div>
+
+	{/* Masonry grid */}
+	<ul class="masonry" data-grid>
+		{tiles.map((t) => (
+			<li class="tile" data-tile data-id={t.id} data-ext={t.ext} data-name={t.filename} data-px={t.width * t.height} data-bytes={t.bytes} style={`aspect-ratio:${t.width}/${t.height}`}>
+				<button type="button" class="tilebtn" data-select aria-pressed="false" aria-label={`Select ${t.filename}`}>
+					<img
+						src={t.src}
+						alt=""
+						width={t.width}
+						height={t.height}
+						loading={t.eager ? 'eager' : 'lazy'}
+						decoding="async"
+						fetchpriority={t.eager ? 'high' : 'auto'}
+					/>
+					<span class="check" aria-hidden="true"></span>
+				</button>
+				<div class="cap flex items-center justify-between gap-xs font-mono text-label">
+					<span class="name text-text" title={t.filename}>{t.filename}</span>
+					<span class="badges flex shrink-0 gap-xs">
+						<span class="badge">{t.width}×{t.height}</span>
+						<span class="badge">{label(t.ext)}</span>
+					</span>
+				</div>
+			</li>
+		))}
+	</ul>
+
+	{/* Sticky selection bar */}
+	<div class="bar" data-bar hidden>
+		<span class="font-mono text-caption"><span data-count>0</span> selected · <span data-size>—</span></span>
+		<span class="flex gap-sm">
+			<button type="button" data-copy class="barbtn">Copy URLs</button>
+			<button type="button" data-zip class="barbtn barbtn-accent">Download ZIP</button>
+		</span>
+	</div>
+
+	{/* Scripted-intro cursor + demo toast (aria-hidden, pointer-events none) */}
+	<svg data-cursor class="cursor" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" fill="none">
+		<path d="M5 3l14 8-6 1.5L10 19 5 3z" fill="currentColor" stroke="var(--color-surface)" stroke-width="1.5" stroke-linejoin="round" />
+	</svg>
+	<div data-toast class="toast font-mono text-caption" role="status" aria-live="polite" hidden></div>
+</section>
+
+<style>
+	/* Masonry — permitted here and only here; /results uses uniform squares. */
+	#demo .masonry {
+		list-style: none;
+		column-count: 2;
+		column-gap: var(--spacing-md);
+		margin-top: var(--spacing-sm);
+	}
+	@media (min-width: 48rem) {
+		#demo .masonry { column-count: 3; }
+	}
+	@media (min-width: 64rem) {
+		#demo .masonry { column-count: 4; }
+	}
+	#demo .tile {
+		break-inside: avoid;
+		margin-bottom: var(--spacing-md);
+	}
+	/* List view: one column, image beside caption. */
+	#demo .masonry.list { column-count: 1; }
+	#demo .masonry.list .tile { aspect-ratio: auto !important; }
+	#demo .masonry.list .tilebtn { aspect-ratio: 5 / 2; }
+
+	#demo .tilebtn {
+		display: block;
+		position: relative;
+		width: 100%;
+		aspect-ratio: inherit;
+		padding: 0;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-sm);
+		background: var(--color-surface);
+		overflow: hidden;
+		cursor: pointer;
+	}
+	#demo .tilebtn img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		display: block;
+	}
+	#demo .tilebtn:hover { border-color: var(--color-text); }
+	#demo .tilebtn:focus-visible {
+		outline: 2px solid var(--color-accent);
+		outline-offset: 2px;
+	}
+	/* Selection check */
+	#demo .check {
+		position: absolute;
+		top: var(--spacing-xs);
+		right: var(--spacing-xs);
+		width: var(--spacing-sm);
+		height: var(--spacing-sm);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-sm);
+		background: var(--color-surface);
+	}
+	#demo [data-select][aria-pressed='true'] .check {
+		background: var(--color-accent);
+		border-color: var(--color-accent);
+	}
+	#demo [data-select][aria-pressed='true'] {
+		border-color: var(--color-accent);
+		outline: 2px solid var(--color-accent);
+		outline-offset: -2px;
+	}
+	#demo .cap { margin-top: var(--spacing-xs); }
+	#demo .name {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	#demo .badge {
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-sm);
+		padding: 0 var(--spacing-xs);
+		color: var(--color-muted);
+		background: var(--color-surface);
+	}
+
+	/* Invert: dark ground behind opaque images; caption + badges flip to stay
+	   legible. Tokens only — no new colour. */
+	#demo .masonry.inverted .tilebtn { background: var(--color-text); }
+	#demo .masonry.inverted .name { color: var(--color-surface); }
+
+	/* Toolbar controls */
+	#demo .chip,
+	#demo .ctrl,
+	#demo .barbtn {
+		font-family: var(--font-mono);
+		font-size: var(--text-caption);
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-sm);
+		padding: var(--spacing-xs) var(--spacing-sm);
+		background: var(--color-surface);
+		color: var(--color-text);
+		cursor: pointer;
+	}
+	#demo .chip:hover,
+	#demo .ctrl:hover { border-color: var(--color-text); }
+	#demo .chip:focus-visible,
+	#demo .ctrl:focus-visible,
+	#demo .barbtn:focus-visible {
+		outline: 2px solid var(--color-accent);
+		outline-offset: 2px;
+	}
+	/* Active chip and active invert toggle use accent (sanctioned for active
+	   controls). The invert toggle especially needs a clear on-state since its
+	   effect happens out on the grid, not on the button. */
+	#demo .chip[aria-pressed='true'],
+	#demo [data-invert][aria-pressed='true'] {
+		background: var(--color-accent);
+		border-color: var(--color-accent);
+		color: var(--color-surface);
+	}
+
+	/* Sticky dark selection bar */
+	#demo .bar {
+		position: sticky;
+		bottom: var(--spacing-sm);
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--spacing-md);
+		margin-top: var(--spacing-md);
+		padding: var(--spacing-sm) var(--spacing-md);
+		border-radius: var(--radius-sm);
+		background: var(--color-text);
+		color: var(--color-surface);
+	}
+	#demo .barbtn { background: transparent; color: var(--color-surface); border-color: var(--color-surface); }
+	#demo .barbtn-accent { background: var(--color-accent); border-color: var(--color-accent); }
+
+	/* Scripted cursor */
+	#demo {
+		position: relative;
+		/* Fill the reserved band; tiles carry explicit aspect-ratios so the
+		   grid self-sizes with no CLS as images load. */
+		min-height: var(--layout-demo);
+	}
+	#demo .cursor {
+		position: absolute;
+		top: 0;
+		left: 0;
+		color: var(--color-text);
+		pointer-events: none;
+		opacity: 0;
+		transform: translate(0, 0);
+		transition: transform 500ms ease, opacity 300ms ease;
+		z-index: 2;
+	}
+	#demo .toast {
+		position: sticky;
+		bottom: var(--spacing-sm);
+		margin: var(--spacing-sm) auto 0;
+		width: fit-content;
+		padding: var(--spacing-xs) var(--spacing-md);
+		border-radius: var(--radius-sm);
+		background: var(--color-text);
+		color: var(--color-surface);
+		z-index: 3;
+	}
+
+	/* Entrance: tiles start hidden only when the script will run. The script
+	   adds .armed to the grid before staggering .in onto tiles. Without JS (or
+	   reduced motion handled in-script) tiles are visible by default. */
+	#demo .masonry.armed .tile { opacity: 0; transform: translateY(var(--spacing-sm)); }
+	#demo .masonry.armed .tile.in {
+		opacity: 1;
+		transform: none;
+		transition: opacity 400ms ease, transform 400ms ease;
+	}
+	#demo .tile { transition: transform 350ms ease; }
+	@media (prefers-reduced-motion: reduce) {
+		#demo .cursor { display: none; }
+		#demo .masonry.armed .tile,
+		#demo .tile { transition: none; }
+	}
+</style>
+
+<script>
+	import { demoTileMeta } from '../fixtures/demo-scan';
+
+	const root = document.getElementById('demo');
+	if (root) {
+		const grid = root.querySelector('[data-grid]') as HTMLElement;
+		const tiles = Array.from(root.querySelectorAll<HTMLElement>('[data-tile]'));
+		const chips = Array.from(root.querySelectorAll<HTMLElement>('[data-chip]'));
+		const search = root.querySelector('[data-search]') as HTMLInputElement;
+		const sortBtn = root.querySelector('[data-sort]') as HTMLElement;
+		const sortLabel = root.querySelector('[data-sortlabel]') as HTMLElement;
+		const viewBtn = root.querySelector('[data-view]') as HTMLElement;
+		const invertBtn = root.querySelector('[data-invert]') as HTMLElement;
+		const replayBtn = root.querySelector('[data-replay]') as HTMLElement;
+		const bar = root.querySelector('[data-bar]') as HTMLElement;
+		const countEl = root.querySelector('[data-count]') as HTMLElement;
+		const sizeEl = root.querySelector('[data-size]') as HTMLElement;
+		const cursor = root.querySelector('[data-cursor]') as HTMLElement;
+		const toast = root.querySelector('[data-toast]') as HTMLElement;
+		const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+		const selected = new Set<string>();
+		let sortKey: 'name' | 'dim' = 'name';
+		let fmt = 'all';
+		let query = '';
+		let phase: 'idle' | 'playing' | 'done' = 'idle';
+		let timers: number[] = [];
+		const at = (ms: number, fn: () => void) => timers.push(window.setTimeout(fn, ms));
+		const clearTimers = () => {
+			timers.forEach(clearTimeout);
+			timers = [];
+		};
+
+		const shows = (t: HTMLElement) =>
+			(fmt === 'all' || t.dataset.ext === fmt) && (!query || (t.dataset.name || '').includes(query));
+
+		const cmp = (a: HTMLElement, b: HTMLElement) =>
+			sortKey === 'dim'
+				? Number(b.dataset.px) - Number(a.dataset.px) || (a.dataset.name! < b.dataset.name! ? -1 : 1)
+				: a.dataset.name! < b.dataset.name!
+					? -1
+					: 1;
+
+		// FLIP: record positions, mutate DOM, animate the delta with transform only.
+		function paint(animate: boolean) {
+			const first = animate ? new Map(tiles.map((t) => [t, t.getBoundingClientRect()])) : null;
+			const ordered = tiles.slice().sort(cmp);
+			for (const t of ordered) {
+				t.hidden = !shows(t);
+				grid.appendChild(t);
+			}
+			chips.forEach((c) => c.setAttribute('aria-pressed', String(c.dataset.chip === fmt)));
+			if (first) {
+				for (const t of tiles) {
+					if (t.hidden) continue;
+					const a = first.get(t)!;
+					const b = t.getBoundingClientRect();
+					const dx = a.left - b.left;
+					const dy = a.top - b.top;
+					if (dx || dy) {
+						t.style.transition = 'none';
+						t.style.transform = `translate(${dx}px,${dy}px)`;
+						requestAnimationFrame(() => {
+							t.style.transition = '';
+							t.style.transform = '';
+						});
+					}
+				}
+			}
+			updateBar();
+		}
+
+		function setSelected(t: HTMLElement, on: boolean) {
+			const id = t.dataset.id!;
+			on ? selected.add(id) : selected.delete(id);
+			(t.querySelector('[data-select]') as HTMLElement).setAttribute('aria-pressed', String(on));
+			updateBar();
+		}
+
+		function updateBar() {
+			countEl.textContent = String(selected.size);
+			bar.hidden = selected.size === 0 && phase !== 'playing';
+			if (selected.size === 0) {
+				sizeEl.textContent = '—';
+				return;
+			}
+			let bytes = 0;
+			selected.forEach((id) => (bytes += demoTileMeta[id]?.bytes || 0));
+			sizeEl.textContent = (bytes / 1_000_000).toFixed(1) + ' MB';
+		}
+
+		function showToast(msg: string) {
+			toast.textContent = msg;
+			toast.hidden = false;
+			at(2500, () => (toast.hidden = true));
+		}
+
+		// ---- interactive wiring (always live; controls the fixture) ----
+		search.addEventListener('input', () => {
+			query = search.value.trim().toLowerCase();
+			paint(true);
+		});
+		chips.forEach((c) =>
+			c.addEventListener('click', () => {
+				fmt = c.dataset.chip!;
+				paint(true);
+			}),
+		);
+		sortBtn.addEventListener('click', () => {
+			sortKey = sortKey === 'name' ? 'dim' : 'name';
+			sortLabel.textContent = sortKey === 'name' ? 'Name' : 'Dimensions';
+			paint(true);
+		});
+		viewBtn.addEventListener('click', () => {
+			const list = grid.classList.toggle('list');
+			viewBtn.setAttribute('aria-pressed', String(list));
+			viewBtn.textContent = list ? 'List' : 'Grid';
+		});
+		invertBtn.addEventListener('click', () => {
+			const on = grid.classList.toggle('inverted');
+			invertBtn.setAttribute('aria-pressed', String(on));
+		});
+		root.querySelectorAll('[data-select]').forEach((btn) =>
+			btn.addEventListener('click', () => {
+				const t = (btn as HTMLElement).closest('[data-tile]') as HTMLElement;
+				setSelected(t, t.querySelector('[data-select]')!.getAttribute('aria-pressed') !== 'true');
+			}),
+		);
+		root.querySelector('[data-copy]')!.addEventListener('click', () => showToast('Copied · demo only'));
+		root.querySelector('[data-zip]')!.addEventListener('click', () => showToast('example.zip · demo only'));
+		replayBtn.addEventListener('click', () => play());
+
+		// ---- abort the scripted intro on any real interaction ----
+		function abort() {
+			if (phase !== 'playing') return;
+			clearTimers();
+			phase = 'done';
+			cursor.style.opacity = '0';
+			grid.classList.remove('armed');
+			tiles.forEach((t) => t.classList.add('in'));
+			replayBtn.hidden = false;
+		}
+		['pointerdown', 'keydown', 'pointerover'].forEach((ev) =>
+			root.addEventListener(ev, (e) => {
+				if ((e.target as HTMLElement).closest('[data-cursor]')) return;
+				abort();
+			}),
+		);
+
+		function moveCursor(el: HTMLElement) {
+			const r = el.getBoundingClientRect();
+			const g = root!.getBoundingClientRect();
+			cursor.style.opacity = '1';
+			cursor.style.transform = `translate(${r.left - g.left + r.width / 2}px,${r.top - g.top + r.height / 2}px)`;
+		}
+
+		// ---- end state (reduced motion, or after the scripted intro) ----
+		function endState() {
+			fmt = 'jpeg';
+			sortKey = 'dim';
+			sortLabel.textContent = 'Dimensions';
+			paint(false);
+			tiles.filter((t) => !t.hidden).forEach((t) => setSelected(t, true));
+			phase = 'done';
+			replayBtn.hidden = false;
+		}
+
+		// ---- scripted intro (plays once when 40% visible + idle) ----
+		function play() {
+			clearTimers();
+			selected.clear();
+			fmt = 'all';
+			sortKey = 'name';
+			query = '';
+			search.value = '';
+			sortLabel.textContent = 'Name';
+			grid.classList.remove('inverted');
+			viewBtn.setAttribute('aria-pressed', 'false');
+			viewBtn.textContent = 'Grid';
+			tiles.forEach((t) => setSelected(t, false));
+			paint(false);
+			phase = 'playing';
+			replayBtn.hidden = true;
+			grid.classList.add('armed');
+			tiles.forEach((t) => t.classList.remove('in'));
+
+			tiles.forEach((t, i) => at(200 + i * 100, () => t.classList.add('in')));
+			const jpegChip = chips.find((c) => c.dataset.chip === 'jpeg')!;
+			at(2000, () => moveCursor(jpegChip));
+			at(2600, () => {
+				fmt = 'jpeg';
+				paint(true);
+			});
+			at(3400, () => {
+				sortKey = 'dim';
+				sortLabel.textContent = 'Dimensions';
+				moveCursor(sortBtn);
+				paint(true);
+			});
+			// sequential selection 4400–6000 across the visible (JPEG) tiles
+			at(4400, () => {
+				const vis = tiles.filter((t) => !t.hidden);
+				vis.forEach((t, i) =>
+					at(i * (1600 / vis.length), () => {
+						moveCursor(t);
+						setSelected(t, true);
+					}),
+				);
+			});
+			at(6400, () => {
+				moveCursor(root!.querySelector('[data-zip]') as HTMLElement);
+			});
+			at(6800, () => showToast(`example.zip · ${selected.size} images · demo only`));
+			at(8500, () => {
+				cursor.style.opacity = '0';
+				phase = 'done';
+				replayBtn.hidden = false;
+			});
+		}
+
+		// ---- trigger ----
+		if (reduceMotion) {
+			endState();
+		} else {
+			let started = false;
+			const io = new IntersectionObserver(
+				(entries) => {
+					for (const e of entries) {
+						if (e.isIntersecting && e.intersectionRatio >= 0.4 && !started) {
+							started = true;
+							const ric =
+								(window as unknown as { requestIdleCallback?: (cb: () => void) => void })
+									.requestIdleCallback || ((cb: () => void) => setTimeout(cb, 1));
+							ric(() => play());
+						} else if (!e.isIntersecting && phase === 'playing') {
+							// left the viewport mid-script: pause+reset the intro
+							abort();
+						}
+					}
+				},
+				{ threshold: [0, 0.4] },
+			);
+			io.observe(root);
+		}
+	}
+</script>
