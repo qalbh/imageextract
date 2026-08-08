@@ -93,15 +93,53 @@ Decisions (2026-08-08):
   that are size variants of one image (same srcset/picture); the UI for
   grouping is deferred.
 
-Done when:
-- [ ] `width?`/`height?` on `ScanImage`, populated from all five sources
-- [ ] Srcset heights derived from the parent img ratio where available
-- [ ] `dimensionSource` set 'declared' at scan, flipped 'measured' on load
-- [ ] `variantGroup` present on srcset/picture variants, absent elsewhere
-- [ ] AGENTS.md manifest snippet updated; "No dimensions" wording amended
-- [ ] doc-sync test extended to cover the new manifest lines
-- [ ] Extractor tests cover each capture source and the first-wins dedupe rule
-- [ ] Coverage measured on 3 real pages and recorded in STATUS.md
+Shipped 2026-08-09. `variantGroup` semantics were pinned to **one per
+logical image**: a whole `<picture>` (all its `<source>`s + the fallback
+`<img>`) is one group, and a standalone `<img>`'s src+srcset is one group —
+not one per srcset attribute. `<source>` candidates are width-only by design
+(the sibling `<img>`'s aspect ratio isn't available in a streaming pass;
+that's where coverage is thinnest — see below).
+
+Done:
+- [x] `width?`/`height?`/`dimensionSource?`/`variantGroup?` on `ScanImage`
+- [x] Srcset heights derived from the parent img ratio where available
+- [x] `dimensionSource` set 'declared' at scan (UI flips to 'measured' on load — deferred)
+- [x] `variantGroup` per logical image; absent on standalone single images
+- [x] AGENTS.md manifest snippet + "No dimensions" wording amended
+- [x] doc-sync extended to check the `dimensionSource` line vs `DIMENSION_SOURCES`
+- [x] Extractor tests cover each source, derivation, variantGroup, first-wins
+- [x] Coverage measured on real pages (recorded here, not STATUS.md)
+
+### Coverage (6 live pages, 553 manifest entries, 2026-08-09)
+
+Pages: wikipedia.org, web.dev, developer.mozilla.org, smashingmagazine.com,
+en.wikipedia.org/wiki/Photography, astro.build.
+
+**Aggregate: 35% have ≥ a width, 19% have both dimensions.** The aggregate is
+misleading — the split is what matters for the size-tier filter:
+
+| Source | n | ≥ width | both |
+|---|---|---|---|
+| img | 117 | 86% | **85%** |
+| srcset | 122 | 72% | **0%** |
+| picture | 17 | 0% | 0% |
+| inline-svg | 123 | 0% | 0% |
+| stylesheet | 117 | 0% | 0% |
+| style-block | 36 | 0% | 0% |
+| favicon | 13 | 8% | 8% |
+| meta | 7 | 43% | 43% |
+| json-ld | 1 | 0% | 0% |
+
+**Implication for the sidebar's size-tier filter:** it is fully viable for
+`img`-sourced images (85% have both dimensions — the images users usually
+want) and for `meta`. It is **width-only for `srcset`** (72% width, ~0%
+height: real responsive imgs carry a `w` descriptor but size via CSS, so the
+parent rarely declares `height`, so the aspect-derivation almost never fires —
+the mechanism is correct, the source data isn't there). It is **effectively
+blind for CSS backgrounds, inline SVG, and `<picture>` `<source>`s** (~0%).
+So: a size-tier filter must treat "unknown" as a first-class, prominent tier,
+and sorting by height/aspect only meaningfully orders the `img` subset. Width
+sort covers `img` + `srcset` (~43% of entries here).
 
 ## 4. Filters — source groups and type
 
@@ -119,11 +157,27 @@ Done when:
 - [ ] Raw `source` still visible per tile
 - [ ] Filter change resets the reveal window to the cap
 
+**Revised by coverage data (2026-08-09) — the mockup's size UI does not
+survive the real numbers (step 3: 19% both-dimensions, 35% width; img 85%
+both, srcset width-only, CSS/SVG/picture ~0%):**
+- **Drop the four-tier size filter** (Large / Medium / Small / Icons). With
+  19% both-dimension coverage, ~81% of images land in "unknown" — that is
+  not a filter, it is a control that looks broken. Cut it from the sidebar.
+
 ## 5. Search and sort
 
-Search across filename/URL/type; sort by dimensions (declared-first data
-from step 3) and later by size once probing exists. Unknown values sort
-last, stated in the UI.
+Search across filename/URL/type. Sort by dimensions is constrained by the
+step-3 coverage data (2026-08-09):
+- **Sort by width is viable and kept** — `img` + `srcset` is ~55% of a
+  typical manifest. Unknowns sort last, with an honest count in the UI
+  ("sorted by width · 302 of 553 known").
+- **Sort by height or aspect ratio orders only the `img` subset (85%)** and
+  silently mis-ranks srcset/CSS/SVG/picture (they lack height). Either drop
+  these sorts or scope them explicitly to measured entries — do not offer a
+  height sort that quietly lies about 45% of the grid.
+- **Declared values render muted; measured values render full weight.** On
+  load, `naturalWidth`/`naturalHeight` upgrade a tile's `dimensionSource`
+  to 'measured' client-side, and its dimensions to the true values.
 
 Decision (2026-08-08): **the sort key is frozen at sort time** — a tile
 whose measured dimensions arrive after sorting does not jump position;
@@ -131,9 +185,10 @@ re-sorting applies the newest values.
 
 Done when:
 - [ ] Search narrows the grid as you type, case-insensitive
-- [ ] Dimension sort works without scrolling the page first
+- [ ] Width sort works without scrolling; unknowns last with a known-count
+- [ ] Height/aspect sorts are dropped or scoped to measured entries only
+- [ ] Declared dimensions render muted; measured render full weight
 - [ ] Tiles do not reorder as measurements trickle in post-sort
-- [ ] Items lacking data group at the end with a visible "unknown" cue
 
 ## 6. Selection and copy
 

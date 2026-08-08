@@ -6,7 +6,7 @@ import decisionsMd from '../../DECISIONS.md?raw';
 import statusMd from '../../STATUS.md?raw';
 import designSystemMd from '../../docs/design-system.md?raw';
 import frontendPlanMd from '../../docs/frontend-plan.md?raw';
-import { IMAGE_SOURCES, TRUNCATION_REASONS } from './extract';
+import { DIMENSION_SOURCES, IMAGE_SOURCES, TRUNCATION_REASONS } from './extract';
 
 // Injected by vitest.config.ts — see the note there. The Tailwind Vite plugin
 // makes `global.css?raw` empty, so the file's text is read at config time.
@@ -82,6 +82,12 @@ describe('layer 1: manifest unions match extract.ts', () => {
     const line = agentsMd.split('\n').find((l) => l.trimStart().startsWith('truncated?:'));
     expect(line, 'AGENTS.md must contain the manifest truncated line').toBeDefined();
     expect(quotedTokens(line as string)).toEqual([...TRUNCATION_REASONS]);
+  });
+
+  it('the dimensionSource union matches DIMENSION_SOURCES', () => {
+    const line = agentsMd.split('\n').find((l) => l.trimStart().startsWith('width?:'));
+    expect(line, 'AGENTS.md must contain the manifest width/dimensionSource line').toBeDefined();
+    expect(quotedTokens(line as string)).toEqual([...DIMENSION_SOURCES]);
   });
 });
 

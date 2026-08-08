@@ -106,7 +106,7 @@ State the license of any new dependency when you introduce it. No AGPL.
 
 Two endpoints, both stateless:
 
-**`GET /api/scan?url=<encoded>`** — fetches the target page, parses it with `HTMLRewriter`, returns a JSON manifest of image URLs. No dimensions, no byte sizes. Typically 4 subrequests (robots.txt, the page, one DoH pair). Each redirect hop adds a fetch plus a DoH pair for a new hostname, and each linked stylesheet adds a fetch — plus a DoH pair when the sheet lives on a hostname not yet checked — bounded by the 3-redirect and 3-stylesheet caps.
+**`GET /api/scan?url=<encoded>`** — fetches the target page, parses it with `HTMLRewriter`, returns a JSON manifest of image URLs. Includes **declared** dimensions when the page states them (`<img width/height>`, srcset `w` descriptors, `og:image:width/height`, `link[sizes]`, JSON-LD) — those are free, read from bytes we already stream. No **probed** dimensions and no byte sizes: those cost subrequests and stay lazy/client-side. Typically 4 subrequests (robots.txt, the page, one DoH pair). Each redirect hop adds a fetch plus a DoH pair for a new hostname, and each linked stylesheet adds a fetch — plus a DoH pair when the sheet lives on a hostname not yet checked — bounded by the 3-redirect and 3-stylesheet caps.
 
 **`GET /api/proxy?url=<encoded>&download=1`** — streams exactly one image. Pass the `ReadableStream` straight through; never buffer. Near-zero CPU. Worst case 12 subrequests (4 fetches across a full redirect chain plus a DoH pair per hostname); amortized ~1 per image — with the in-isolate DoH cache, a 300-image ZIP from a single host costs one DoH pair per warm isolate, not one per image. Each isolate/colo warms its own cache, so the ceiling applies to cold starts.
 
@@ -125,6 +125,15 @@ type ScanResult = {
     // mirrors IMAGE_SOURCES in src/lib/extract.ts — the canonical list;
     // a doc-sync test fails if this line drifts from it
     source: 'img'|'srcset'|'picture'|'style-attr'|'style-block'|'stylesheet'|'inline-svg'|'meta'|'poster'|'favicon'|'json-ld'|'lazy'|'object'|'embed';
+    // declared (unverified) dimensions when the page states them; width may
+    // exist without height (a width-only srcset entry). dimensionSource
+    // mirrors DIMENSION_SOURCES; doc-sync checks it. The extractor emits only
+    // 'declared'; the UI renders declared values muted and flips to 'measured'
+    // on load. variantGroup: shared id for every candidate of ONE logical
+    // image — a whole <picture> (all its <source>s + fallback <img>) or a
+    // standalone <img>'s src+srcset. Collapsing variants in the UI is deferred.
+    width?: number; height?: number; dimensionSource?: 'declared' | 'measured';
+    variantGroup?: string;
   }>;
   // omitted when complete. 'image-cap': whole page parsed, list trimmed.
   // 'size-cap': part of the page never parsed, images may be missing

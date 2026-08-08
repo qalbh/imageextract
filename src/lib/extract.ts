@@ -37,12 +37,27 @@ export const IMAGE_SOURCES = [
 ] as const;
 export type ImageSource = (typeof IMAGE_SOURCES)[number];
 
+// Declared dimensions come from the page's own markup (free, from bytes we
+// already stream); they are unverified — pages go stale and lie — so the UI
+// distinguishes them from measured ones and renders declared values muted.
+// The extractor only ever emits 'declared'; the client flips to 'measured'
+// once naturalWidth is known.
+export const DIMENSION_SOURCES = ['declared', 'measured'] as const;
+export type DimensionSource = (typeof DIMENSION_SOURCES)[number];
+
 export interface ScanImage {
   id: string;
   url: string;
   filename: string;
   ext: ImageExt;
   source: ImageSource;
+  width?: number;
+  height?: number;
+  dimensionSource?: DimensionSource;
+  // Shared id for every candidate of one logical image — a whole <picture>
+  // (all its <source>s plus the fallback <img>) or a standalone <img>'s
+  // src+srcset. The UI to collapse variants is deferred; see AGENTS.md.
+  variantGroup?: string;
 }
 
 // 'image-cap': the whole page was parsed but the list was trimmed at the
@@ -61,6 +76,9 @@ export interface ScanResult {
 export interface RawCandidate {
   raw: string;
   source: ImageSource;
+  width?: number;
+  height?: number;
+  variantGroup?: string;
 }
 
 export interface HtmlExtraction {
@@ -87,17 +105,44 @@ const META_IMAGE_KEYS = new Set([
   'twitter:image:src',
 ]);
 
+export interface SrcsetEntry {
+  url: string;
+  /** The `w` descriptor if present ("800w" → 800). Density ("2x") yields none. */
+  width?: number;
+}
+
 /**
- * Comma-split srcset parsing. A data: URI inside srcset (legal, vanishingly
- * rare) would be mangled by the comma split; accepted limitation.
+ * Comma-split srcset parsing, returning each candidate with its `w` descriptor
+ * width. A data: URI inside srcset (legal, vanishingly rare) would be mangled
+ * by the comma split; accepted limitation.
  */
-export function parseSrcset(value: string): string[] {
-  const urls: string[] = [];
+export function parseSrcset(value: string): SrcsetEntry[] {
+  const entries: SrcsetEntry[] = [];
   for (const part of value.split(',')) {
-    const url = part.trim().split(/\s+/)[0];
-    if (url) urls.push(url);
+    const tokens = part.trim().split(/\s+/);
+    const url = tokens[0];
+    if (!url) continue;
+    let width: number | undefined;
+    for (const d of tokens.slice(1)) {
+      const m = /^(\d+)w$/.exec(d);
+      if (m) width = parseInt(m[1] as string, 10);
+    }
+    entries.push(width !== undefined ? { url, width } : { url });
   }
-  return urls;
+  return entries;
+}
+
+/** Parse a declared dimension: integer, "1920px", or a JSON-LD number/string. */
+function coerceDim(v: unknown): number | undefined {
+  if (typeof v === 'number') return Number.isFinite(v) && v > 0 ? Math.round(v) : undefined;
+  if (typeof v === 'string') {
+    const m = /^\s*(\d+)/.exec(v);
+    if (m) {
+      const n = parseInt(m[1] as string, 10);
+      if (n > 0) return n;
+    }
+  }
+  return undefined;
 }
 
 const CSS_URL_RE = /url\(\s*(?:"([^"]*)"|'([^']*)'|([^"')\s]+))\s*\)/gi;
@@ -159,7 +204,13 @@ function escapeXmlAttr(s: string): string {
   );
 }
 
-function collectJsonLdImages(node: unknown, out: string[], depth: number): void {
+interface JsonLdImage {
+  url: string;
+  width?: number;
+  height?: number;
+}
+
+function collectJsonLdImages(node: unknown, out: JsonLdImage[], depth: number): void {
   if (depth > 8 || node === null || node === undefined) return;
   if (Array.isArray(node)) {
     for (const item of node) collectJsonLdImages(item, out, depth + 1);
@@ -172,10 +223,10 @@ function collectJsonLdImages(node: unknown, out: string[], depth: number): void 
   }
 }
 
-function collectImageValue(value: unknown, out: string[], depth: number): void {
+function collectImageValue(value: unknown, out: JsonLdImage[], depth: number): void {
   if (depth > 8 || value === null || value === undefined) return;
   if (typeof value === 'string') {
-    out.push(value);
+    out.push({ url: value });
     return;
   }
   if (Array.isArray(value)) {
@@ -183,10 +234,17 @@ function collectImageValue(value: unknown, out: string[], depth: number): void {
     return;
   }
   if (typeof value === 'object') {
-    // ImageObject and friends
+    // ImageObject and friends — carry declared width/height when present.
     const obj = value as Record<string, unknown>;
+    const width = coerceDim(obj.width);
+    const height = coerceDim(obj.height);
     for (const key of ['url', 'contentUrl']) {
-      if (typeof obj[key] === 'string') out.push(obj[key] as string);
+      if (typeof obj[key] === 'string') {
+        const img: JsonLdImage = { url: obj[key] as string };
+        if (width !== undefined) img.width = width;
+        if (height !== undefined) img.height = height;
+        out.push(img);
+      }
     }
   }
 }
@@ -200,15 +258,53 @@ export async function extractFromHtml(
   let baseHref: string | null = null;
   let hitRawCap = false;
 
-  const addCandidate = (raw: string, source: ImageSource): void => {
+  interface CandidateDims {
+    width?: number;
+    height?: number;
+    variantGroup?: string;
+  }
+  // Returns the pushed candidate so callers can attach dimensions that arrive
+  // in later elements (og:image:width/height follow og:image).
+  const addCandidate = (
+    raw: string,
+    source: ImageSource,
+    dims?: CandidateDims,
+  ): RawCandidate | undefined => {
     const trimmed = raw.trim();
-    if (trimmed === '') return;
+    if (trimmed === '') return undefined;
     if (candidates.length >= MAX_RAW_CANDIDATES) {
       hitRawCap = true;
-      return;
+      return undefined;
     }
-    candidates.push({ raw: trimmed, source });
+    const candidate: RawCandidate = { raw: trimmed, source };
+    if (dims) {
+      if (dims.width !== undefined) candidate.width = dims.width;
+      if (dims.height !== undefined) candidate.height = dims.height;
+      if (dims.variantGroup !== undefined) candidate.variantGroup = dims.variantGroup;
+    }
+    candidates.push(candidate);
+    return candidate;
   };
+
+  // Integer width/height attribute (rejects percentages, "auto", 0).
+  const intAttr = (el: Element, name: string): number | undefined => {
+    const v = el.getAttribute(name);
+    if (v && /^\d+$/.test(v)) {
+      const n = parseInt(v, 10);
+      if (n > 0) return n;
+    }
+    return undefined;
+  };
+
+  // variantGroup id per logical image (a <picture> block, or a standalone
+  // <img>'s src+srcset). pictureGroup holds the current <picture>'s group so
+  // its <source>s and fallback <img> share one id.
+  let variantSeq = 0;
+  const nextGroup = (): string => `vg-${++variantSeq}`;
+  let pictureGroup: string | null = null;
+
+  // The last og:image candidate, so trailing og:image:width/height attach.
+  let lastOgImage: RawCandidate | undefined;
 
   // <style> text arrives in chunks; flush per text node.
   let styleBuf = '';
@@ -283,19 +379,59 @@ export async function extractFromHtml(
         }
       },
     })
+    .on('picture', {
+      element(el) {
+        // Every candidate inside one <picture> — all <source>s and the
+        // fallback <img> — is one logical image, so they share a group.
+        pictureGroup = nextGroup();
+        try {
+          el.onEndTag(() => {
+            pictureGroup = null;
+          });
+        } catch {
+          pictureGroup = null; // self-closing <picture> shouldn't happen
+        }
+      },
+    })
     .on('img', {
       element(el) {
+        const w = intAttr(el, 'width');
+        const h = intAttr(el, 'height');
         const src = el.getAttribute('src');
-        if (src) addCandidate(src, 'img');
         const srcset = el.getAttribute('srcset');
-        if (srcset) for (const url of parseSrcset(srcset)) addCandidate(url, 'srcset');
+        // Inside a <picture> the img joins that group; a standalone img with a
+        // srcset gets its own; a lone src has no group (it's one image).
+        const group = pictureGroup ?? (srcset ? nextGroup() : undefined);
+        if (src) addCandidate(src, 'img', { width: w, height: h, variantGroup: group });
+        if (srcset) {
+          for (const { url, width } of parseSrcset(srcset)) {
+            // A `w` descriptor gives width only. When the img declares both
+            // width and height, its aspect ratio transfers to every scale of
+            // the same image, so height = width ÷ (declaredW / declaredH).
+            const height =
+              width !== undefined && w !== undefined && h !== undefined
+                ? Math.round((width * h) / w)
+                : undefined;
+            addCandidate(url, 'srcset', { width, height, variantGroup: group });
+          }
+        }
       },
     })
     .on('source', {
       element(el) {
-        // srcset on <source> is only meaningful inside <picture>
+        // srcset on <source> is only meaningful inside <picture>.
         const srcset = el.getAttribute('srcset');
-        if (srcset) for (const url of parseSrcset(srcset)) addCandidate(url, 'picture');
+        if (!srcset) return;
+        const group = pictureGroup ?? nextGroup();
+        // <source> candidates are WIDTH-ONLY on purpose: the sibling <img>'s
+        // declared aspect ratio isn't available in a streaming pass — the
+        // <img> comes after the <source>s — so no height can be derived here.
+        // This is a known limitation, not a gap to fix later; and because
+        // <picture> is where responsive images cluster, this is exactly where
+        // dimension coverage is thinnest.
+        for (const { url, width } of parseSrcset(srcset)) {
+          addCandidate(url, 'picture', { width, variantGroup: group });
+        }
       },
     })
     .on('video', {
@@ -328,16 +464,35 @@ export async function extractFromHtml(
           rel.includes('apple-touch-icon') ||
           rel.includes('apple-touch-icon-precomposed')
         ) {
-          addCandidate(href, 'favicon');
+          const candidate = addCandidate(href, 'favicon');
+          // link[sizes]="32x32" (first WxH; "any" won't match).
+          const sizes = el.getAttribute('sizes');
+          const m = sizes ? /(\d+)x(\d+)/i.exec(sizes) : null;
+          if (candidate && m) {
+            candidate.width = parseInt(m[1] as string, 10);
+            candidate.height = parseInt(m[2] as string, 10);
+          }
         }
       },
     })
     .on('meta', {
       element(el) {
         const key = (el.getAttribute('property') ?? el.getAttribute('name') ?? '').toLowerCase();
-        if (!META_IMAGE_KEYS.has(key)) return;
-        const content = el.getAttribute('content');
-        if (content) addCandidate(content, 'meta');
+        if (META_IMAGE_KEYS.has(key)) {
+          const content = el.getAttribute('content');
+          const candidate = content ? addCandidate(content, 'meta') : undefined;
+          // og:image:width/height that follow attach to an og:image; twitter
+          // has no standard dimension metas, so only track og:image*.
+          lastOgImage = key.startsWith('og:image') ? candidate : undefined;
+          return;
+        }
+        if ((key === 'og:image:width' || key === 'og:image:height') && lastOgImage) {
+          const v = coerceDim(el.getAttribute('content'));
+          if (v !== undefined) {
+            if (key.endsWith('width')) lastOgImage.width = v;
+            else lastOgImage.height = v;
+          }
+        }
       },
     })
     .on('[style]', {
@@ -370,9 +525,10 @@ export async function extractFromHtml(
         if (chunk.lastInTextNode) {
           try {
             const parsed: unknown = JSON.parse(jsonLdBuf);
-            const urls: string[] = [];
-            collectJsonLdImages(parsed, urls, 0);
-            for (const url of urls) addCandidate(url, 'json-ld');
+            const found: JsonLdImage[] = [];
+            collectJsonLdImages(parsed, found, 0);
+            for (const img of found)
+              addCandidate(img.url, 'json-ld', { width: img.width, height: img.height });
           } catch {
             // Malformed JSON-LD is the page's problem, not ours.
           }
@@ -407,7 +563,16 @@ export async function extractFromHtml(
         const value = el.getAttribute(attr);
         if (!value) return;
         if (attr === 'data-srcset') {
-          for (const url of parseSrcset(value)) addCandidate(url, 'lazy');
+          const w = intAttr(el, 'width');
+          const h = intAttr(el, 'height');
+          const group = pictureGroup ?? nextGroup();
+          for (const { url, width } of parseSrcset(value)) {
+            const height =
+              width !== undefined && w !== undefined && h !== undefined
+                ? Math.round((width * h) / w)
+                : undefined;
+            addCandidate(url, 'lazy', { width, height, variantGroup: group });
+          }
         } else if (value.includes('url(')) {
           // data-bg is often a whole CSS value, not a bare URL
           for (const url of extractCssUrls(value)) addCandidate(url, 'lazy');
@@ -588,13 +753,22 @@ export function finalizeManifest(input: FinalizeInput): {
     const ext = resolved.startsWith('data:')
       ? extFromDataUri(resolved)
       : extFromPathname(new URL(resolved).pathname);
-    images.push({
+    // First-wins: `seen` skips later duplicates of this URL, so the first
+    // candidate's declared dimensions are the ones kept.
+    const image: ScanImage = {
       id: fnv1a64(resolved),
       url: resolved,
       filename: uniqueFilename(filenameForUrl(resolved, ext, inlineCounter), usedFilenames),
       ext,
       source: candidate.source,
-    });
+    };
+    if (candidate.width !== undefined) image.width = candidate.width;
+    if (candidate.height !== undefined) image.height = candidate.height;
+    if (candidate.width !== undefined || candidate.height !== undefined) {
+      image.dimensionSource = 'declared';
+    }
+    if (candidate.variantGroup !== undefined) image.variantGroup = candidate.variantGroup;
+    images.push(image);
   }
   const truncated: TruncationReason | undefined = input.sizeCapHit
     ? 'size-cap'

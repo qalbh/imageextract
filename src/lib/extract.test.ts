@@ -28,11 +28,14 @@ function urls(images: ScanImage[]): string[] {
 }
 
 describe('parseSrcset', () => {
-  it('extracts URLs and drops descriptors', () => {
-    expect(parseSrcset('a.jpg 480w, b.jpg 800w')).toEqual(['a.jpg', 'b.jpg']);
-    expect(parseSrcset('a.jpg 1x,b.jpg 2x')).toEqual(['a.jpg', 'b.jpg']);
-    expect(parseSrcset('  solo.png  ')).toEqual(['solo.png']);
-    expect(parseSrcset('a.jpg 1x,, ,b.jpg')).toEqual(['a.jpg', 'b.jpg']);
+  it('returns url + w-descriptor pairs; density descriptors carry no width', () => {
+    expect(parseSrcset('a.jpg 480w, b.jpg 800w')).toEqual([
+      { url: 'a.jpg', width: 480 },
+      { url: 'b.jpg', width: 800 },
+    ]);
+    expect(parseSrcset('a.jpg 1x,b.jpg 2x')).toEqual([{ url: 'a.jpg' }, { url: 'b.jpg' }]);
+    expect(parseSrcset('  solo.png  ')).toEqual([{ url: 'solo.png' }]);
+    expect(parseSrcset('a.jpg 1x,, ,b.jpg')).toEqual([{ url: 'a.jpg' }, { url: 'b.jpg' }]);
   });
 });
 
@@ -270,5 +273,106 @@ describe('extractFromHtml + finalizeManifest', () => {
     const extraction = await extractFromHtml(html);
     expect(extraction.stylesheetHrefs).toEqual(['/a.css', '/b.css', '/c.css']);
     expect(extraction.candidates).toEqual([]);
+  });
+});
+
+describe('declared dimensions', () => {
+  const byName = (images: ScanImage[], sub: string) =>
+    images.find((i) => i.url.includes(sub)) as ScanImage;
+
+  it('captures integer img width/height and discards percentages', async () => {
+    const { images } = await scan(
+      '<img src="/a.png" width="800" height="600"><img src="/b.png" width="50%" height="auto">',
+    );
+    const a = byName(images, 'a.png');
+    expect([a.width, a.height, a.dimensionSource]).toEqual([800, 600, 'declared']);
+    const b = byName(images, 'b.png');
+    expect([b.width, b.height, b.dimensionSource]).toEqual([undefined, undefined, undefined]);
+  });
+
+  it('derives srcset height from the parent img aspect ratio', async () => {
+    // parent 1600×900 (16:9); a 800w candidate → height 450
+    const { images } = await scan(
+      '<img src="/hero.jpg" width="1600" height="900" srcset="/hero-800.jpg 800w, /hero-1200.jpg 1200w">',
+    );
+    const s800 = byName(images, 'hero-800');
+    expect([s800.width, s800.height]).toEqual([800, 450]);
+    const s1200 = byName(images, 'hero-1200');
+    expect([s1200.width, s1200.height]).toEqual([1200, 675]);
+  });
+
+  it('leaves srcset width-only when the parent declares no height', async () => {
+    const { images } = await scan('<img src="/x.jpg" srcset="/x-400.jpg 400w">');
+    const s = byName(images, 'x-400');
+    expect([s.width, s.height, s.dimensionSource]).toEqual([400, undefined, 'declared']);
+  });
+
+  it('groups a whole <picture> (sources + fallback img) under one variantGroup', async () => {
+    const html =
+      '<picture>' +
+      '<source srcset="/p-800.webp 800w, /p-1200.webp 1200w" type="image/webp">' +
+      '<source srcset="/p-800.jpg 800w" type="image/jpeg">' +
+      '<img src="/p.jpg" width="1200" height="800">' +
+      '</picture>';
+    const { images } = await scan(html);
+    const groups = new Set(images.map((i) => i.variantGroup));
+    expect(groups.size).toBe(1);
+    expect([...groups][0]).toMatch(/^vg-/);
+    // source candidates are width-only (no sibling-img aspect in a stream)
+    const src800 = byName(images, 'p-800.webp');
+    expect([src800.width, src800.height]).toEqual([800, undefined]);
+    // the fallback img carries its own declared dimensions
+    const fallback = byName(images, 'p.jpg');
+    expect([fallback.width, fallback.height]).toEqual([1200, 800]);
+  });
+
+  it('gives separate standalone imgs distinct variant groups; a lone src has none', async () => {
+    const { images } = await scan(
+      '<img src="/one.jpg" srcset="/one-2x.jpg 1000w"><img src="/two.jpg" srcset="/two-2x.jpg 1000w"><img src="/plain.jpg">',
+    );
+    const g1 = byName(images, 'one.jpg').variantGroup;
+    const g2 = byName(images, 'two.jpg').variantGroup;
+    expect(g1).toBeDefined();
+    expect(g2).toBeDefined();
+    expect(g1).not.toBe(g2);
+    expect(byName(images, 'plain.jpg').variantGroup).toBeUndefined();
+  });
+
+  it('attaches og:image:width/height to the og:image', async () => {
+    const { images } = await scan(
+      '<meta property="og:image" content="/og.jpg"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">',
+    );
+    const og = byName(images, 'og.jpg');
+    expect([og.width, og.height, og.dimensionSource]).toEqual([1200, 630, 'declared']);
+  });
+
+  it('parses link[sizes] on icons', async () => {
+    const { images } = await scan('<link rel="icon" href="/f.png" sizes="32x32">');
+    const f = byName(images, 'f.png');
+    expect([f.width, f.height]).toEqual([32, 32]);
+  });
+
+  it('captures JSON-LD ImageObject width/height (number or string)', async () => {
+    const ld = JSON.stringify({
+      '@type': 'Article',
+      image: { '@type': 'ImageObject', url: '/ld.jpg', width: 2400, height: '1600px' },
+    });
+    const { images } = await scan(`<script type="application/ld+json">${ld}</script>`);
+    const l = byName(images, 'ld.jpg');
+    expect([l.width, l.height]).toEqual([2400, 1600]);
+  });
+
+  it('first-wins on a duplicate URL declaring different sizes', async () => {
+    const { images } = await scan(
+      '<img src="/dup.png" width="100" height="80"><img src="/dup.png" width="900" height="720">',
+    );
+    const dups = images.filter((i) => i.url.includes('dup.png'));
+    expect(dups).toHaveLength(1);
+    expect([dups[0]!.width, dups[0]!.height]).toEqual([100, 80]);
+  });
+
+  it('leaves dimensionSource undefined when nothing is declared', async () => {
+    const { images } = await scan('<img src="/bare.png">');
+    expect(byName(images, 'bare.png').dimensionSource).toBeUndefined();
   });
 });
