@@ -10,7 +10,7 @@ Living document. Update it at the end of each working session rather than trying
 
 **Phase 2 of 8. Roughly 30% of the way to a launchable product.**
 
-Phase 1 is complete: the whole server-side engine — scan, extraction, robots, proxy, and the security layer around all of it — is built, tested (212 tests in real workerd), and verified against live sites. What remains is mostly volume rather than difficulty — with two exceptions flagged below.
+Phase 1 is complete: the whole server-side engine — scan, extraction, robots, proxy, and the security layer around all of it — is built, suite green in workerd, and verified against live sites. What remains is mostly volume rather than difficulty — with two exceptions flagged below.
 
 ### Done
 
@@ -24,11 +24,11 @@ Phase 1 is complete: the whole server-side engine — scan, extraction, robots, 
 - [x] Vitest + `@cloudflare/vitest-pool-workers` configured, tests run in real workerd
 - [x] **SSRF guard shipped** — `validateTargetUrl`, `dohCheckHostname`, `safeFetch`, all reserved ranges incl. TEST-NET/benchmarking/multicast
 - [x] DNS-over-HTTPS pre-check, fail-closed, in-isolate cache, `dns-nxdomain` distinguished for typo-friendly messaging
-- [x] **Phase 1 complete** — see checked list below; suite at 212 tests, `tsc` clean, verified live against real sites
+- [x] **Phase 1 complete** — see checked list below; suite green in workerd, `tsc` clean, verified live against real sites
 
 ### In progress
 
-- [ ] Phase 2, first pass: URL input + results grid (current task — filters, sorting, selection, and ZIP deliberately later)
+- [ ] Phase 2 restyle: migrate `index.astro`, `ImageCard`, `ResultsGrid` onto the design tokens (first pass + route split shipped; filters, sorting, selection, and ZIP deliberately later)
 
 ---
 
@@ -51,6 +51,7 @@ Phase 1 is complete: the whole server-side engine — scan, extraction, robots, 
 
 - [x] URL input (native GET form → `?url=`, zero JS; browser-level validation) with loading state
 - [x] Results grid as a React island
+- [x] Route split: `/` fully static zero-JS, island on `/results` (noindex,nofollow + query-less canonical + `no-referrer` for thumbnail privacy)
 - [x] Thumbnails loaded direct from origin (the zero-cost path, `loading="lazy"`)
 - [ ] Proxy fallback on hotlink 403 (card shows "preview unavailable" for now)
 - [x] Dimension badges from `naturalWidth`/`naturalHeight`
@@ -84,13 +85,14 @@ Phase 1 is complete: the whole server-side engine — scan, extraction, robots, 
 - [ ] Rate limiting binding: ~30 scans/hour, ~500 proxy calls/hour per IP
 - [ ] Domain blocklist, editable without redeploy
 - [ ] `limits.cpu_ms` and `limits.subrequests` in `wrangler.jsonc`
-- [ ] Honest User-Agent naming the tool and linking to `/about`
+- [ ] Honest User-Agent naming the tool and linking to `/bot`
 - [ ] Full log audit — no page URLs, no image URLs, anywhere
 - [ ] Friendly rate-limit message
 
 ### Phase 5 — Trust and legal
 
-- [ ] `/about` page — **hard dependency of the User-Agent string, must exist before the first real scan**
+- [ ] `/bot` crawler-info page — **hard dependency of the User-Agent string (`+https://imageextract.pics/bot`), must exist before the first real scan**
+- [ ] `/about` page — general product/about page
 - [ ] Abuse contact address, live and monitored
 - [x] Copyright notice above the results grid (shipped early, with the Phase 2 first pass)
 - [ ] Privacy policy (short: we store nothing)
@@ -102,7 +104,7 @@ Phase 1 is complete: the whole server-side engine — scan, extraction, robots, 
 - [ ] Homepage copy that explains the tool
 - [ ] Astro content collection for tool-variant landing pages
 - [ ] First 5 landing pages generated from the collection
-- [ ] Our own `robots.txt` and `sitemap.xml`
+- [ ] Our own `robots.txt` and `sitemap.xml` — **must carry `Disallow: /results`**; the meta robots tag only works if the crawler fetches the page at all
 - [ ] Open Graph and Twitter card meta
 - [ ] Favicon and basic brand marks
 - [ ] Cloudflare Web Analytics

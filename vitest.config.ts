@@ -14,7 +14,15 @@ const wrangler = JSON.parse(
   readFileSync(new URL('./wrangler.jsonc', import.meta.url), 'utf8').replace(/^\s*\/\/.*$/gm, ''),
 ) as { compatibility_date: string; compatibility_flags?: string[] };
 
+// The Tailwind Vite plugin claims every `.css` import, so `global.css?raw`
+// resolves to an empty string inside the test bundle. The doc-sync test needs
+// the file's verbatim @theme block, so read it here and inject it as a define.
+const globalCss = readFileSync(new URL('./src/styles/global.css', import.meta.url), 'utf8');
+
 export default defineConfig({
+  define: {
+    __GLOBAL_CSS__: JSON.stringify(globalCss),
+  },
   plugins: [
     cloudflareTest({
       miniflare: {

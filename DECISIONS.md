@@ -85,6 +85,35 @@ Hitting the 1000-image cap and hitting the 5 MB page cap are different failures 
 
 Every extraction origin gets its own value, including the three CSS variants, which resolve against different bases and fail in different ways. When a site returns garbage, `source` is the only debugging handle — "all from `css-external`" points at stylesheet base resolution; "all from `img`" points nowhere.
 
+## `/` ships zero JavaScript
+
+The homepage is the acquisition surface and competes on load speed; the only interactive widget lives on `/results`. The URL form is a native GET form posting to `/results?url=…`, so scan links work — and are shareable — without a single script on either the sender's or receiver's side of the link.
+
+**Cost:** every scan is a full navigation rather than an in-place update; two routes instead of one.
+**Revisit if:** the homepage itself grows interactive features — same trigger as the Astro-over-Next decision.
+
+## Thumbnails send no Referer
+
+`/results` carries `<meta name="referrer" content="no-referrer">`. Thumbnails load direct from each image's origin, and without this meta every third-party host on a scanned page receives a Referer containing our results URL — which contains the scanned page URL. That leaks the user's query to every origin on the page, contradicting the product's stated privacy position.
+
+**Cost:** some hotlink protection blocks empty-referer requests, so the preview 403 rate rises. The per-tile proxy fallback (frontend plan, step 8) is the remedy.
+**Revisit if:** never — the privacy position is not negotiable.
+
+## Correction: vitest config cost
+
+The "Tests run in workerd" entry above states its cost as "one dev dependency and a config file that must track `wrangler.jsonc`." The hand-tracking no longer applies: `vitest.config.ts` now reads `wrangler.jsonc` directly and derives the compatibility date and flags from it, so the two cannot drift. The decision itself is unchanged — only the stated cost is now smaller.
+
+## Correction: `source` enum example
+
+The "source enum is granular" entry above cites a `css-external` value. No such value exists — the linked-stylesheet source is named `stylesheet`, and the three CSS variants are `style-attr`, `style-block`, `stylesheet`. The reasoning is unaffected; per-origin granularity remains the debugging handle. Only the example name was wrong.
+
+## Demo images committed, not hotlinked
+
+The landing-page demo grid ships its images from our own repo rather than hotlinking Unsplash or any third-party CDN. Three reasons compound: hotlinking makes every landing-page visitor issue cross-origin requests to a third party, which contradicts the product's privacy position; it puts ~15 uncontrolled cross-origin fetches in front of the LCP element on the one page the entire acquisition channel depends on; and demonstrating an image-extraction tool by hotlinking someone else's CDN, directly above a copyright notice, is the wrong optic.
+
+**Cost:** ~120 KB committed to the repo, and refreshing the demo set is a manual step.
+**Revisit if:** the demo set grows large enough that repo weight outweighs the privacy, performance, and optics case.
+
 ## Open questions
 
 | Question | Trigger |

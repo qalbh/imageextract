@@ -146,12 +146,14 @@ here. Do not pretend otherwise. The guard is built from what IS available:
    `169.254.0.0/16`, `100.64.0.0/10`, `0.0.0.0/8`, `192.0.2.0/24`,
    `198.51.100.0/24`, `203.0.113.0/24` (TEST-NET 1/2/3), `198.18.0.0/15`
    (benchmarking), `224.0.0.0/4` (multicast), `240.0.0.0/4` (reserved,
-   subsumes `255.255.255.255`), `::1`, `fc00::/7`, `fe80::/10`,
+   subsumes `255.255.255.255`), `::` (the unspecified address — connecting
+   to it means "this host"), `::1`, `fc00::/7`, `fe80::/10`,
    `2001:db8::/32`, `ff00::/8`, and IPv4-mapped IPv6 such as
    `::ffff:10.0.0.1`. Handle decimal, octal, and hex-encoded IPv4 forms —
    `2130706433` and `0x7f000001` are both localhost.
 4. Reject hostnames that resolve internally by convention: `localhost`,
-   anything ending `.local`, `.internal`, `.localdomain`, and known cloud
+   anything ending `.local`, `.internal`, `.localdomain`, `.localhost`
+   (RFC 6761 reserves the whole TLD for loopback), and known cloud
    metadata hostnames
 5. Use `redirect: 'manual'` and follow redirects yourself, re-running the
    full guard on every hop. Maximum 3 hops. Never use `redirect: 'follow'` —
@@ -228,6 +230,32 @@ Then dedupe by normalized URL (strip fragment, sort query params) and drop `data
 - Astro pages ship zero JavaScript by default. Add `client:*` directives only to the results grid.
 - Comments explain *why* — a spec quirk, a workaround for a class of malformed page — not *what*.
 - Every `URL.createObjectURL` has a matching `revokeObjectURL`.
+
+## Keeping docs and code in sync
+
+`src/lib/doc-sync.test.ts` mechanically guards three things: the manifest
+unions (`source`, `truncated`) match `extract.ts`; every code identifier
+named in the docs (constants, error classes, enum literals) exists in
+source; and the design-system colour table matches the `@theme` block. A
+rename or a wrong value fails the suite.
+
+What it deliberately does **not** check is prose numbers — a caps figure
+like "100 KB on `robots.txt`" or "10s scan timeout" stated in a sentence.
+Asserting a number appears near a word confirms a string, not that the
+sentence still describes the code, and the false confidence is worse than
+the gap. **Standing rule: prose claims are read against the code at the end
+of each phase** (the phase-boundary audit), not machine-checked. The three
+drifts that prompted this — an undocumented cache, a stale cost line, a
+non-existent enum value — were all found by reading, and two of the three
+were semantic, which no string test can see.
+
+## Design system
+
+`src/styles/global.css` is the sole source of color, type, spacing, and
+radius values — components consume tokens, never raw values. If a value you
+need is not present, raise it before adding it; do not introduce hex codes,
+ad-hoc sizes, or arbitrary-value utilities in components. Full rules and
+the token table: `docs/design-system.md`.
 
 ## SEO
 
