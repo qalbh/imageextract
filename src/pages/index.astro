@@ -1,15 +1,279 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import ScanForm from '../components/ScanForm.astro';
+
+const capabilities = [
+	{
+		n: '01',
+		label: 'Deep extraction',
+		text: 'Finds images plain scrapers miss: srcset variants, lazy-loaded tiles, CSS backgrounds, inline SVG, JSON-LD and social meta.',
+	},
+	{
+		n: '02',
+		label: 'Bulk ZIP download',
+		text: 'Select any set and download it as one archive, assembled locally in your browser.',
+	},
+	{
+		n: '03',
+		label: 'Zero storage',
+		text: 'Scans run stateless: no accounts, no database, no cache of your URLs, nothing retained.',
+	},
+	{
+		n: '04',
+		label: 'True previews',
+		text: 'Thumbnails load straight from the source, with format and dimension badges on every tile.',
+	},
+	{
+		n: '05',
+		label: 'Respectful by design',
+		text: 'Honours robots.txt with no override, and identifies itself honestly on every request.',
+	},
+	{
+		n: '06',
+		label: 'Shareable scans',
+		text: 'Every scan is a URL. Send it to anyone and they get the same scan.',
+	},
+];
+
+const steps = [
+	{
+		label: 'Paste your URL',
+		text: 'Any public page; the scanner reads the HTML exactly as the server sends it.',
+		mono: 'static HTML parse, no JS execution',
+	},
+	{
+		label: 'Preview and filter',
+		text: 'Browse everything found, with type and dimension badges to narrow the set.',
+		mono: 'filtered in your browser',
+	},
+	{
+		label: 'Download your way',
+		text: 'Grab single images, or a ZIP assembled in your browser.',
+		mono: 'streamed, never stored',
+	},
+];
 ---
 
 <Layout>
-	<main class="mx-auto max-w-5xl px-4 py-10">
-		<h1 class="text-2xl font-bold text-neutral-900">Extract images from any web page</h1>
-		<p class="mt-1 text-neutral-600">
-			Paste a page URL and get every image on it — previews, formats, and dimensions.
-		</p>
+	<header class="border-b border-border bg-bg">
+		<div class="mx-auto flex max-w-content items-center justify-between px-md py-sm">
+			<a href="/" class="flex items-center gap-xs font-semibold text-text">
+				<span
+					class="flex size-md items-center justify-center rounded-sm bg-accent font-mono text-label uppercase text-surface"
+					aria-hidden="true">IE</span
+				>
+				ImageExtract.pics
+			</a>
+			<nav aria-label="Main">
+				<ul class="flex gap-md text-caption text-muted">
+					<li><a href="#features" class="hover:text-text">Features</a></li>
+					<li><a href="#how-it-works" class="hover:text-text">How It Works</a></li>
+					<li><a href="#faq" class="hover:text-text">FAQ</a></li>
+					<li><a href="#api" class="hover:text-text">API</a></li>
+				</ul>
+			</nav>
+		</div>
+	</header>
 
-		<ScanForm />
+	<main>
+		{/* Hero — the H1 is the LCP element: system fonts, no images above it. */}
+		<section class="relative bg-bg">
+			<div class="dot-grid absolute inset-0" aria-hidden="true"></div>
+			<div class="relative mx-auto max-w-content px-md py-2xl text-center">
+				<h1 class="hero-h1 mx-auto text-display font-bold text-text">
+					Extract every image from any web page
+				</h1>
+				<p class="mx-auto mt-md text-body text-muted">
+					Paste a URL. Preview, filter, and bulk-download every image on the page in seconds.
+				</p>
+				<div class="hero-form mx-auto mt-lg">
+					<ScanForm />
+				</div>
+				<p class="mt-lg text-caption text-muted">
+					Nothing is stored or logged. Bytes stream through and are forgotten.
+				</p>
+				<p class="mt-xs text-label text-muted">
+					Images belong to their creators. Only download what you have the right to use.
+				</p>
+			</div>
+		</section>
+
+		{/* Demo grid lands here next — reserved at final height, deliberately empty. */}
+		<div class="demo-placeholder mx-auto max-w-content px-md" aria-hidden="true"></div>
+
+		<section id="features" class="bg-bg">
+			<div class="mx-auto max-w-content px-md py-2xl">
+				<p class="font-mono text-label uppercase text-accent">Features</p>
+				<h2 class="mt-sm text-h2 font-bold text-text">
+					Engineered for careful, complete extraction
+				</h2>
+				<ul class="mt-xl grid grid-cols-1 gap-x-xl md:grid-cols-2">
+					{
+						capabilities.map((item) => (
+							<li class="border-b border-border py-md">
+								<p class="font-mono text-label text-accent">{item.n}</p>
+								<h3 class="mt-xs text-body font-semibold text-text">{item.label}</h3>
+								<p class="mt-xs text-small text-muted">{item.text}</p>
+							</li>
+						))
+					}
+				</ul>
+			</div>
+		</section>
+
+		<section id="how-it-works" class="bg-surface">
+			<div class="mx-auto max-w-content px-md py-2xl">
+				<p class="font-mono text-label uppercase text-accent">How it works</p>
+				<h2 class="mt-sm text-h2 font-bold text-text">Three steps to every image</h2>
+				<ol class="mt-xl grid grid-cols-1 gap-md md:grid-cols-3">
+					{
+						steps.map((step) => (
+							<li class="border-t border-border pt-md">
+								<h3 class="text-body font-semibold text-text">{step.label}</h3>
+								<p class="mt-xs text-small text-muted">{step.text}</p>
+								<p class="mt-sm font-mono text-caption text-accent">{step.mono}</p>
+							</li>
+						))
+					}
+				</ol>
+			</div>
+		</section>
+
+		<section id="faq" class="bg-bg">
+			<div class="mx-auto max-w-content px-md py-2xl">
+				<p class="font-mono text-label uppercase text-accent">Documentation &amp; support</p>
+				<h2 class="mt-sm text-h2 font-bold text-text">Frequently asked questions</h2>
+				<div class="mt-xl grid grid-cols-1 gap-x-xl md:grid-cols-2">
+					<div>
+						<h3 class="text-body font-semibold text-text">What image formats are supported?</h3>
+						<p class="mt-xs text-small text-muted">
+							We detect <strong>PNG, JPEG, SVG, GIF, WebP, AVIF, and ICO</strong>, and list anything
+							else as unknown so you can still grab it.
+						</p>
+						<h3 class="mt-lg text-body font-semibold text-text">
+							Is there a limit on images per page?
+						</h3>
+						<p class="mt-xs text-small text-muted">
+							A scan returns up to <strong>1,000 images</strong>. If a page holds more, the response
+							says the list was trimmed — and tells you whether the whole page was even read.
+						</p>
+						<h3 class="mt-lg text-body font-semibold text-text">Do you store the extracted images?</h3>
+						<p class="mt-xs text-small text-muted">
+							No. <strong>Nothing is persisted</strong>: no database, no cache of your URLs, no URLs
+							in logs. Bytes stream through and are forgotten.
+						</p>
+						<h3 class="mt-lg text-body font-semibold text-text">
+							Can I use this for commercial projects?
+						</h3>
+						<p class="mt-xs text-small text-muted">
+							The tool is free for any use, but the images belong to their creators — <strong
+								>you are responsible for the rights</strong
+							> to anything you download.
+						</p>
+					</div>
+					<div>
+						<h3 class="mt-lg text-body font-semibold text-text md:mt-0">
+							How does it find lazy-loaded images?
+						</h3>
+						<p class="mt-xs text-small text-muted">
+							The scanner reads <strong>the HTML as served</strong> — data-src attributes, srcset,
+							CSS backgrounds, JSON-LD — without executing JavaScript, so images injected purely by
+							scripts after load won't appear.
+						</p>
+						<h3 class="mt-lg text-body font-semibold text-text">Why did a scan find nothing?</h3>
+						<p class="mt-xs text-small text-muted">
+							Some sites build their galleries <strong>entirely with JavaScript</strong>, so the
+							HTML the server sends contains no images for a static parse to find. Try a more
+							specific page — an article or product page rather than the app shell — and note that
+							if a site's robots.txt asks tools to stay out, we honour that and say so.
+						</p>
+						<h3 class="mt-lg text-body font-semibold text-text">Is it free?</h3>
+						<p class="mt-xs text-small text-muted">
+							Yes — <strong>free, with no account</strong>, and generous per-IP limits keep it that
+							way. Static parsing is cheap to run, which is why it doesn't need the sign-ups and
+							ads that headless-browser tools do.
+						</p>
+						<h3 id="api" class="mt-lg text-body font-semibold text-text">Is there an API?</h3>
+						<p class="mt-xs text-small text-muted">
+							<strong>Not yet.</strong> The endpoints behind the tool are rate-limited for
+							interactive use and aren't a stable contract. If real demand shows up, a proper API
+							is a post-launch addition.
+						</p>
+					</div>
+				</div>
+			</div>
+		</section>
 	</main>
+
+	<footer class="border-t border-border bg-bg">
+		<div class="mx-auto max-w-content px-md py-xl">
+			<div class="grid grid-cols-2 gap-md md:grid-cols-4">
+				<nav aria-label="Product">
+					<h2 class="font-mono text-label uppercase text-muted">Product</h2>
+					<ul class="mt-sm flex flex-col gap-xs text-caption text-muted">
+						<li><a href="#features" class="hover:text-text">Features</a></li>
+						<li><a href="#how-it-works" class="hover:text-text">How it works</a></li>
+					</ul>
+				</nav>
+				<nav aria-label="Resources">
+					<h2 class="font-mono text-label uppercase text-muted">Resources</h2>
+					<ul class="mt-sm flex flex-col gap-xs text-caption text-muted">
+						<li><a href="#faq" class="hover:text-text">FAQ</a></li>
+						<li><a href="/" class="hover:text-text">Start a scan</a></li>
+					</ul>
+				</nav>
+				<nav aria-label="Company">
+					<h2 class="font-mono text-label uppercase text-muted">Company</h2>
+					<ul class="mt-sm flex flex-col gap-xs text-caption text-muted">
+						<li><a href="/about" class="hover:text-text">About</a></li>
+						<li><a href="mailto:abuse@imageextract.pics" class="hover:text-text">Report abuse</a></li>
+					</ul>
+				</nav>
+				<nav aria-label="Legal">
+					<h2 class="font-mono text-label uppercase text-muted">Legal</h2>
+					<ul class="mt-sm flex flex-col gap-xs text-caption text-muted">
+						<li><a href="/privacy" class="hover:text-text">Privacy Policy</a></li>
+						<li><a href="/terms" class="hover:text-text">Terms of Service</a></li>
+					</ul>
+				</nav>
+			</div>
+			<div class="mt-xl flex items-center justify-between border-t border-border pt-sm text-label text-muted">
+				<p>© 2026 imageextract.pics</p>
+				<p>
+					<a href="/privacy" class="hover:text-text">Privacy</a>
+					·
+					<a href="/terms" class="hover:text-text">Terms</a>
+				</p>
+			</div>
+		</div>
+	</footer>
 </Layout>
+
+<style>
+	/* Dot grid: 1px dots on the token gutter pitch, fading out by 60% of the
+	   section height (per the design brief). All values are tokens or the
+	   brief's own numbers — no ad-hoc design values. */
+	.dot-grid {
+		background-image: radial-gradient(var(--color-border) 1px, transparent 1px);
+		background-size: var(--spacing-md) var(--spacing-md);
+		mask-image: linear-gradient(to bottom, black, transparent 60%);
+	}
+
+	/* Two lines on desktop without a hard <br>: balance wrapping under a
+	   content-derived width. Mobile reflows freely. */
+	.hero-h1 {
+		text-wrap: balance;
+		max-width: 20ch;
+	}
+
+	/* Half the content width — derived from the container token rather than
+	   an invented pixel value. Raise a --layout-form token if this needs to
+	   diverge from the container. */
+	.hero-form {
+		max-width: calc(var(--container-content) / 2);
+	}
+
+	.demo-placeholder {
+		min-height: var(--layout-demo);
+	}
+</style>

@@ -1,18 +1,20 @@
 {/* Native GET form: submitting navigates to /results?url= with zero
-    JavaScript, which is what makes shared scan links work at all. */}
-<form method="get" action="/results" class="mt-6 flex gap-2">
+    JavaScript, which is what makes shared scan links work at all.
+    Focus is an accent outline, not a ring — box-shadows are on the
+    design-system NEVER list. */}
+<form method="get" action="/results" class="flex gap-xs">
 	<input
 		id="scan-url"
 		name="url"
 		type="url"
 		required
-		placeholder="https://example.com/gallery"
-		class="w-full rounded-md border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-500 focus:outline-none"
+		placeholder="https://example.com"
+		class="w-full rounded-sm border border-border bg-surface px-sm py-xs text-body text-text placeholder:text-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
 	/>
 	<button
 		type="submit"
-		class="shrink-0 rounded-md bg-neutral-900 px-5 py-2 text-sm font-medium text-white hover:bg-neutral-700"
+		class="shrink-0 rounded-sm bg-accent px-md py-xs text-small font-medium text-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
 	>
-		Scan
+		Extract
 	</button>
 </form>

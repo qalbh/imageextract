@@ -66,4 +66,7 @@
   --layout-sidebar: 260px;
   --layout-gutter: 24px;
   --layout-stickybar: 64px;
+  /* Derived from the landing demo grid's final content — revisit if that
+     section's contents change. */
+  --layout-demo: 1040px;
 }

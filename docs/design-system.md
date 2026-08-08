@@ -20,6 +20,10 @@ radius values. If a value you need is not there, raise it before adding it.
 **Accent is used sparingly:** primary button, links, active filter,
 selected tile. Nowhere else.
 
+`--color-surface` doubles as the **on-accent text color** — button and
+wordmark text on `bg-accent` is `text-surface` on purpose, not a bug.
+There is no separate on-accent token; the value is the same `#FFFFFF`.
+
 ## Type
 
 Sans (`--font-sans`) for body and headings. Mono (`--font-mono`) for **all**
@@ -48,7 +52,9 @@ Scale (px): 88 / 48 / 32 / 20 / 16 / 14 / 13 / 11 —
 
 Content max-width 1280px (`max-w-content`) · sidebar 260px
 (`--layout-sidebar`) · grid gutter 24px (`--layout-gutter`) · sticky bar
-64px (`--layout-stickybar`) · tile reveal cap **120** (a JS constant —
+64px (`--layout-stickybar`) · landing demo-grid height 1040px
+(`--layout-demo` — derived from the demo grid's final content; changes if
+that section's contents change) · tile reveal cap **120** (a JS constant —
 recorded here, lands in code with the grid-scaling step).
 
 ## Interaction

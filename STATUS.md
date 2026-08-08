@@ -101,7 +101,7 @@ Phase 1 is complete: the whole server-side engine — scan, extraction, robots, 
 
 ### Phase 6 — SEO and content
 
-- [ ] Homepage copy that explains the tool
+- [x] Homepage copy that explains the tool (landing page shipped — truthful copy, zero JS)
 - [ ] Astro content collection for tool-variant landing pages
 - [ ] First 5 landing pages generated from the collection
 - [ ] Our own `robots.txt` and `sitemap.xml` — **must carry `Disallow: /results`**; the meta robots tag only works if the crawler fetches the page at all

@@ -1,5 +1,18 @@
 # Frontend build plan — Phase 2
 
+## Pre-launch blockers (from the landing page, 2026-08-08)
+
+**HARD blockers — launch does not happen without these:**
+- **Abuse mailbox** (`abuse@imageextract.pics`) live and monitored — the
+  landing footer links it. A bouncing abuse address is worse than none for
+  a tool whose defence is good citizenship.
+- **`/bot` crawler-info page** — hard dependency of the User-Agent string;
+  must exist before the first real scan. Deliberately NOT linked anywhere
+  until it exists: site owners follow that URL from their access logs.
+
+General pre-launch (linked from the landing footer, 404 until Phase 5/6):
+`/privacy` · `/terms` · `/about`.
+
 Build sequence for the results UI. Each step is a reviewable unit; the
 recommendations from the 2026-08-08 repo review (declared dimensions,
 `/results` route split, grouped source filter, incremental reveal +
