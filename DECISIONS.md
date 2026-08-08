@@ -130,6 +130,25 @@ An earlier attempt kept `@astrojs/react` and aliased react to `preact/compat` at
 **Cost:** none beyond choosing the integration over the hand-rolled alias.
 **Revisit if:** never for this reason.
 
+## Dev-server cleanup needs an explicit workerd sweep
+
+The Cloudflare adapter runs the dev Worker as a **separate `workerd` child
+process**, and Astro's `killDevServer` (behind `astro dev stop`) sends
+SIGTERM→SIGKILL to the **node pid only** — never the process group — so workerd
+is orphaned on nearly every stop and holds its ports. Background mode, where
+this happens, is **force-enabled in agent shells** (Astro detects the
+environment and detaches regardless), so it can't be sidestepped by running in
+the foreground. A reliable teardown must therefore reap workerd itself
+(`pkill -9 -f "workerd serve"`), and `.astro` must not be deleted until `ps`
+confirms no process survives — deleting the lockfile under a live server is
+what desyncs `astro dev stop` and drives the port-climbing.
+
+**Cost:** every restart needs an explicit workerd sweep; the documented reset
+recipe has more steps and a mandatory ordering.
+**Revisit if:** Astro or the Cloudflare adapter starts killing the process
+group (or otherwise reaping the workerd child) on shutdown — then the sweep
+becomes redundant and this can revert to a plain `astro dev stop`.
+
 ## Open questions
 
 | Question | Trigger |

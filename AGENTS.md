@@ -10,21 +10,56 @@ astro dev --background
 
 Manage the background server with `astro dev stop`, `astro dev status`, and `astro dev logs`.
 
-## Troubleshooting
+## Troubleshooting the dev server
 
-The dev server 500s with `The file does not exist at
-"…/node_modules/.vite/deps_ssr/…"` (sometimes `.vite/deps/…`) after any
-dependency install. This is Vite's optimizer holding stale references, not a
-code problem. Fix:
+Two failures recur and are **the default path here, not rare mishaps** — expect
+them. Both are inherent to this stack (Astro background mode + the Cloudflare
+adapter's workerd child + Vite's optimizer); see the DECISIONS.md entry on
+workerd cleanup.
+
+**1. Orphaned workerd after "stopping" the server.** The Cloudflare adapter
+runs the Worker as a **separate `workerd` child process**. Astro's
+`killDevServer` (what `astro dev stop` calls) sends SIGTERM→SIGKILL to the
+**node pid only** — it never signals the process group, so workerd is orphaned
+on almost every stop and keeps holding ports. This is why the port climbs
+(4321→4322→…) on restarts and why `astro dev stop` eventually reports "nothing
+running" while a server is very much alive. The manual `pkill` patterns people
+reach for (`astro dev`, `astro/dist/cli`) match node's argv, **not** workerd's,
+so they miss it. You must sweep workerd explicitly:
 
 ```
 astro dev stop
-rm -rf node_modules/.vite .astro
+pkill -9 -f "workerd serve"        # the step every other command misses
+ps aux | grep -Ei "astro|workerd" | grep -v grep   # confirm nothing survives
+```
+
+**2. `deps_ssr` 500s after a dependency change.** The server 500s with
+`The file does not exist at "…/node_modules/.vite/deps_ssr/…"` (sometimes
+`.vite/deps/…`) after any `npm install`/`astro add`. This is Vite's dependency
+optimizer holding stale hashed references — not a code problem. It is provoked
+by dependency-graph churn, so **batch installs** (add several packages in one
+command, not one at a time) to trigger it once instead of repeatedly. A fresh
+cold start also needs **one warm-up navigation** per route before the island
+renders; that first request may fail, the retry succeeds.
+
+**Full reset — order matters:**
+
+```
+astro dev stop
+pkill -9 -f "workerd serve"                          # reap workerd FIRST
+ps aux | grep -Ei "astro|workerd" | grep -v grep     # verify none survive
+rm -rf node_modules/.vite .astro                      # only now safe to delete
 astro dev --background
 ```
 
-Then hard-reload the browser. Restart the dev server after every
-`npm install` or `astro add`.
+Then hard-reload the browser. **Do not `rm -rf .astro` before confirming no
+astro/workerd process is alive.** `.astro/dev.json` is the lockfile
+`astro dev stop`/`status` rely on; deleting it out from under a live (or
+half-stopped) server is what *causes* the desync the old recipe blamed on the
+cache — the next start finds no lockfile, the old process still holds the port,
+and tracking is lost. The previous version of this section deleted `.astro`
+first and omitted the workerd sweep entirely, which reinstated the exact
+problem on every use.
 
 ## Documentation
 
