@@ -1,5 +1,42 @@
 @import "tailwindcss";
 
+/* Self-hosted, latin-subset, variable woff2 (see README + docs/design-system).
+   Sans ships weights 400–700 only; mono ships 400 only — weights outside those
+   ranges are NOT available and silently fall back. Fallback faces carry metric
+   overrides so a swap (or a font that never loads) barely reflows: ascent/
+   descent are from the webfonts themselves; size-adjust is measured, not the
+   naive OS/2 ratio. */
+@font-face {
+  font-family: "Schibsted Grotesk";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("./fonts/schibsted-grotesk-latin-400-700.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Schibsted Grotesk Fallback";
+  src: local("Arial");
+  size-adjust: 104%;
+  ascent-override: 97.66%;
+  descent-override: 25.78%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./fonts/ibm-plex-mono-latin-400.woff2") format("woff2");
+}
+@font-face {
+  font-family: "IBM Plex Mono Fallback";
+  src: local("Courier New");
+  size-adjust: 100%;
+  ascent-override: 102.5%;
+  descent-override: 27.5%;
+  line-gap-override: 0%;
+}
+
 @theme {
   /* Color — the ONLY place hex values may exist (docs/design-system.md). */
   --color-bg: #FAFAF8;
@@ -8,14 +45,18 @@
   --color-muted: #6B6B6B;
   --color-border: #E4E4E0;
   --color-accent: #1B4DFF;
+  /* Decoration only — ~2.4:1 on --color-bg, fails WCAG AA for text at every
+     size. Dividers/disabled/placeholder glyphs; never body/label/caption. */
+  --color-light-muted: #9B9B9B;
   /* Warning triple sits in the palette's warm-grey key, not Tailwind amber. */
   --color-warning-bg: #FAF3E3;
   --color-warning-border: #E3D2A4;
   --color-warning-text: #6B5720;
 
-  /* Type — system stacks: zero webfont bytes against the LCP budget. */
-  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  /* Self-hosted webfonts first, metric-matched fallback face next, system
+     stack last — all inside the one token. */
+  --font-sans: "Schibsted Grotesk", "Schibsted Grotesk Fallback", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "IBM Plex Mono", "IBM Plex Mono Fallback", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 
   --text-display: 88px;
   --text-display--line-height: 1.05;

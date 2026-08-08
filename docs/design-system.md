@@ -13,6 +13,7 @@ radius values. If a value you need is not there, raise it before adding it.
 | `--color-muted` | `#6B6B6B` | secondary text, captions |
 | `--color-border` | `#E4E4E0` | all borders |
 | `--color-accent` | `#1B4DFF` | see accent rules below |
+| `--color-light-muted` | `#9B9B9B` | **decoration only** — see warning below |
 | `--color-warning-bg` | `#FAF3E3` | truncation banner background |
 | `--color-warning-border` | `#E3D2A4` | truncation banner border |
 | `--color-warning-text` | `#6B5720` | truncation banner text |
@@ -24,10 +25,25 @@ selected tile. Nowhere else.
 wordmark text on `bg-accent` is `text-surface` on purpose, not a bug.
 There is no separate on-accent token; the value is the same `#FFFFFF`.
 
+**`--color-light-muted` is decoration only.** It is ~2.4:1 on
+`--color-bg` and fails WCAG AA for text at every size. Legal uses:
+dividers, disabled states, placeholder glyphs. **Never** body, label, or
+caption text — use `--color-muted` for any text that must be read.
+
 ## Type
 
-Sans (`--font-sans`) for body and headings. Mono (`--font-mono`) for **all**
-metadata, badges, counts, and labels. Both are system stacks — no webfonts.
+Sans (`--font-sans`) for body and headings — **Schibsted Grotesk**. Mono
+(`--font-mono`) for **all** metadata, badges, counts, and labels — **IBM
+Plex Mono**. Both are self-hosted, latin-subset, variable woff2 with a
+metric-matched fallback face and the system stack last, all inside the one
+token; see README for licences.
+
+**Available weights are a constraint, not a coincidence.** The sans face
+ships **400–700 only** (the range the site uses; instanced to hit the byte
+budget) and mono ships **400 only**. A `font-weight` outside those ranges
+does not fail — it silently falls back to the nearest available weight. If
+you need 800/900 sans or a second mono weight, re-instance the subset and
+raise the byte budget; do not just write the weight and assume it renders.
 
 Scale (px): 88 / 48 / 32 / 20 / 16 / 14 / 13 / 11 —
 `display / h1 / h2 / h3 / body / small / caption / label`.

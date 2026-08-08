@@ -29,6 +29,20 @@ See `STATUS.md` for the full breakdown.
 - React as a single island for the results grid; every other page ships zero JS
 - Vitest running in real workerd via `@cloudflare/vitest-pool-workers`
 
+## Fonts
+
+Self-hosted, no third-party font host. Two faces, both under the **SIL Open
+Font License 1.1**, which permits self-hosting and redistribution:
+
+| Face | Role | Licence | Notice |
+|---|---|---|---|
+| Schibsted Grotesk | display + body (weights 400–700) | OFL 1.1 | `src/styles/fonts/schibsted-grotesk-OFL.txt` |
+| IBM Plex Mono | metadata, badges, labels (weight 400) | OFL 1.1 | `src/styles/fonts/ibm-plex-mono-OFL.txt` |
+
+Both are latin-subset variable woff2, content-hashed and served immutable.
+Total ~56 KB. The OFL notices live beside the woff2 files; keep them together
+if the fonts ever move.
+
 ## Architecture in one paragraph
 
 Two stateless endpoints. `/api/scan` fetches a page, checks robots.txt, stream-parses the HTML, and returns a JSON manifest of image URLs. `/api/proxy` streams exactly one image, pass-through, near-zero CPU. Everything expensive — previews, dimensions, filtering, sorting, ZIP assembly — happens in the browser. Thumbnails load directly from the origin, so browsing costs nothing; only downloads pass through the proxy.

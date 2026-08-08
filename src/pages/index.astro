@@ -57,7 +57,7 @@ const steps = [
 <Layout>
 	<header class="border-b border-border bg-bg">
 		<div class="mx-auto flex max-w-content items-center justify-between px-md py-sm">
-			<a href="/" class="flex items-center gap-xs font-semibold text-text">
+			<a href="/" class="flex items-center gap-xs text-body font-semibold text-text">
 				<span
 					class="flex size-md items-center justify-center rounded-sm bg-accent font-mono text-label uppercase text-surface"
 					aria-hidden="true">IE</span
@@ -259,11 +259,13 @@ const steps = [
 		mask-image: linear-gradient(to bottom, black, transparent 60%);
 	}
 
-	/* Two lines on desktop without a hard <br>: balance wrapping under a
-	   content-derived width. Mobile reflows freely. */
+	/* Two lines on desktop without a hard <br>. The centered content
+	   container already forces the wrap; `balance` evens the lines. No
+	   ch-based width — ch tracks the font's "0" glyph, so it changes on font
+	   swap and moves the wrap point, shifting the H1 (measured CLS source).
+	   Container-relative wrapping keeps the line count stable across the swap. */
 	.hero-h1 {
 		text-wrap: balance;
-		max-width: 20ch;
 	}
 
 	/* Half the content width — derived from the container token rather than

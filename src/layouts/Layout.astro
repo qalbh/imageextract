@@ -1,5 +1,9 @@
 ---
 import '../styles/global.css';
+// Imported for its content-hashed URL so we can preload the above-the-fold
+// display face (carries the H1/LCP glyphs). Same source as the @font-face
+// url(), so Vite emits one hashed file and both references share it.
+import displayFont from '../styles/fonts/schibsted-grotesk-latin-400-700.woff2';
 
 interface Props {
 	title?: string;
@@ -13,6 +17,9 @@ const { title = 'imageextract — extract images from any web page' } = Astro.pr
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width" />
+		{/* Preload only the display face used above the fold (H1/LCP). Mono
+		    isn't preloaded — its only above-fold use is the wordmark badge. */}
+		<link rel="preload" href={displayFont} as="font" type="font/woff2" crossorigin />
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 		<link rel="icon" href="/favicon.ico" />
 		<meta name="generator" content={Astro.generator} />
