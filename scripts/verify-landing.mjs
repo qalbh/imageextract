@@ -15,9 +15,15 @@ import { readFile, readdir, stat } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { extname, join, dirname } from 'node:path';
+import { gzipSync } from 'node:zlib';
 import { chromium } from 'playwright-core';
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
+
+// The landing page went from zero JS to a small demo script. That budget is
+// now a hard cap the gate enforces (gzipped). No framework island either —
+// this must stay vanilla, checked separately below.
+const JS_BUDGET_GZIP = 8192;
 const dist = join(root, 'dist', 'client');
 
 const results = [];
@@ -112,9 +118,33 @@ async function browserChecks(base) {
   try {
     const page = await browser.newPage();
 
-    // / — served HTML has zero <script>; DOM has zero islands.
+    // / JS budget: sum gzipped bytes of every inline + referenced script.
     const homeHtml = await (await fetch(base + '/')).text();
-    ok('/ served HTML has zero <script> tags', (homeHtml.match(/<script/g) || []).length === 0);
+    let jsGzip = 0;
+    const detail = [];
+    for (const m of homeHtml.matchAll(/<script(\s[^>]*)?>([\s\S]*?)<\/script>/g)) {
+      const attrs = m[1] || '';
+      const srcMatch = attrs.match(/\ssrc=["']([^"']+)["']/);
+      if (srcMatch) {
+        const p = join(dist, srcMatch[1].split('?')[0]);
+        if (existsSync(p)) {
+          const g = gzipSync(await readFile(p)).length;
+          jsGzip += g;
+          detail.push(`${srcMatch[1]}=${g}`);
+        }
+      } else if (m[2].trim()) {
+        const g = gzipSync(Buffer.from(m[2])).length;
+        jsGzip += g;
+        detail.push(`inline=${g}`);
+      }
+    }
+    ok(
+      `/ JS ≤ ${JS_BUDGET_GZIP}B gzipped`,
+      jsGzip <= JS_BUDGET_GZIP,
+      `${jsGzip}B gzipped [${detail.join(' ')}]`,
+    );
+
+    // Still no framework island — the demo is vanilla JS, not a hydrated island.
     await page.goto(base + '/', { waitUntil: 'load' });
     ok('/ DOM has zero astro-island elements', (await page.locator('astro-island').count()) === 0);
 

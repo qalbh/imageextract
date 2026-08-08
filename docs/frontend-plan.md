@@ -13,6 +13,27 @@
 General pre-launch (linked from the landing footer, 404 until Phase 5/6):
 `/privacy` · `/terms` · `/about`.
 
+## Copyright notice placement (moved 2026-08-09)
+
+The "Images belong to their creators…" notice was removed from the landing
+hero and now lives **only on `/results`, above the results grid** — where
+downloads actually happen. This placement is required by the definition of
+done (copyright notice above the results grid) and is better regardless: the
+hero is not where anyone downloads. Confirmed rendering at `results.astro`.
+
+## Landing demo grid (built 2026-08-09)
+
+`src/components/DemoGrid.astro` fills the reserved `--layout-demo` band on
+`/`, driven by `src/fixtures/demo-scan.ts` (a real `ScanResult` + companion
+`demoTileMeta` for the not-yet-on-`ScanImage` dimensions). Masonry is used
+here **and only here**; `/results` stays uniform `aspect-square`. Vanilla
+inline script (2.1 KB gz, well under the 8 KB budget the gate now enforces),
+no island. Scripted intro on 40%-visible + idle, once; any input hands off
+to full interactivity; `prefers-reduced-motion` renders the end state
+(JPEG filter + selection) interactively; the same markup is the no-JS
+fallback. 14 demo images are 400px webp (116.3 KB total); source PNGs are
+gitignored to hold the DECISIONS.md ~120 KB demo-asset budget.
+
 Build sequence for the results UI. Each step is a reviewable unit; the
 recommendations from the 2026-08-08 repo review (declared dimensions,
 `/results` route split, grouped source filter, incremental reveal +
