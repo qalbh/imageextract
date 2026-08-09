@@ -3,28 +3,30 @@ import type { ImageExt } from '../lib/extract';
 import {
   SORT_OPTIONS,
   SOURCE_GROUPS,
+  formatLabel,
   type SortKey,
   type SourceGroupId,
 } from '../lib/results-model';
 
 /**
  * Presentational sidebar — filename search, format filter, sort, the collapsed
- * source-group filter, and the invert-background display toggle. All state and
+ * source-group filter, and the invert-background display switch. All state and
  * faceted counts are computed by the parent (ResultsGrid) and passed in.
+ *
+ * Controls follow one rule (design-system.md): checkboxes and radios are for
+ * FILTERING (format, source, sort); a switch is for a DISPLAY MODE (invert).
  *
  * Faceting: counts reflect the set filtered by the *other* groups. A row whose
  * faceted count is zero renders disabled and muted rather than disappearing, so
  * the list never reflows under the pointer.
  */
 
-const FORMAT_LABEL: Partial<Record<ImageExt, string>> = { jpeg: 'JPG', unknown: 'Other' };
-const formatLabel = (ext: ImageExt) => FORMAT_LABEL[ext] ?? ext.toUpperCase();
-
 function SectionLabel({ children }: { children: ComponentChildren }) {
   return <p className="mb-xs font-mono text-label uppercase text-muted">{children}</p>;
 }
 
 export default function ResultsSidebar({
+  instanceId,
   query,
   onQuery,
   formatOrder,
@@ -43,6 +45,9 @@ export default function ResultsSidebar({
   invert,
   onInvert,
 }: {
+  // Distinguishes the two mounted instances (desktop aside + mobile sheet) so
+  // the search input id and the sort radio group name stay unique in the DOM.
+  instanceId: string;
   query: string;
   onQuery: (value: string) => void;
   formatOrder: ImageExt[];
@@ -65,11 +70,14 @@ export default function ResultsSidebar({
     <div className="flex flex-col gap-lg">
       {/* Filename / URL search */}
       <div>
-        <label htmlFor="results-search" className="mb-xs block font-mono text-label uppercase text-muted">
+        <label
+          htmlFor={`results-search-${instanceId}`}
+          className="mb-xs block font-mono text-label uppercase text-muted"
+        >
           Find
         </label>
         <input
-          id="results-search"
+          id={`results-search-${instanceId}`}
           type="search"
           value={query}
           onInput={(event) => onQuery((event.target as HTMLInputElement).value)}
@@ -138,7 +146,7 @@ export default function ResultsSidebar({
               <label className="flex cursor-pointer items-center gap-xs py-xs">
                 <input
                   type="radio"
-                  name="results-sort"
+                  name={`results-sort-${instanceId}`}
                   checked={sortKey === option.key}
                   onChange={() => onSort(option.key)}
                   className="accent-accent"
@@ -195,18 +203,21 @@ export default function ResultsSidebar({
         </ul>
       </details>
 
-      {/* Display */}
+      {/* Display — a switch, not a checkbox: this is a display mode, not a
+          filter (design-system.md). Same control as the landing demo grid. */}
       <div>
         <SectionLabel>Display</SectionLabel>
-        <label className="flex cursor-pointer items-center justify-between gap-xs py-xs">
+        <div className="flex items-center justify-between gap-xs py-xs">
           <span className="font-mono text-label uppercase text-text">Invert background</span>
-          <input
-            type="checkbox"
-            checked={invert}
-            onChange={(event) => onInvert((event.target as HTMLInputElement).checked)}
-            className="accent-accent"
+          <button
+            type="button"
+            role="switch"
+            aria-checked={invert}
+            aria-label="Invert background"
+            onClick={() => onInvert(!invert)}
+            className="toggle"
           />
-        </label>
+        </div>
       </div>
     </div>
   );

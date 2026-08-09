@@ -28,7 +28,7 @@ Phase 1 is complete: the whole server-side engine — scan, extraction, robots, 
 
 ### In progress
 
-- [ ] Phase 2 remaining: proxy fallback on hotlink 403, lazy byte-size probing, and the mobile pass. Restyle, route split, filters, sort, selection, copy, invert-background, and incremental reveal are all shipped; results.astro is now on tokens and off the verify-gate PRE_RESTYLE list. ZIP is Phase 3.
+- [ ] Phase 2 remaining: proxy fallback on hotlink 403, lazy byte-size probing, and the keyboard/focus audit. Restyle, route split, filters, sort, selection, copy, invert-background, incremental reveal, and the 390px mobile pass (landing + results bottom sheet) are all shipped; results.astro is on tokens and off the verify-gate PRE_RESTYLE list. ZIP is Phase 3.
 
 ---
 
@@ -65,7 +65,7 @@ Phase 1 is complete: the whole server-side engine — scan, extraction, robots, 
 - [x] **Incremental reveal + content-visibility** in place of full virtualization (cap 120, IntersectionObserver append; @tanstack/react-virtual escalation path if a real device janks)
 - [x] Empty state (zero images found)
 - [x] Error states per failure type (incl. distinct `truncated` wording per reason)
-- [ ] Mobile layout
+- [x] Mobile layout (390px landing + results; shared header + compact SOURCE bar on /results; sidebar becomes a bottom sheet; whole-tile keyboard selection + visible focus)
 - [x] `robotsBlocked` state, no override path
 
 ### Phase 3 — Download

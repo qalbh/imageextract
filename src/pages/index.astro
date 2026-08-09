@@ -1,5 +1,6 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import SiteHeader from '../components/SiteHeader.astro';
 import ScanForm from '../components/ScanForm.astro';
 import DemoGrid from '../components/DemoGrid.astro';
 
@@ -56,32 +57,14 @@ const steps = [
 ---
 
 <Layout>
-	<header class="border-b border-border bg-bg">
-		<div class="mx-auto flex max-w-content items-center justify-between px-md py-sm">
-			<a href="/" class="flex items-center gap-xs text-body font-semibold text-text">
-				<span
-					class="flex size-md items-center justify-center rounded-sm bg-accent font-mono text-label uppercase text-surface"
-					aria-hidden="true">IE</span
-				>
-				ImageExtract.pics
-			</a>
-			<nav aria-label="Main">
-				<ul class="flex gap-md text-caption text-muted">
-					<li><a href="#features" class="hover:text-text">Features</a></li>
-					<li><a href="#how-it-works" class="hover:text-text">How It Works</a></li>
-					<li><a href="#faq" class="hover:text-text">FAQ</a></li>
-					<li><a href="#api" class="hover:text-text">API</a></li>
-				</ul>
-			</nav>
-		</div>
-	</header>
+	<SiteHeader />
 
 	<main>
 		{/* Hero — the H1 is the LCP element: system fonts, no images above it. */}
 		<section class="relative bg-bg">
 			<div class="dot-grid absolute inset-0" aria-hidden="true"></div>
 			<div class="relative mx-auto max-w-content px-md py-2xl text-center">
-				<h1 class="hero-h1 mx-auto text-display font-bold text-text">
+				<h1 class="hero-h1 mx-auto text-h1 font-bold text-text md:text-display">
 					Extract every image from any web page
 				</h1>
 				<p class="mx-auto mt-md text-body text-muted">
@@ -126,7 +109,7 @@ const steps = [
 				<ol class="mt-xl grid grid-cols-1 gap-md md:grid-cols-3">
 					{
 						steps.map((step) => (
-							<li class="border-t border-border pt-md">
+							<li class="pt-md md:border-t md:border-border">
 								<h3 class="text-body font-semibold text-text">{step.label}</h3>
 								<p class="mt-xs text-small text-muted">{step.text}</p>
 								<p class="mt-sm font-mono text-caption text-accent">{step.mono}</p>

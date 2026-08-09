@@ -6,11 +6,13 @@ import {
   canonicalFormats,
   formatAllCount,
   formatCounts,
+  formatLabel,
   groupCounts,
   invertWithin,
   knownWidthCount,
   matchesQuery,
   selectAll,
+  selectRange,
   selectedUrls,
   sortImages,
   sourceGroupOf,
@@ -151,13 +153,32 @@ describe('faceted counts', () => {
 });
 
 describe('canonicalFormats', () => {
-  it('returns present formats in canonical order', () => {
-    const set = [
-      img({ source: 'img', ext: 'webp' }),
-      img({ source: 'img', ext: 'png' }),
-      img({ source: 'img', ext: 'svg' }),
-    ];
-    expect(canonicalFormats(set)).toEqual(['png', 'svg', 'webp']);
+  it('always returns the full supported set in canonical order (rows never removed)', () => {
+    // Every ImageExt member must be present so zero-count rows can render
+    // disabled rather than disappearing — even for a manifest with one format.
+    expect(canonicalFormats()).toEqual(['png', 'jpeg', 'svg', 'gif', 'webp', 'avif', 'ico', 'unknown']);
+  });
+
+  it('keeps formats absent from the manifest, with a zero facet count', () => {
+    // Regression: JPEG/WEBP/ICO went missing when the list was filtered to
+    // present-only. The row must stay (canonicalFormats) and read 0 (facet).
+    const pngOnly = [img({ source: 'img', ext: 'png' }), img({ source: 'img', ext: 'png' })];
+    expect(canonicalFormats()).toContain('jpeg');
+    expect(canonicalFormats()).toContain('webp');
+    expect(canonicalFormats()).toContain('ico');
+    const counts = formatCounts(pngOnly, NO_FILTER);
+    expect(counts.get('png')).toBe(2);
+    expect(counts.get('jpeg') ?? 0).toBe(0);
+    expect(counts.get('webp') ?? 0).toBe(0);
+  });
+});
+
+describe('formatLabel', () => {
+  it('maps jpeg to JPG and unknown to UNKNOWN (never OTHER)', () => {
+    expect(formatLabel('jpeg')).toBe('JPG');
+    expect(formatLabel('unknown')).toBe('UNKNOWN');
+    expect(formatLabel('png')).toBe('PNG');
+    expect(formatLabel('webp')).toBe('WEBP');
   });
 });
 
@@ -264,5 +285,36 @@ describe('selection', () => {
   it('selectedUrls returns document-order URLs of the selection', () => {
     const sel = new Set(['C', 'A']);
     expect(selectedUrls(set, sel)).toEqual([set[0]!.url, set[2]!.url]);
+  });
+});
+
+describe('selectRange (shift-click)', () => {
+  const order = [
+    img({ source: 'img', ext: 'png', id: 'A' }),
+    img({ source: 'img', ext: 'png', id: 'B' }),
+    img({ source: 'img', ext: 'png', id: 'C' }),
+    img({ source: 'img', ext: 'png', id: 'D' }),
+    img({ source: 'img', ext: 'png', id: 'E' }),
+  ];
+
+  it('selects the inclusive range between anchor and target', () => {
+    expect([...selectRange(new Set(), order, 'B', 'D')].sort()).toEqual(['B', 'C', 'D']);
+  });
+
+  it('works regardless of click direction', () => {
+    expect([...selectRange(new Set(), order, 'D', 'B')].sort()).toEqual(['B', 'C', 'D']);
+  });
+
+  it('adds to the existing selection, keeping ids outside the range', () => {
+    expect([...selectRange(new Set(['A']), order, 'C', 'D')].sort()).toEqual(['A', 'C', 'D']);
+  });
+
+  it('ranges over the current order, so filtering out the middle excludes it', () => {
+    const filtered = [order[0]!, order[2]!, order[4]!]; // A, C, E (B and D filtered away)
+    expect([...selectRange(new Set(), filtered, 'A', 'E')].sort()).toEqual(['A', 'C', 'E']);
+  });
+
+  it('falls back to the target when the anchor is not in the order', () => {
+    expect([...selectRange(new Set(), order, 'missing', 'C')]).toEqual(['C']);
   });
 });

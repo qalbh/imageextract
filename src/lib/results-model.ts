@@ -38,9 +38,10 @@ export function sourceGroupOf(source: ImageSource): SourceGroupId {
   return GROUP_OF[source];
 }
 
-// Stable format order for the sidebar. The list of *shown* formats is fixed
-// from the full manifest (see canonicalFormats) so rows never appear/disappear
-// as counts change; faceting only zeroes their counts.
+// Stable, exhaustive format order for the sidebar. The FULL supported set is
+// always shown — rows for formats missing from the manifest (or zeroed by
+// another filter) render disabled and muted, never removed, so the list can't
+// reflow under the pointer.
 const FORMAT_ORDER: readonly ImageExt[] = [
   'png',
   'jpeg',
@@ -52,9 +53,15 @@ const FORMAT_ORDER: readonly ImageExt[] = [
   'unknown',
 ];
 
-export function canonicalFormats(images: readonly ScanImage[]): ImageExt[] {
-  const present = new Set(images.map((img) => img.ext));
-  return FORMAT_ORDER.filter((ext) => present.has(ext));
+export function canonicalFormats(): ImageExt[] {
+  return [...FORMAT_ORDER];
+}
+
+// Human labels for the format union. 'jpeg' reads JPG; the union's fallback
+// member is 'unknown' (there is no 'other'), labelled UNKNOWN.
+const FORMAT_LABEL: Partial<Record<ImageExt, string>> = { jpeg: 'JPG', unknown: 'UNKNOWN' };
+export function formatLabel(ext: ImageExt): string {
+  return FORMAT_LABEL[ext] ?? ext.toUpperCase();
 }
 
 // ---------------------------------------------------------------------------
@@ -204,6 +211,27 @@ export function invertWithin(
     if (next.has(img.id)) next.delete(img.id);
     else next.add(img.id);
   }
+  return next;
+}
+
+// Shift-click range: select every tile between the anchor (last-clicked) and
+// the target, inclusive, in the CURRENT filtered+sorted order. If the anchor is
+// gone (filtered out), fall back to selecting just the target.
+export function selectRange(
+  selected: ReadonlySet<string>,
+  order: readonly ScanImage[],
+  anchorId: string,
+  targetId: string,
+): Set<string> {
+  const a = order.findIndex((img) => img.id === anchorId);
+  const b = order.findIndex((img) => img.id === targetId);
+  const next = new Set(selected);
+  if (a === -1 || b === -1) {
+    next.add(targetId);
+    return next;
+  }
+  const [lo, hi] = a <= b ? [a, b] : [b, a];
+  for (let k = lo; k <= hi; k += 1) next.add(order[k]!.id);
   return next;
 }
 

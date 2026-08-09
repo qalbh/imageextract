@@ -295,6 +295,41 @@ Mobile layout, invert-background toggle (for white-on-transparent images),
 keyboard/focus audit.
 
 Done when:
-- [ ] Grid, filters, and selection usable one-handed at 390 px wide
-- [ ] Invert toggle flips tile backgrounds without reloading images
-- [ ] Focus order and visible focus states through form → filters → grid
+- [x] Grid, filters, and selection usable one-handed at 390 px wide
+- [x] Invert toggle flips tile backgrounds without reloading images
+- [x] Focus order and visible focus states through form → filters → grid
+
+**Shipped 2026-08-09 — two 390px frames.** Landing (`index.astro`) was already
+mobile-first (1-col capabilities/FAQ, `grid-cols-2` footer, `column-count: 2`
+demo); the pass removed the connecting hairlines from the stacked steps on
+mobile and scaled the H1 `text-h1 → md:text-display` (both existing tokens; 88px
+can't wrap at 390px). Results (`ResultsGrid.tsx`): the 260px sidebar becomes a
+**bottom sheet** (`.filter-sheet`) opened by a Filters trigger in the sticky
+bottom chrome; the grid drops to `.results-grid` 2-up; a `--color-overlay` scrim
+dims the content while the selection bar stays visible above the sheet. One new
+token — `--color-overlay` (`rgb(17 17 17 / 0.5)`, derived from `--color-text`) —
+was added for the scrim; 70vh and the responsive breakpoints/column-counts are
+structural (in `global.css` classes), not tokens. Invert-background shipped
+earlier with step 6.
+
+**Mobile-pass review fixes (2026-08-09):**
+- **Shared `SiteHeader`** on / and /results (wordmark + nav, hairline). Below
+  `sm` the nav is hidden (wordmark-only) — it can't sit beside the wordmark at
+  390px. /results gets a compact `ScanForm` variant: a SOURCE row (label, URL
+  chip with a clear ×, Re-scan link); the hero input stays on /.
+- **Whole-tile selection**: the tile is `role="button"` (pointer + Enter/Space),
+  shift-click ranges over the filtered+sorted order (`selectRange`, tested), the
+  disabled download button stops propagation, and the checkbox is a visual cue.
+- **Selected frame** switched from an inset `outline` to a 2px accent **border**:
+  `content-visibility: auto`'s paint containment renders an inset outline
+  unevenly (thin top / doubled bottom). Focus is an outset outline with
+  containment lifted on `:focus-visible`.
+- **Tile redesign**: dimension chip top-right (dark=measured, muted=declared,
+  **absent** when unknown until load), source badge removed (source is a sidebar
+  filter), footer = filename + format label + disabled download square.
+- **Invert** is now a **switch** (`role="switch"`), not a checkbox — the rule
+  "checkboxes/radios filter, switches set display modes" is in design-system.md.
+- **Format filter** shows the full supported set always; zero-count rows render
+  disabled+muted, never removed. `unknown` reads UNKNOWN (was mislabelled OTHER).
+- **Mobile selection bar** is two rows (actions; then Filters + count + Download);
+  desktop stays one row.

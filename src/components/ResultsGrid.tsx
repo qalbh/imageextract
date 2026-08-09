@@ -10,6 +10,7 @@ import {
   invertWithin,
   knownWidthCount,
   selectAll,
+  selectRange,
   selectedUrls,
   sortImages,
   toggleId,
@@ -122,7 +123,11 @@ export default function ResultsGrid() {
   const [revealCap, setRevealCap] = useState(TILE_REVEAL_CAP);
   const [invert, setInvert] = useState(false);
   const [copied, setCopied] = useState(false);
+  // Mobile only: the filter sidebar collapses into a bottom sheet toggled here.
+  const [sheetOpen, setSheetOpen] = useState(false);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
+  // Anchor for shift-click range selection (the last tile toggled).
+  const lastClickedRef = useRef<string | null>(null);
 
   useEffect(() => {
     const url = new URLSearchParams(window.location.search).get('url');
@@ -186,7 +191,7 @@ export default function ResultsGrid() {
   // the active Format + query. The shown format rows are fixed from the full
   // manifest so they never reflow (canonicalFormats).
   const filterState: FilterState = { query, formats, groups };
-  const formatOrder = useMemo(() => canonicalFormats(images), [images]);
+  const formatOrder = useMemo(() => canonicalFormats(), []);
   const fmtCounts = useMemo(() => formatCounts(images, filterState), [images, query, groups]);
   const allFmtCount = useMemo(() => formatAllCount(images, filterState), [images, query, groups]);
   const grpCounts = useMemo(() => groupCounts(images, filterState), [images, query, formats]);
@@ -199,7 +204,6 @@ export default function ResultsGrid() {
       return next;
     });
   }, []);
-  const onToggleSelect = useCallback((id: string) => setSelected((prev) => toggleId(prev, id)), []);
   const onToggleFormat = useCallback(
     (ext: ImageExt) =>
       setFormats((prev) => {
@@ -221,9 +225,28 @@ export default function ResultsGrid() {
     [],
   );
 
+  // Whole-tile toggle. Shift-click extends a range from the last-clicked tile
+  // across the CURRENT filtered+sorted order; a plain click toggles one.
+  const handleTileToggle = (id: string, shift: boolean) => {
+    const anchor = lastClickedRef.current;
+    if (shift && anchor && anchor !== id) {
+      setSelected((prev) => selectRange(prev, sorted, anchor, id));
+    } else {
+      setSelected((prev) => toggleId(prev, id));
+    }
+    lastClickedRef.current = id;
+  };
   const handleSelectAll = () => setSelected((prev) => selectAll(prev, filtered));
   const handleClear = () => setSelected(new Set());
   const handleInvert = () => setSelected((prev) => invertWithin(prev, filtered));
+  // Mobile sheet "Clear" resets the filters (not sort/invert, which aren't
+  // filters); the count feeds the Filters trigger label.
+  const clearFilters = () => {
+    setQuery('');
+    setFormats(new Set());
+    setGroups(new Set());
+  };
+  const activeFilterCount = formats.size + groups.size + (query ? 1 : 0);
   const handleCopy = () => {
     const text = selectedUrls(images, selected).join('\n');
     void navigator.clipboard?.writeText(text).then(
@@ -235,6 +258,28 @@ export default function ResultsGrid() {
         // Clipboard denied (permissions / insecure context) — leave the label.
       },
     );
+  };
+
+  // Shared by both sidebar mounts — the desktop aside and the mobile sheet —
+  // so they stay in sync off the same state. Each adds its own instanceId.
+  const sidebarProps = {
+    query,
+    onQuery: setQuery,
+    formatOrder,
+    formats,
+    formatCounts: fmtCounts,
+    allCount: allFmtCount,
+    onToggleFormat,
+    onClearFormats: () => setFormats(new Set()),
+    groups,
+    groupCounts: grpCounts,
+    onToggleGroup,
+    sortKey,
+    onSort: setSortKey,
+    knownWidth,
+    filteredCount: filtered.length,
+    invert,
+    onInvert: setInvert,
   };
 
   switch (state.kind) {
@@ -254,11 +299,7 @@ export default function ResultsGrid() {
           <p role="status" className="sr-only">
             Scanning {state.hostname}…
           </p>
-          <ul
-            className="grid gap-md"
-            style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(var(--layout-tile-min), 1fr))' }}
-            aria-hidden="true"
-          >
+          <ul className="results-grid" aria-hidden="true">
             {Array.from({ length: 10 }).map((_, i) => (
               <li key={i} className="skeleton-tile" />
             ))}
@@ -298,26 +339,10 @@ export default function ResultsGrid() {
         <div>
           {state.result.truncated !== undefined && <TruncatedBanner reason={state.result.truncated} />}
           <div className="flex gap-md">
-            <aside className="shrink-0" style={{ width: 'var(--layout-sidebar)' }}>
-              <ResultsSidebar
-                query={query}
-                onQuery={setQuery}
-                formatOrder={formatOrder}
-                formats={formats}
-                formatCounts={fmtCounts}
-                allCount={allFmtCount}
-                onToggleFormat={onToggleFormat}
-                onClearFormats={() => setFormats(new Set())}
-                groups={groups}
-                groupCounts={grpCounts}
-                onToggleGroup={onToggleGroup}
-                sortKey={sortKey}
-                onSort={setSortKey}
-                knownWidth={knownWidth}
-                filteredCount={filtered.length}
-                invert={invert}
-                onInvert={setInvert}
-              />
+            {/* Desktop sidebar. Below the md breakpoint it disappears and the
+                same controls open as a bottom sheet (see below). */}
+            <aside className="hidden shrink-0 md:block" style={{ width: 'var(--layout-sidebar)' }}>
+              <ResultsSidebar instanceId="desktop" {...sidebarProps} />
             </aside>
 
             <div className="min-w-0 flex-1">
@@ -327,19 +352,14 @@ export default function ResultsGrid() {
               {sorted.length === 0 ? (
                 <p className="py-lg text-small text-muted">No images match these filters.</p>
               ) : (
-                <ul
-                  className="grid gap-md"
-                  style={{
-                    gridTemplateColumns: 'repeat(auto-fill, minmax(var(--layout-tile-min), 1fr))',
-                  }}
-                >
+                <ul className="results-grid">
                   {visible.map((image) => (
                     <ImageCard
                       key={image.id}
                       image={image}
                       selected={selected.has(image.id)}
                       invert={invert}
-                      onToggle={onToggleSelect}
+                      onToggle={handleTileToggle}
                       onMeasured={onMeasured}
                     />
                   ))}
@@ -349,16 +369,64 @@ export default function ResultsGrid() {
             </div>
           </div>
 
-          <SelectionBar
-            total={images.length}
-            selectedCount={selected.size}
-            filteredCount={filtered.length}
-            copied={copied}
-            onSelectAll={handleSelectAll}
-            onClear={handleClear}
-            onInvert={handleInvert}
-            onCopy={handleCopy}
-          />
+          {/* Bottom chrome: the selection bar. On mobile it is two rows and
+              carries the Filters trigger; on desktop a single row. Sticky so it
+              pins to the viewport bottom while the grid scrolls. */}
+          <div className="sticky bottom-0 z-30 mt-md">
+            <SelectionBar
+              total={images.length}
+              selectedCount={selected.size}
+              filteredCount={filtered.length}
+              copied={copied}
+              activeFilterCount={activeFilterCount}
+              filtersOpen={sheetOpen}
+              onOpenFilters={() => setSheetOpen(true)}
+              onSelectAll={handleSelectAll}
+              onClear={handleClear}
+              onInvert={handleInvert}
+              onCopy={handleCopy}
+            />
+          </div>
+
+          {/* Mobile filter sheet — the same ResultsSidebar over a dimming
+              scrim, stopping above the bottom bars so the selection bar stays
+              visible. Live filters, so Apply just dismisses; Clear resets. */}
+          {sheetOpen && (
+            <div className="md:hidden">
+              <button
+                type="button"
+                aria-label="Close filters"
+                onClick={() => setSheetOpen(false)}
+                className="filter-scrim"
+              />
+              <div
+                className="filter-sheet rounded-sm bg-surface"
+                role="dialog"
+                aria-modal="true"
+                aria-label="Filters"
+              >
+                <div className="min-h-0 flex-1 overflow-y-auto border-t border-border p-md">
+                  <ResultsSidebar instanceId="mobile" {...sidebarProps} />
+                </div>
+                <div className="flex gap-md border-t border-border bg-surface p-md">
+                  <button
+                    type="button"
+                    onClick={clearFilters}
+                    className="rounded-sm border border-border px-md py-xs font-mono text-label uppercase text-text"
+                  >
+                    Clear
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSheetOpen(false)}
+                    className="flex-1 rounded-sm bg-accent px-md py-xs font-mono text-label uppercase text-surface"
+                  >
+                    Apply
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       );
   }

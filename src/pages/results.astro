@@ -1,5 +1,6 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import SiteHeader from '../components/SiteHeader.astro';
 import ScanForm from '../components/ScanForm.astro';
 import ResultsGrid from '../components/ResultsGrid';
 ---
@@ -16,12 +17,16 @@ import ResultsGrid from '../components/ResultsGrid';
 		<link rel="canonical" href="https://imageextract.pics/results" />
 	</Fragment>
 
+	<SiteHeader anchorPrefix="/" />
+
 	<main class="mx-auto max-w-content px-sm py-lg">
-		<ScanForm />
+		{/* Compact SOURCE row (not the big hero input): the scanned URL as a chip
+		    with a clear ×, and a Re-scan link. */}
+		<ScanForm variant="compact" />
 
 		{/* Permanent copyright notice above the grid — a muted line, not a
 		    dismissible alert. Downloads happen on this page, so it stays put. */}
-		<p class="mt-lg border-b border-border pb-xs text-small text-muted">
+		<p class="mt-md border-b border-border pb-xs text-small text-muted">
 			Images belong to their creators. Only download what you have the right to use.
 		</p>
 

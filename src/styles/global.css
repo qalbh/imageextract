@@ -52,6 +52,10 @@
   --color-warning-bg: #FAF3E3;
   --color-warning-border: #E3D2A4;
   --color-warning-text: #6B5720;
+  /* Scrim behind the mobile filter sheet — the one intentionally semi-opaque
+     token, derived from --color-text (#111111). Not a 6-digit hex, so it sits
+     outside the design-system colour table and doc-sync layer 3 skips it. */
+  --color-overlay: rgb(17 17 17 / 0.5);
 
   /* Self-hosted webfonts first, metric-matched fallback face next, system
      stack last — all inside the one token. */
@@ -152,10 +156,111 @@
   contain-intrinsic-size: auto var(--layout-tile-min);
 }
 
-/* Selected tile: a 2px accent frame drawn INSIDE the border box (negative
-   offset) so the paint containment from content-visibility can't clip it —
-   an outline, not a box-shadow (shadows are on the design-system NEVER list). */
-.tile-selected {
+/* The SELECTED frame is a 2px accent border on the tile itself (see ImageCard),
+   not an outline: content-visibility: auto establishes paint containment, and an
+   inset outline (outline-offset) renders unevenly under it — the containment
+   box's bottom edge doesn't coincide with the border box, so the bottom stroke
+   doubles while the other three sides stay 2px. A border is integral to the box
+   and always uniform. The keyboard FOCUS ring is an outset outline, which paint
+   containment would clip entirely; lifting containment on the focused tile lets
+   it show. Only one tile is focused at a time, so there is no perf cost. */
+.result-tile:focus-visible,
+.result-tile:focus-within {
+  content-visibility: visible;
+}
+
+/* Results grid columns. 2-up on phones; from the sidebar breakpoint (md,
+   48rem) it becomes the auto-fill grid the desktop tile floor is tuned for.
+   Structural (column counts / breakpoint), so it lives here, not in tokens;
+   gap is the --spacing-md token. Inline gridTemplateColumns can't be made
+   responsive, which is why this is a class. */
+.results-grid {
+  display: grid;
+  gap: var(--spacing-md);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+@media (min-width: 48rem) {
+  .results-grid {
+    grid-template-columns: repeat(auto-fill, minmax(var(--layout-tile-min), 1fr));
+  }
+}
+
+/* Mobile filter sheet + scrim (Frame 2). Structural layout only — every colour
+   is a token. The sheet stops above the two fixed bottom bars (selection bar +
+   Filters trigger, each --layout-stickybar tall) so the selection bar stays
+   visible while the sheet is open; the scrim (z 20) dims the content behind but
+   sits below the bottom chrome (z 30) and the sheet (z 40). 70vh is the brief's
+   "~70% of the screen", a proportion rather than a token. */
+.filter-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  background: var(--color-overlay);
+}
+.filter-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--layout-stickybar) * 1.5); /* clears the two-row mobile selection bar */
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  max-height: 70vh;
+}
+
+/* Selection bar: two stacked rows on phones (actions; then filters + count +
+   download), collapsing to a single row from md (48rem). Height is fixed so the
+   filter sheet can clear it exactly (see .filter-sheet bottom). */
+.selection-bar {
+  height: calc(var(--layout-stickybar) * 1.5);
+}
+@media (min-width: 48rem) {
+  .selection-bar {
+    height: var(--layout-stickybar);
+  }
+}
+
+/* Display-mode switch (invert background). Filtering uses checkboxes/radios;
+   display modes use a switch (design-system.md). Squared to the 4px radius; every
+   dimension derives from spacing tokens. */
+.toggle {
+  position: relative;
+  display: inline-block;
+  flex-shrink: 0;
+  width: var(--spacing-lg); /* 40 */
+  height: var(--spacing-md); /* 24 */
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  cursor: pointer;
+}
+.toggle[aria-checked='true'] {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+.toggle::after {
+  content: '';
+  position: absolute;
+  top: calc((var(--spacing-md) - var(--spacing-sm)) / 2); /* 4 */
+  left: calc((var(--spacing-md) - var(--spacing-sm)) / 2); /* 4 */
+  width: var(--spacing-sm); /* 16 */
+  height: var(--spacing-sm);
+  border-radius: var(--radius-sm);
+  background: var(--color-muted);
+  transition:
+    transform 150ms ease,
+    background 150ms ease;
+}
+.toggle[aria-checked='true']::after {
+  transform: translateX(var(--spacing-sm)); /* 40 − 16 − 2×4 = 16 travel */
+  background: var(--color-surface);
+}
+.toggle:focus-visible {
   outline: 2px solid var(--color-accent);
-  outline-offset: -2px;
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .toggle::after {
+    transition: none;
+  }
 }

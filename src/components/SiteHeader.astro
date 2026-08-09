@@ -1,0 +1,36 @@
+---
+// Shared site header: wordmark left, nav right, hairline bottom. Used on / and
+// /results. On the landing the nav anchors are same-page fragments (#features);
+// elsewhere pass anchorPrefix="/" so they point back to the landing (/#features).
+interface Props {
+	anchorPrefix?: string;
+}
+const { anchorPrefix = '' } = Astro.props;
+const nav = [
+	{ href: `${anchorPrefix}#features`, label: 'Features' },
+	{ href: `${anchorPrefix}#how-it-works`, label: 'How It Works' },
+	{ href: `${anchorPrefix}#faq`, label: 'FAQ' },
+	{ href: `${anchorPrefix}#api`, label: 'API' },
+];
+---
+
+<header class="border-b border-border bg-bg">
+	<div class="mx-auto flex max-w-content items-center justify-between px-md py-sm">
+		<a href="/" class="flex items-center gap-xs text-body font-semibold text-text">
+			<span
+				class="flex size-md items-center justify-center rounded-sm bg-accent font-mono text-label uppercase text-surface"
+				aria-hidden="true">IE</span
+			>
+			ImageExtract.pics
+		</a>
+		{/* The four-item nav can't sit beside the wordmark at 390px; below sm the
+		    header is wordmark-only rather than wrapping/clipping the nav. */}
+		<nav aria-label="Main" class="hidden sm:block">
+			<ul class="flex gap-md text-caption text-muted">
+				{nav.map((item) => (
+					<li><a href={item.href} class="hover:text-text">{item.label}</a></li>
+				))}
+			</ul>
+		</nav>
+	</div>
+</header>

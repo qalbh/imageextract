@@ -1,20 +1,64 @@
-{/* Native GET form: submitting navigates to /results?url= with zero
-    JavaScript, which is what makes shared scan links work at all.
-    Focus is an accent outline, not a ring — box-shadows are on the
-    design-system NEVER list. */}
-<form method="get" action="/results" class="flex gap-xs">
-	<input
-		id="scan-url"
-		name="url"
-		type="url"
-		required
-		placeholder="https://example.com"
-		class="w-full rounded-sm border border-border bg-surface px-sm py-xs text-body text-text placeholder:text-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-	/>
-	<button
-		type="submit"
-		class="shrink-0 rounded-sm bg-accent px-md py-xs text-small font-medium text-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-	>
-		Extract
-	</button>
-</form>
+---
+// Native GET form: submitting navigates to /results?url= with zero JavaScript,
+// which is what makes shared scan links work at all. Focus is an accent outline,
+// not a ring — box-shadows are on the design-system NEVER list.
+//
+// Two variants share the #scan-url input (the island prefills it, and both
+// pages must expose exactly one):
+//   default  — the big hero input + Extract button, for the landing page
+//   compact  — a SOURCE row for /results: label, the URL as a bordered chip
+//              with a clear ×, and a Re-scan URL link. The × clears by
+//              navigating to a bare /results (zero JS).
+interface Props {
+	variant?: 'default' | 'compact';
+}
+const { variant = 'default' } = Astro.props;
+---
+
+{
+	variant === 'compact' ? (
+		<form method="get" action="/results" class="flex items-center gap-sm">
+			<span class="shrink-0 font-mono text-label uppercase text-muted">Source</span>
+			<span class="flex min-w-0 flex-1 items-center gap-xs rounded-sm border border-border bg-surface px-sm py-xs focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent">
+				<input
+					id="scan-url"
+					name="url"
+					type="url"
+					required
+					placeholder="https://example.com"
+					class="min-w-0 flex-1 truncate border-0 bg-transparent p-0 font-mono text-caption text-text placeholder:text-muted focus:outline-none"
+				/>
+				<a
+					href="/results"
+					aria-label="Clear source"
+					class="shrink-0 font-mono text-caption text-muted hover:text-text"
+				>
+					×
+				</a>
+			</span>
+			<button
+				type="submit"
+				class="shrink-0 font-mono text-caption text-accent hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+			>
+				Re-scan URL
+			</button>
+		</form>
+	) : (
+		<form method="get" action="/results" class="flex gap-xs">
+			<input
+				id="scan-url"
+				name="url"
+				type="url"
+				required
+				placeholder="https://example.com"
+				class="w-full rounded-sm border border-border bg-surface px-sm py-xs text-body text-text placeholder:text-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+			/>
+			<button
+				type="submit"
+				class="shrink-0 rounded-sm bg-accent px-md py-xs text-small font-medium text-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+			>
+				Extract
+			</button>
+		</form>
+	)
+}

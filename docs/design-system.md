@@ -30,6 +30,11 @@ There is no separate on-accent token; the value is the same `#FFFFFF`.
 dividers, disabled states, placeholder glyphs. **Never** body, label, or
 caption text — use `--color-muted` for any text that must be read.
 
+**`--color-overlay`** (`rgb(17 17 17 / 0.5)`) is the scrim behind the mobile
+filter sheet, derived from `--color-text`. It is the one intentionally
+semi-transparent token and is **not** in the hex table above (it isn't a
+6-digit hex), which is also why doc-sync layer 3 skips it.
+
 ## Type
 
 Sans (`--font-sans`) for body and headings — **Schibsted Grotesk**. Mono
@@ -78,34 +83,78 @@ in the post-sidebar grid area, 5 at full width until the sidebar lands) ·
 tile reveal cap **120** (a JS constant — recorded here, lands in code with
 the grid-scaling step).
 
-**Tile badge corners:** on results tiles the **source badge is top-right**
-and the **selection checkbox is top-left** — opposite corners so they never
-collide.
+**Tile corners:** on results tiles the **dimension chip is top-right** and the
+**selection checkbox is top-left** — opposite corners. There is **no source
+badge** on the tile; source is a sidebar filter, which is where it does its work.
 
 ## Results view
 
 - **Sidebar** is `--layout-sidebar` (260px) wide, applied via inline
   `style={{ width: 'var(--layout-sidebar)' }}` (a CSS var, not an arbitrary
   utility). The grid area is `flex-1 min-w-0` beside it.
-- **Selection bar** is a sticky bottom bar, `--layout-stickybar` (64px) tall,
-  `bg-surface` with a top `border-border`.
-- **Form controls** (filter checkboxes, sort radios, the invert toggle) are
-  native `<input>`s tinted with `accent-accent` (`accent-color: --color-accent`)
-  — no custom control chrome. The source-group filter is a native `<details>`
-  disclosure, collapsed by default, so its chevron is the browser's own.
-- **Selected tile** uses `.tile-selected` — a 2px `--color-accent` outline at
-  `outline-offset: -2px` (drawn *inside* the border box so `content-visibility`
-  paint containment can't clip it), plus `border-accent`. An outline, never a
-  shadow.
+- **Whole-tile selection.** The tile is the control (`role="button"`,
+  `aria-pressed`): pointer or keyboard (Enter/Space) toggles it, shift-click
+  extends a range across the current filtered+sorted order. The checkbox is a
+  visual indicator, not a separate control; the disabled download button stops
+  propagation so it never toggles.
+- **Selected frame is a 2px `--color-accent` border on the tile** (`border-2`,
+  transparent when unselected → no layout shift), **not an outline**.
+  `content-visibility: auto` establishes paint containment, under which an inset
+  outline renders unevenly (thin top, doubled bottom — the containment box's
+  bottom edge doesn't coincide with the border box); a border is integral to the
+  box and always uniform. The keyboard **focus ring** is an outset 2px accent
+  outline, and `.result-tile:focus-visible` lifts `content-visibility` on the
+  focused tile so the outline isn't clipped (one tile focused at a time — no perf
+  cost). Never a shadow.
+- **Dimension chip** (top-right): a dark chip (`bg-text`/`text-surface`) for
+  **measured** dimensions, a muted chip (`bg-muted`/`text-surface`) for
+  **declared** ones. Absent entirely when nothing is known yet — no placeholder,
+  no em dash — appearing once `naturalWidth` resolves.
+- **Tile footer** (on `--color-surface`): filename (truncated, full value on
+  hover), the format label beneath it, and a bordered square download button at
+  the right (disabled until Phase 3).
+- **Controls follow one rule:** checkboxes and radios are for **filtering**
+  (format, source, sort); a **switch** (`.toggle`, `role="switch"`, dimensions
+  from spacing tokens, squared to the 4px radius) is for a **display mode**
+  (invert background). Filter checkboxes/radios are native `<input>`s tinted with
+  `accent-accent`; the source-group filter is a native `<details>`, collapsed by
+  default, so its chevron is the browser's own.
+- **The format filter shows the full supported set always** (`canonicalFormats`)
+  — a format absent from the manifest, or zeroed by another filter, renders
+  disabled and `--color-light-muted`, **never removed**, so the list can't reflow
+  under the pointer. `jpeg` reads JPG; the union's fallback member `unknown`
+  reads UNKNOWN (there is no OTHER). Faceted counts reflect the set filtered by
+  the *other* groups.
 - **`.result-tile`** carries `content-visibility: auto` +
   `contain-intrinsic-size: auto var(--layout-tile-min)` so off-screen tiles skip
   rendering; the uniform square makes the intrinsic size accurate.
-- **Faceted filter counts:** a filter row whose count is zero under the other
-  active filters renders disabled and `--color-light-muted`, never removed — the
-  list must not reflow while the pointer is aiming at a row.
-- **Invert background** reuses `--color-text` as the tile ground (and
-  `--color-surface` for the caption on it) — the same swap the landing demo
-  uses; no new colour.
+- **Invert background** reuses `--color-text` as the tile ground — the same swap
+  the landing demo uses; no new colour.
+
+### Mobile (below `md`, 48rem)
+
+- **Header** drops to wordmark-only below `sm`: the four-item nav can't sit
+  beside the wordmark at 390px, so `<nav>` is `hidden sm:block`. Shared
+  `SiteHeader` on both / and /results (pass `anchorPrefix="/"` off the landing so
+  the nav anchors point back to it).
+- **/results** uses the compact `ScanForm` variant — a SOURCE row: label, the URL
+  as a bordered chip with a clear × (a link to a bare /results), and a Re-scan
+  URL link. The big hero input stays on /.
+- The 260px sidebar can't exist at 390px, so the same `ResultsSidebar` mounts
+  twice: a `hidden md:block` desktop aside, and a **bottom sheet** opened by the
+  Filters trigger in the selection bar. Both share one state; each gets an
+  `instanceId` so the search `id` and sort-radio `name` stay unique.
+- **`.results-grid`** is 2-up on phones and switches to the auto-fill grid at
+  `md`.
+- **`.selection-bar`** is two rows on phones (row 1 the four actions; row 2 the
+  Filters trigger + count/size on the left and Download on the right), a single
+  row from `md`. Mobile height is `calc(var(--layout-stickybar) * 1.5)`.
+- **`.filter-sheet`** is `fixed`, `max-height: 70vh`, stopping
+  `calc(var(--layout-stickybar) * 1.5)` off the bottom (matching the mobile
+  selection-bar height) so that bar stays visible while it's open. `.filter-scrim`
+  (`--color-overlay`) dims the content behind at `z 20`, below the bottom chrome
+  (`z 30`) and the sheet (`z 40`). Clear/Apply sit at the sheet's base; filters
+  are live, so Apply only dismisses.
 
 ## Interaction
 
