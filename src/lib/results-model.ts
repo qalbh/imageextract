@@ -28,6 +28,12 @@ type GroupedSource = (typeof SOURCE_GROUPS)[number]['sources'][number];
 type AssertNever<T extends never> = T;
 export type ExhaustiveGroups = AssertNever<Exclude<ImageSource, GroupedSource>>;
 
+// Sources whose images are typically small marks (a 32px favicon, an inline
+// SVG icon). The tile well renders these object-contain at natural size —
+// object-cover would upscale a tiny raster to fill a ~220px well, which is
+// mush. Everything else covers the well.
+export const ICON_SOURCES: ReadonlySet<ImageSource> = new Set<ImageSource>(['favicon', 'inline-svg']);
+
 const GROUP_OF: Record<ImageSource, SourceGroupId> = (() => {
   const map = {} as Record<ImageSource, SourceGroupId>;
   for (const group of SOURCE_GROUPS) for (const source of group.sources) map[source] = group.id;

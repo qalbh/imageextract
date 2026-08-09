@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { IMAGE_SOURCES, type ImageExt, type ImageSource, type ScanImage } from './extract';
 import {
+  ICON_SOURCES,
   SOURCE_GROUPS,
   applyFilters,
   canonicalFormats,
@@ -57,6 +58,13 @@ describe('SOURCE_GROUPS', () => {
   it('has unique ids', () => {
     const ids = SOURCE_GROUPS.map((g) => g.id);
     expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('ICON_SOURCES is a subset of IMAGE_SOURCES covering the icon-ish sources', () => {
+    for (const source of ICON_SOURCES) expect(IMAGE_SOURCES).toContain(source);
+    expect(ICON_SOURCES.has('favicon')).toBe(true);
+    expect(ICON_SOURCES.has('inline-svg')).toBe(true);
+    expect(ICON_SOURCES.has('img')).toBe(false);
   });
 
   it('sourceGroupOf resolves each source to its bucket', () => {

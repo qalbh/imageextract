@@ -333,3 +333,22 @@ earlier with step 6.
   disabled+muted, never removed. `unknown` reads UNKNOWN (was mislabelled OTHER).
 - **Mobile selection bar** is two rows (actions; then Filters + count + Download);
   desktop stays one row.
+
+**Design-fidelity pass (2026-08-09):** the tile well went square → **262:180
+with `object-cover`** (squares letterboxed everything; measured 48px empty
+bands on 16:9), with an **icon carve-out** — `ICON_SOURCES` (favicon,
+inline-svg) stay contain-at-natural-size because cover upscales a 32px raster
+to mush. Page ground moved to `--color-bg` (body rule in global.css; tiles
+were surface-on-white and their borders invisible). Checkbox 20×20 with a
+`--color-muted` border (held its edge on white images). Filename became sans
+`text-caption` `font-medium` — the 400–700 variable axis genuinely includes
+500 — freeing ~2× the characters vs tracked 11px mono, helped by the download
+button shrinking 40→28px. Dimension badge: `--color-overlay-strong` (0.7, new
+token) for measured / solid `--color-muted` for declared — 0.5 alpha measured
+only ~3.5:1 over a white image, so the muting moved into the chip colour
+difference instead of alpha. Format tag = solid `--color-bg` chip. Toggle
+track solid `--color-border` off (surface track read as a bare knob); pill
+declared canonical over the demo's chip. Source bar chip content-sized via
+`field-sizing: content`, 28ch ellipsized fallback. Copyright line regained
+"Nothing is stored or logged." Spacing: all design values mapped onto the
+scale (10/12→8, chip verticals→0); no new step needed.

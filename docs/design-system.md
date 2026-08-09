@@ -31,9 +31,11 @@ dividers, disabled states, placeholder glyphs. **Never** body, label, or
 caption text — use `--color-muted` for any text that must be read.
 
 **`--color-overlay`** (`rgb(17 17 17 / 0.5)`) is the scrim behind the mobile
-filter sheet, derived from `--color-text`. It is the one intentionally
-semi-transparent token and is **not** in the hex table above (it isn't a
-6-digit hex), which is also why doc-sync layer 3 skips it.
+filter sheet, and **`--color-overlay-strong`** (`rgb(17 17 17 / 0.7)`) is the
+measured dimension-badge ground — dark enough that `--color-surface` text
+holds ≥7:1 even over a pure-white image. Both derive from `--color-text` and
+are the only intentionally semi-transparent tokens; neither is in the hex
+table above (not 6-digit hex), which is also why doc-sync layer 3 skips them.
 
 ## Type
 
@@ -45,10 +47,13 @@ token; see README for licences.
 
 **Available weights are a constraint, not a coincidence.** The sans face
 ships **400–700 only** (the range the site uses; instanced to hit the byte
-budget) and mono ships **400 only**. A `font-weight` outside those ranges
-does not fail — it silently falls back to the nearest available weight. If
-you need 800/900 sans or a second mono weight, re-instance the subset and
-raise the byte budget; do not just write the weight and assume it renders.
+budget) and mono ships **400 only**. The sans range is a **variable axis**:
+every intermediate weight inside it is real — `font-medium` (500, the tile
+title) renders true Medium, not a synthetic. A `font-weight` outside those
+ranges does not fail — it silently falls back to the nearest available
+weight. If you need 800/900 sans or a second mono weight, re-instance the
+subset and raise the byte budget; do not just write the weight and assume it
+renders.
 
 Scale (px): 88 / 48 / 32 / 20 / 16 / 14 / 13 / 11 —
 `display / h1 / h2 / h3 / body / small / caption / label`.
@@ -94,8 +99,10 @@ badge** on the tile; source is a sidebar filter, which is where it does its work
   utility). The grid area is `flex-1 min-w-0` beside it.
 - **Whole-tile selection.** The tile is the control (`role="button"`,
   `aria-pressed`): pointer or keyboard (Enter/Space) toggles it, shift-click
-  extends a range across the current filtered+sorted order. The checkbox is a
-  visual indicator, not a separate control; the disabled download button stops
+  extends a range across the current filtered+sorted order. The checkbox
+  (`.tile-check`, 20×20) is a visual indicator, not a separate control — its
+  unselected state keeps a `--color-muted` border on a solid surface chip so it
+  holds its edge over white images; the disabled download button stops
   propagation so it never toggles.
 - **Selected frame is a 2px `--color-accent` border on the tile** (`border-2`,
   transparent when unselected → no layout shift), **not an outline**.
@@ -106,19 +113,43 @@ badge** on the tile; source is a sidebar filter, which is where it does its work
   outline, and `.result-tile:focus-visible` lifts `content-visibility` on the
   focused tile so the outline isn't clipped (one tile focused at a time — no perf
   cost). Never a shadow.
-- **Dimension chip** (top-right): a dark chip (`bg-text`/`text-surface`) for
-  **measured** dimensions, a muted chip (`bg-muted`/`text-surface`) for
-  **declared** ones. Absent entirely when nothing is known yet — no placeholder,
-  no em dash — appearing once `naturalWidth` resolves.
-- **Tile footer** (on `--color-surface`): filename (truncated, full value on
-  hover), the format label beneath it, and a bordered square download button at
-  the right (disabled until Phase 3).
+- **Image well** (`.tile-well`, 262:180): deliberately not square — the ratio
+  sits between 4:3 and 16:9 so the dominant photo shapes fill it with a mild
+  crop under `object-cover` instead of letterboxing. `--color-surface` ground
+  (the page sits on `--color-bg`; `body` carries it in `global.css`), hairline
+  border, no inner padding. **Icon carve-out:** sources in `ICON_SOURCES`
+  (favicon, inline-svg) render `object-contain` at natural size — cover would
+  upscale a 32px raster favicon into mush.
+- **Dimension chip** (top-right): `bg-overlay-strong` for **measured**
+  dimensions, solid `bg-muted` for **declared** ones, `--color-surface` text on
+  both — worst-case contrast 7.1:1 (measured, over pure white) and a constant
+  5.3:1 (declared), both AA at `text-label`. Absent entirely when nothing is
+  known yet — no placeholder, no em dash — appearing once `naturalWidth`
+  resolves.
+- **Tile footer** (`.tile-footer`, 56px, on `--color-surface`): filename in
+  sans `text-caption` `font-medium`, truncated with the full value on hover;
+  the format tag beneath it as a solid `--color-bg` chip (`text-label` mono);
+  a bordered square download button (`.tile-download`, 28×28) at the right,
+  centred against the two lines (disabled until Phase 3).
+- **Tile component constants** (from the tile design, defined in `global.css`):
+  checkbox `.tile-check` 20×20 · download `.tile-download` 28×28 · footer
+  `.tile-footer` 56px · well `.tile-well` 262:180. The design's off-scale
+  spacings map to tokens: 10px insets and 12px paddings/gaps → `--spacing-xs`;
+  chip micro-paddings (6/3, 4/2) → `px-xs` with zero vertical (the landing
+  demo's badge pattern).
 - **Controls follow one rule:** checkboxes and radios are for **filtering**
   (format, source, sort); a **switch** (`.toggle`, `role="switch"`, dimensions
   from spacing tokens, squared to the 4px radius) is for a **display mode**
   (invert background). Filter checkboxes/radios are native `<input>`s tinted with
   `accent-accent`; the source-group filter is a native `<details>`, collapsed by
   default, so its chevron is the browser's own.
+- **The pill switch is the canonical display-mode control.** Track
+  `--color-border` off / `--color-accent` on; knob `--color-muted` off /
+  `--color-surface` on (a surface track's hairline vanished on the surface
+  sidebar and the control read as a bare grey knob). The landing demo's
+  Invert BG is an older **pressed-chip button** that predates this rule — do
+  not copy it into new components; whether the demo migrates to the pill is an
+  open decision, deliberately not folded into a results change.
 - **The format filter shows the full supported set always** (`canonicalFormats`)
   — a format absent from the manifest, or zeroed by another filter, renders
   disabled and `--color-light-muted`, **never removed**, so the list can't reflow
@@ -127,7 +158,9 @@ badge** on the tile; source is a sidebar filter, which is where it does its work
   the *other* groups.
 - **`.result-tile`** carries `content-visibility: auto` +
   `contain-intrinsic-size: auto var(--layout-tile-min)` so off-screen tiles skip
-  rendering; the uniform square makes the intrinsic size accurate.
+  rendering; tiles share one shape (fixed-ratio well + fixed footer), so the
+  placeholder is near-exact at the tile floor and `auto` corrects it after the
+  first render.
 - **Invert background** reuses `--color-text` as the tile ground — the same swap
   the landing demo uses; no new colour.
 
@@ -139,7 +172,10 @@ badge** on the tile; source is a sidebar filter, which is where it does its work
   the nav anchors point back to it).
 - **/results** uses the compact `ScanForm` variant — a SOURCE row: label, the URL
   as a bordered chip with a clear × (a link to a bare /results), and a Re-scan
-  URL link. The big hero input stays on /.
+  URL link. The big hero input stays on /. The chip sizes to its content via
+  `field-sizing: content` (`.source-input`, 48ch cap); browsers without it get a
+  fixed 28ch chip whose value ellipsizes — deliberate truncation, not a broken
+  control.
 - The 260px sidebar can't exist at 390px, so the same `ResultsSidebar` mounts
   twice: a `hidden md:block` desktop aside, and a **bottom sheet** opened by the
   Filters trigger in the selection bar. Both share one state; each gets an
@@ -164,8 +200,10 @@ badge** on the tile; source is a sidebar filter, which is where it does its work
 
 ## Tiles
 
-Tiles on `/results` are **uniform `aspect-square`**. Masonry is used only
-in the landing-page demo grid.
+Tiles on `/results` are **uniform** — every well is the same **262:180**
+ratio (`.tile-well`; see Results view). The 2026-08-08 uniformity decision
+stands; what changed (2026-08-09) is the shape: square wells letterboxed
+every non-square image. Masonry is used only in the landing-page demo grid.
 
 ## Component class names
 

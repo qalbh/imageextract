@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { ScanImage } from '../lib/extract';
-import { formatLabel } from '../lib/results-model';
+import { ICON_SOURCES, formatLabel } from '../lib/results-model';
 
 /**
  * One grid cell — the whole tile is the selection control (role=button):
@@ -8,6 +8,11 @@ import { formatLabel } from '../lib/results-model';
  * (handled by the parent against the filtered+sorted order). The <img> points
  * DIRECTLY at the origin URL — never the proxy — the zero-cost path the cost
  * model rests on; loading="lazy" keeps 1,000 thumbnails from hammering origins.
+ *
+ * The well is 262:180 with object-cover — a preview crops rather than
+ * letterboxes. Icon sources (ICON_SOURCES: favicon, inline-svg) are the
+ * carve-out: they render contain at natural size, because cover would upscale
+ * a 32px raster favicon to fill the well.
  */
 export default function ImageCard({
   image,
@@ -24,11 +29,12 @@ export default function ImageCard({
 }) {
   const [measured, setMeasured] = useState<{ w: number; h: number } | null>(null);
   const [failed, setFailed] = useState(false);
+  const isIcon = ICON_SOURCES.has(image.source);
 
-  // Dimension chip. Measured (load-time truth) renders on the dark chip at full
-  // weight; page-declared values render on a muted chip. When nothing is known
-  // yet the chip is ABSENT — no placeholder, no em dash — and appears once
-  // naturalWidth resolves on load.
+  // Dimension chip. Measured (load-time truth) renders on the strong overlay
+  // chip; page-declared values render on a solid muted chip. When nothing is
+  // known yet the chip is ABSENT — no placeholder, no em dash — and appears
+  // once naturalWidth resolves on load.
   let chip: string | null = null;
   let chipMeasured = false;
   if (measured) {
@@ -53,16 +59,16 @@ export default function ImageCard({
           onToggle(image.id, event.shiftKey);
         }
       }}
-      className={`result-tile flex cursor-pointer flex-col gap-xs rounded-sm border-2 bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
+      className={`result-tile flex cursor-pointer flex-col rounded-sm border-2 bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
         selected ? 'border-accent' : 'border-transparent'
       }`}
     >
-      {/* Image area: fills the tile width, hairline border, no inner padding.
+      {/* Image well: fills the tile width, hairline border, no inner padding.
           Invert swaps the ground to --color-text so a white-on-transparent logo
-          stays visible (ported from the landing demo's invert toggle). */}
+          stays visible (same swap as the landing demo). */}
       <div
-        className={`relative aspect-square overflow-hidden rounded-sm border border-border ${
-          invert ? 'bg-text' : 'bg-bg'
+        className={`tile-well relative overflow-hidden rounded-sm border border-border ${
+          invert ? 'bg-text' : 'bg-surface'
         }`}
       >
         {failed ? (
@@ -75,7 +81,11 @@ export default function ImageCard({
             alt={image.filename}
             loading="lazy"
             decoding="async"
-            className="absolute inset-0 m-auto max-h-full max-w-full object-contain"
+            className={
+              isIcon
+                ? 'absolute inset-0 m-auto max-h-full max-w-full object-contain'
+                : 'absolute inset-0 h-full w-full object-cover'
+            }
             onLoad={(event) => {
               const { naturalWidth, naturalHeight } = event.currentTarget;
               // SVGs without an intrinsic size report 0×0 — show no chip rather
@@ -90,22 +100,24 @@ export default function ImageCard({
         )}
 
         {/* Selection indicator, top-left: accent-filled with a check when
-            selected, empty bordered square otherwise. Purely visual — the whole
-            tile is the button, so this is not a separate focusable control. */}
+            selected; unselected keeps a --color-muted border so the square
+            holds its edge over white images. Purely visual — the tile is the
+            button. */}
         <span
           aria-hidden="true"
-          className={`absolute left-xs top-xs flex size-sm items-center justify-center rounded-sm border font-mono text-label ${
-            selected ? 'border-accent bg-accent text-surface' : 'border-border bg-surface text-transparent'
+          className={`tile-check absolute left-xs top-xs flex items-center justify-center rounded-sm border font-mono text-label ${
+            selected ? 'border-accent bg-accent text-surface' : 'border-muted bg-surface text-transparent'
           }`}
         >
           ✓
         </span>
 
-        {/* Dimension chip, top-right. Dark = measured, muted = declared. */}
+        {/* Dimension chip, top-right. Strong overlay = measured, solid muted =
+            declared; surface text holds AA on both over any image. */}
         {chip !== null && (
           <span
             className={`absolute right-xs top-xs rounded-sm px-xs font-mono text-label text-surface ${
-              chipMeasured ? 'bg-text' : 'bg-muted'
+              chipMeasured ? 'bg-overlay-strong' : 'bg-muted'
             }`}
           >
             {chip}
@@ -113,14 +125,17 @@ export default function ImageCard({
         )}
       </div>
 
-      {/* Footer, on --color-surface: filename, then the format label; the
-          disabled download button (Phase 3) sits at the right, centred. */}
-      <div className="flex items-center justify-between gap-xs px-xs pb-xs">
-        <div className="min-w-0">
-          <p className="truncate font-mono text-label text-text" title={image.filename}>
+      {/* Footer, 56px on --color-surface: filename (sans, medium), format tag
+          as a solid --color-bg chip, and the disabled download square
+          (Phase 3) centred against both lines. */}
+      <div className="tile-footer flex items-center gap-xs px-xs">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-caption font-medium text-text" title={image.filename}>
             {image.filename}
           </p>
-          <p className="font-mono text-label uppercase text-muted">{formatLabel(image.ext)}</p>
+          <span className="inline-block w-fit rounded-sm bg-bg px-xs font-mono text-label uppercase text-muted">
+            {formatLabel(image.ext)}
+          </span>
         </div>
         <button
           type="button"
@@ -128,7 +143,7 @@ export default function ImageCard({
           aria-label="Download (ships with the download release)"
           title="Single-image download ships with the download release"
           onClick={(event) => event.stopPropagation()}
-          className="flex size-lg shrink-0 items-center justify-center rounded-sm border border-border text-light-muted"
+          className="tile-download flex shrink-0 items-center justify-center rounded-sm border border-border text-light-muted"
         >
           ↓
         </button>
