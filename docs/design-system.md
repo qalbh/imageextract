@@ -17,6 +17,7 @@ radius values. If a value you need is not there, raise it before adding it.
 | `--color-warning-bg` | `#FAF3E3` | truncation banner background |
 | `--color-warning-border` | `#E3D2A4` | truncation banner border |
 | `--color-warning-text` | `#6B5720` | truncation banner text |
+| `--color-notice-bg` | `#EDF1FF` | copyright-notice ground (~7% accent over white; accent text 5.0:1, accent icon/× 5.0:1 vs the 3:1 non-text bar) |
 
 **Accent is used sparingly:** primary button, links, active filter,
 selected tile. Nowhere else.
@@ -63,6 +64,12 @@ Scale (px): 88 / 48 / 32 / 20 / 16 / 14 / 13 / 11 —
 - Labels (`text-label`): mono, 11px, **uppercase**, tracking 0.08em.
   Uppercase is applied at the use-site (`uppercase` utility); the token
   carries size, line-height, and tracking.
+- **Mono's scope (2026-08-10):** mono is for **section labels, badges, and
+  metadata** — sidebar section headings, tile chips/tags, counts *outside*
+  option rows, footnotes — and **never for interactive option text**. Sidebar
+  option rows (format names, their counts, sort options, source groups,
+  display labels) are **sans at `text-small`** (14px): body size is for
+  prose, and a dense filter list at 16px would compete with the grid.
 
 ## Spacing, radius, borders
 
@@ -70,8 +77,15 @@ Scale (px): 88 / 48 / 32 / 20 / 16 / 14 / 13 / 11 —
   Tailwind's default numeric scale is still enabled only because the
   pre-token components use it; it is retired in the restyle step. New code
   uses the six values only.
-- Radius: **4px only.** Every `--radius-*` token is pinned to 4px, so even a
-  stray `rounded-lg` renders 4px.
+- Radius: **a complete named set of three** (2026-08-10, replacing "4px only"):
+  `--radius-sm` **2px** (small controls — the tile download square) ·
+  `--radius-md` **4px** (**the default** — tiles, wells, inputs, buttons,
+  chips) · `--radius-full` **9999px** (the toggle track and knob only). A
+  fourth value needs raising before it exists. The `@theme` block wipes the
+  `--radius-*` namespace first — otherwise a stray `rounded-lg` would render
+  Tailwind's own 8px default; after the wipe a stray alias generates no CSS
+  at all, and `verify-landing` rejects `rounded-(xs|lg|xl|2xl|3xl)` in
+  markup so it fails loudly rather than rendering square.
 - Borders: 1px, `--color-border`, always.
 
 ## Layout constants
@@ -96,7 +110,17 @@ badge** on the tile; source is a sidebar filter, which is where it does its work
 
 - **Sidebar** is `--layout-sidebar` (260px) wide, applied via inline
   `style={{ width: 'var(--layout-sidebar)' }}` (a CSS var, not an arbitrary
-  utility). The grid area is `flex-1 min-w-0` beside it.
+  utility), on **`--color-surface`** with hairline dividers between its
+  sections and a hairline (`border-r`) to the grid area, which sits on the
+  body's **`--color-bg`**. The grid area is `flex-1 min-w-0` beside it; its
+  "Showing X of Y" header is right-aligned mono `text-label`.
+- **Copyright notice** (in the island, above the grid): accent text on
+  `--color-notice-bg`, info icon left, dismiss × right. **Dismissal is state,
+  never storage — it reappears on every scan** (definition of done: the notice
+  lives where downloads happen).
+- **No filename search control** (removed 2026-08-10 per design): the
+  capability stays in `results-model.ts` (`query` in `FilterState`, tested);
+  the island passes `''`.
 - **Whole-tile selection.** The tile is the control (`role="button"`,
   `aria-pressed`): pointer or keyboard (Enter/Space) toggles it, shift-click
   extends a range across the current filtered+sorted order. The checkbox
@@ -104,8 +128,10 @@ badge** on the tile; source is a sidebar filter, which is where it does its work
   unselected state keeps a `--color-muted` border on a solid surface chip so it
   holds its edge over white images; the disabled download button stops
   propagation so it never toggles.
-- **Selected frame is a 2px `--color-accent` border on the tile** (`border-2`,
-  transparent when unselected → no layout shift), **not an outline**.
+- **Selected frame is a 2px `--color-accent` border on the tile** (`border-2`;
+  unselected is `border-2 --color-border` — same thickness both states, so
+  selection causes no layout shift, and the unselected tile has a visible
+  edge), **not an outline**.
   `content-visibility: auto` establishes paint containment, under which an inset
   outline renders unevenly (thin top, doubled bottom — the containment box's
   bottom edge doesn't coincide with the border box); a border is integral to the
@@ -125,7 +151,8 @@ badge** on the tile; source is a sidebar filter, which is where it does its work
   both — worst-case contrast 7.1:1 (measured, over pure white) and a constant
   5.3:1 (declared), both AA at `text-label`. Absent entirely when nothing is
   known yet — no placeholder, no em dash — appearing once `naturalWidth`
-  resolves.
+  resolves. It is the checkbox's **pair**: same 20px height (`.tile-chip`),
+  same `--radius-md`, same `--spacing-xs` corner inset.
 - **Tile footer** (`.tile-footer`, 56px, on `--color-surface`): filename in
   sans `text-caption` `font-medium`, truncated with the full value on hover;
   the format tag beneath it as a solid `--color-bg` chip (`text-label` mono);
@@ -138,18 +165,20 @@ badge** on the tile; source is a sidebar filter, which is where it does its work
   chip micro-paddings (6/3, 4/2) → `px-xs` with zero vertical (the landing
   demo's badge pattern).
 - **Controls follow one rule:** checkboxes and radios are for **filtering**
-  (format, source, sort); a **switch** (`.toggle`, `role="switch"`, dimensions
-  from spacing tokens, squared to the 4px radius) is for a **display mode**
-  (invert background). Filter checkboxes/radios are native `<input>`s tinted with
-  `accent-accent`; the source-group filter is a native `<details>`, collapsed by
-  default, so its chevron is the browser's own.
-- **The pill switch is the canonical display-mode control.** Track
-  `--color-border` off / `--color-accent` on; knob `--color-muted` off /
-  `--color-surface` on (a surface track's hairline vanished on the surface
-  sidebar and the control read as a bare grey knob). The landing demo's
-  Invert BG is an older **pressed-chip button** that predates this rule — do
-  not copy it into new components; whether the demo migrates to the pill is an
-  open decision, deliberately not folded into a results change.
+  (format, source, sort); the **pill switch** (`.toggle`, `role="switch"`) is
+  for a **display mode** (invert background). Filter checkboxes/radios are
+  native `<input>`s tinted with `accent-accent`; the source-group filter is a
+  native `<details>`, collapsed by default, so its chevron is the browser's
+  own.
+- **The pill switch is the canonical display-mode control.** Track **32×18**
+  at `--radius-full`; knob **14×14 circle** at a 2px inset, 14px travel. Off:
+  track `--color-border`, knob `--color-surface`; on: track `--color-accent`,
+  knob `--color-surface`. The visual is exactly that size; a `::before`
+  expander (`inset: -13px -6px`) gives it a **44×44 hit area** with no visual
+  or layout change. The landing demo's Invert BG is an older **pressed-chip
+  button** that predates this rule — do not copy it into new components;
+  whether the demo migrates to the pill is an open decision, deliberately not
+  folded into a results change.
 - **The format filter shows the full supported set always** (`canonicalFormats`)
   — a format absent from the manifest, or zeroed by another filter, renders
   disabled and `--color-light-muted`, **never removed**, so the list can't reflow
@@ -216,4 +245,5 @@ names (`masonry`, `tilebtn`, not `grid`, `flex`, `hidden`).
 ## NEVER
 
 Gradients · glows · box-shadows · dark theme · purple/violet · any radius
-other than 4px · any hex value outside `global.css`.
+outside the named set (sm 2 / md 4 / full) · any hex value outside
+`global.css`.

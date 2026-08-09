@@ -99,7 +99,7 @@ function TruncatedBanner({ reason }: { reason: 'image-cap' | 'size-cap' }) {
   // seen and the list was trimmed; size-cap means part of the page was never
   // parsed at all.
   return (
-    <p className="mb-sm rounded-sm border border-warning-border bg-warning-bg px-sm py-xs text-small text-warning-text">
+    <p className="mb-sm rounded-md border border-warning-border bg-warning-bg px-sm py-xs text-small text-warning-text">
       {reason === 'image-cap'
         ? 'The whole page was scanned, but it has more than 1,000 images — showing the first 1,000.'
         : 'This page was too large to read completely, so some images may be missing entirely. Scanning a more specific page on the same site may find more.'}
@@ -112,7 +112,8 @@ export default function ResultsGrid() {
 
   // --- results-view interaction state (hooks run unconditionally, per the
   // rules of hooks; they operate over an empty manifest until a scan lands) ---
-  const [query, setQuery] = useState('');
+  // The filename/URL search control was removed (2026-08-10); the model keeps
+  // `query` in FilterState, so the island passes a constant ''.
   const [formats, setFormats] = useState<ReadonlySet<ImageExt>>(() => new Set());
   const [groups, setGroups] = useState<ReadonlySet<SourceGroupId>>(() => new Set());
   const [sortKey, setSortKey] = useState<SortKey>('document');
@@ -123,6 +124,11 @@ export default function ResultsGrid() {
   const [revealCap, setRevealCap] = useState(TILE_REVEAL_CAP);
   const [invert, setInvert] = useState(false);
   const [copied, setCopied] = useState(false);
+  // Copyright notice dismissal — deliberately NOT persisted anywhere: it is
+  // reset on every scan (see the scan effect), per the module spec. A
+  // permanently dismissed notice on the page where downloads happen would
+  // defeat its purpose.
+  const [noticeDismissed, setNoticeDismissed] = useState(false);
   // Mobile only: the filter sidebar collapses into a bottom sheet toggled here.
   const [sheetOpen, setSheetOpen] = useState(false);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
@@ -143,6 +149,7 @@ export default function ResultsGrid() {
       // let the API produce the proper invalid-url error
     }
     setState({ kind: 'loading', hostname });
+    setNoticeDismissed(false); // every scan brings the notice back
     void runScan(url).then(setState);
   }, []);
 
@@ -152,8 +159,8 @@ export default function ResultsGrid() {
   const widthOf = useCallback((img: ScanImage) => measured.get(img.id)?.w ?? img.width, [measured]);
 
   const filtered = useMemo(
-    () => applyFilters(images, { query, formats, groups }),
-    [images, query, formats, groups],
+    () => applyFilters(images, { query: '', formats, groups }),
+    [images, formats, groups],
   );
 
   // Frozen sort: this memo deliberately omits `measured` from its deps.
@@ -169,7 +176,7 @@ export default function ResultsGrid() {
   // set (sort reorders the same set, so it keeps the window).
   useEffect(() => {
     setRevealCap(TILE_REVEAL_CAP);
-  }, [query, formats, groups]);
+  }, [formats, groups]);
 
   // Incremental reveal: append another batch when the sentinel scrolls near.
   useEffect(() => {
@@ -187,14 +194,14 @@ export default function ResultsGrid() {
     return () => io.disconnect();
   }, [sorted.length]);
 
-  // Faceted counts — Format honours the active Source + query; Source honours
-  // the active Format + query. The shown format rows are fixed from the full
-  // manifest so they never reflow (canonicalFormats).
-  const filterState: FilterState = { query, formats, groups };
+  // Faceted counts — Format honours the active Source filter and vice-versa.
+  // The shown format rows are fixed from the full supported set so they never
+  // reflow (canonicalFormats).
+  const filterState: FilterState = { query: '', formats, groups };
   const formatOrder = useMemo(() => canonicalFormats(), []);
-  const fmtCounts = useMemo(() => formatCounts(images, filterState), [images, query, groups]);
-  const allFmtCount = useMemo(() => formatAllCount(images, filterState), [images, query, groups]);
-  const grpCounts = useMemo(() => groupCounts(images, filterState), [images, query, formats]);
+  const fmtCounts = useMemo(() => formatCounts(images, filterState), [images, groups]);
+  const allFmtCount = useMemo(() => formatAllCount(images, filterState), [images, groups]);
+  const grpCounts = useMemo(() => groupCounts(images, filterState), [images, formats]);
   const knownWidth = useMemo(() => knownWidthCount(filtered, widthOf), [filtered, widthOf]);
 
   const onMeasured = useCallback((id: string, w: number, h: number) => {
@@ -242,11 +249,10 @@ export default function ResultsGrid() {
   // Mobile sheet "Clear" resets the filters (not sort/invert, which aren't
   // filters); the count feeds the Filters trigger label.
   const clearFilters = () => {
-    setQuery('');
     setFormats(new Set());
     setGroups(new Set());
   };
-  const activeFilterCount = formats.size + groups.size + (query ? 1 : 0);
+  const activeFilterCount = formats.size + groups.size;
   const handleCopy = () => {
     const text = selectedUrls(images, selected).join('\n');
     void navigator.clipboard?.writeText(text).then(
@@ -263,8 +269,6 @@ export default function ResultsGrid() {
   // Shared by both sidebar mounts — the desktop aside and the mobile sheet —
   // so they stay in sync off the same state. Each adds its own instanceId.
   const sidebarProps = {
-    query,
-    onQuery: setQuery,
     formatOrder,
     formats,
     formatCounts: fmtCounts,
@@ -337,16 +341,43 @@ export default function ResultsGrid() {
     case 'results':
       return (
         <div>
+          {/* Copyright notice — accent alert treatment. Dismissal is state,
+              never storage: it comes back on every scan (definition of done). */}
+          {!noticeDismissed && (
+            <div className="mb-sm flex items-center gap-xs rounded-md bg-notice-bg px-sm py-xs text-small text-accent">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true" className="shrink-0">
+                <circle cx="8" cy="8" r="6.5" stroke="currentColor" />
+                <path d="M8 7.5V11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                <circle cx="8" cy="5" r="0.75" fill="currentColor" />
+              </svg>
+              <span className="flex-1">
+                Images belong to their creators. Only download what you have the right to use. Nothing
+                is stored or logged.
+              </span>
+              <button
+                type="button"
+                aria-label="Dismiss notice"
+                onClick={() => setNoticeDismissed(true)}
+                className="shrink-0 px-xs text-body"
+              >
+                ×
+              </button>
+            </div>
+          )}
           {state.result.truncated !== undefined && <TruncatedBanner reason={state.result.truncated} />}
-          <div className="flex gap-md">
-            {/* Desktop sidebar. Below the md breakpoint it disappears and the
-                same controls open as a bottom sheet (see below). */}
-            <aside className="hidden shrink-0 md:block" style={{ width: 'var(--layout-sidebar)' }}>
+          <div className="flex">
+            {/* Desktop sidebar: a surface column with a hairline to the grid
+                area, which stays on the body's --color-bg. Below the md
+                breakpoint the same controls open as a bottom sheet. */}
+            <aside
+              className="hidden shrink-0 border-r border-border bg-surface p-md md:block"
+              style={{ width: 'var(--layout-sidebar)' }}
+            >
               <ResultsSidebar instanceId="desktop" {...sidebarProps} />
             </aside>
 
-            <div className="min-w-0 flex-1">
-              <p className="mb-sm font-mono text-label uppercase text-muted">
+            <div className="min-w-0 flex-1 md:pl-md">
+              <p className="mb-sm text-right font-mono text-label uppercase text-muted">
                 Showing {visible.length} of {sorted.length}
               </p>
               {sorted.length === 0 ? (
@@ -400,7 +431,7 @@ export default function ResultsGrid() {
                 className="filter-scrim"
               />
               <div
-                className="filter-sheet rounded-sm bg-surface"
+                className="filter-sheet rounded-md bg-surface"
                 role="dialog"
                 aria-modal="true"
                 aria-label="Filters"
@@ -412,14 +443,14 @@ export default function ResultsGrid() {
                   <button
                     type="button"
                     onClick={clearFilters}
-                    className="rounded-sm border border-border px-md py-xs font-mono text-label uppercase text-text"
+                    className="rounded-md border border-border px-md py-xs font-mono text-label uppercase text-text"
                   >
                     Clear
                   </button>
                   <button
                     type="button"
                     onClick={() => setSheetOpen(false)}
-                    className="flex-1 rounded-sm bg-accent px-md py-xs font-mono text-label uppercase text-surface"
+                    className="flex-1 rounded-md bg-accent px-md py-xs font-mono text-label uppercase text-surface"
                   >
                     Apply
                   </button>

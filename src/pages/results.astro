@@ -26,13 +26,10 @@ import ResultsGrid from '../components/ResultsGrid';
 
 		{/* Permanent copyright notice above the grid — a muted line, not a
 		    dismissible alert. Downloads happen on this page, so it stays put. */}
-		{/* The zero-persistence sentence is the product's differentiator and
-		    belongs where downloads happen — do not trim it. */}
-		<p class="mt-md border-b border-border pb-xs text-small text-muted">
-			Images belong to their creators. Only download what you have the right to use. Nothing is
-			stored or logged.
-		</p>
-
+		{/* The copyright/zero-persistence notice lives INSIDE the island (accent
+		    alert, dismissible, reappears every scan — the dismissal must not
+		    persist). With JS off the island doesn't render, so there is no grid
+		    and no download path — nothing for the notice to caveat. */}
 		<div class="mt-md">
 			<ResultsGrid client:load />
 		</div>

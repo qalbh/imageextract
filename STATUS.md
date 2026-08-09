@@ -57,7 +57,7 @@ Phase 1 is complete: the whole server-side engine — scan, extraction, robots, 
 - [x] Dimension badges from `naturalWidth`/`naturalHeight`
 - [ ] Byte-size badges, lazy only (badge renders an em dash; probing not wired)
 - [x] Type filter with live counts (faceted; grouped source filter alongside it)
-- [x] Search across filename and URL (type is a filter; dimensions are the width sort)
+- [ ] Search across filename and URL (model + tests shipped; the sidebar control was removed per the 2026-08-10 design pass — reinstating it is one input)
 - [x] Sort — Document order / Width / Name / Type (height & aspect dropped per coverage data; width sorts unknowns last)
 - [x] Selection state, select all, deselect all (global selection, survives filter changes)
 - [x] Invert-background toggle (brought forward from Phase 9 — a white-on-transparent logo is invisible on the surface-coloured tile)

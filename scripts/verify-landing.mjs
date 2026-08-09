@@ -61,9 +61,15 @@ async function sourceChecks() {
   const hex = [];
   const arbitrary = [];
   const numericScale = [];
+  const strayRadius = [];
   const HEX = /#[0-9a-fA-F]{3,8}\b/;
   const ARBITRARY = /(?:^|["\s:])-?[a-z][a-z-]*-\[[^\]]+\]/; // e.g. text-[11px], w-[3px]
   const NUMERIC = /\b(?:p|m|px|py|pt|pb|pl|pr|mx|my|mt|mb|ml|mr|gap|gap-x|gap-y|size|w|h|space-x|space-y|inset|top|bottom|left|right)-[0-9]+(?:\.[0-9]+)?\b/;
+  // The radius set is sm/md/full ONLY (design-system.md). The @theme namespace
+  // wipe means a stray alias generates no CSS at all — silently square — so
+  // catch it here instead. rounded-full is allowed but currently unused in
+  // markup (the toggle uses var(--radius-full) in CSS).
+  const RADIUS = /\brounded-(?:xs|lg|xl|2xl|3xl)\b/;
   for (const f of files) {
     const text = await readFile(f, 'utf8');
     text.split('\n').forEach((line, i) => {
@@ -73,11 +79,13 @@ async function sourceChecks() {
       // `mt-0` / `inset-0` etc. are legitimate zero resets, not scale values.
       const m = line.match(NUMERIC);
       if (m && !/-0$/.test(m[0])) numericScale.push(`${at} ${m[0]}`);
+      if (RADIUS.test(line)) strayRadius.push(`${at} ${line.match(RADIUS)[0]}`);
     });
   }
   ok('no hex values in src/pages + src/components', hex.length === 0, hex.join(' | '));
   ok('no arbitrary Tailwind utilities', arbitrary.length === 0, arbitrary.join(' | '));
   ok('no off-token numeric-scale utilities (caught size-6)', numericScale.length === 0, numericScale.join(' | '));
+  ok('no radius aliases outside sm/md/full', strayRadius.length === 0, strayRadius.join(' | '));
 }
 
 // ---------------------------------------------------------------------------

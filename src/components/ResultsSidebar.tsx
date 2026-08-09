@@ -9,16 +9,25 @@ import {
 } from '../lib/results-model';
 
 /**
- * Presentational sidebar — filename search, format filter, sort, the collapsed
- * source-group filter, and the invert-background display switch. All state and
- * faceted counts are computed by the parent (ResultsGrid) and passed in.
+ * Presentational sidebar — format filter, sort, the collapsed source-group
+ * filter, and the invert-background display switch, in sections divided by
+ * hairlines. All state and faceted counts are computed by the parent
+ * (ResultsGrid) and passed in.
  *
- * Controls follow one rule (design-system.md): checkboxes and radios are for
- * FILTERING (format, source, sort); a switch is for a DISPLAY MODE (invert).
+ * Type rule (design-system.md): mono is for the SECTION HEADINGS (and badges/
+ * metadata elsewhere); every interactive option row — names, counts, sort
+ * options, display labels — is sans at text-small.
+ *
+ * Controls follow one rule: checkboxes and radios are for FILTERING (format,
+ * source, sort); the pill switch is for a DISPLAY MODE (invert).
  *
  * Faceting: counts reflect the set filtered by the *other* groups. A row whose
  * faceted count is zero renders disabled and muted rather than disappearing, so
  * the list never reflows under the pointer.
+ *
+ * The filename/URL search CONTROL was removed (2026-08-10, per design); the
+ * capability stays in results-model.ts (query in FilterState, tested) and
+ * reinstating it is one input.
  */
 
 function SectionLabel({ children }: { children: ComponentChildren }) {
@@ -27,8 +36,6 @@ function SectionLabel({ children }: { children: ComponentChildren }) {
 
 export default function ResultsSidebar({
   instanceId,
-  query,
-  onQuery,
   formatOrder,
   formats,
   formatCounts,
@@ -46,10 +53,8 @@ export default function ResultsSidebar({
   onInvert,
 }: {
   // Distinguishes the two mounted instances (desktop aside + mobile sheet) so
-  // the search input id and the sort radio group name stay unique in the DOM.
+  // the sort radio group name stays unique in the DOM.
   instanceId: string;
-  query: string;
-  onQuery: (value: string) => void;
   formatOrder: ImageExt[];
   formats: ReadonlySet<ImageExt>;
   formatCounts: Map<ImageExt, number>;
@@ -67,27 +72,9 @@ export default function ResultsSidebar({
   onInvert: (value: boolean) => void;
 }) {
   return (
-    <div className="flex flex-col gap-lg">
-      {/* Filename / URL search */}
-      <div>
-        <label
-          htmlFor={`results-search-${instanceId}`}
-          className="mb-xs block font-mono text-label uppercase text-muted"
-        >
-          Find
-        </label>
-        <input
-          id={`results-search-${instanceId}`}
-          type="search"
-          value={query}
-          onInput={(event) => onQuery((event.target as HTMLInputElement).value)}
-          placeholder="Filename or URL"
-          className="w-full rounded-sm border border-border bg-surface px-sm py-xs font-mono text-caption text-text placeholder:text-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-        />
-      </div>
-
+    <div className="flex flex-col divide-y divide-border">
       {/* Format filter */}
-      <div>
+      <div className="pb-md">
         <SectionLabel>Format</SectionLabel>
         <ul className="flex flex-col">
           <li>
@@ -99,9 +86,9 @@ export default function ResultsSidebar({
                   onChange={onClearFormats}
                   className="accent-accent"
                 />
-                <span className="font-mono text-label uppercase text-text">All</span>
+                <span className="text-small text-text">All</span>
               </span>
-              <span className="font-mono text-label text-muted">{allCount}</span>
+              <span className="text-small text-muted">{allCount}</span>
             </label>
           </li>
           {formatOrder.map((ext) => {
@@ -123,11 +110,11 @@ export default function ResultsSidebar({
                       onChange={() => onToggleFormat(ext)}
                       className="accent-accent"
                     />
-                    <span className={`font-mono text-label uppercase ${disabled ? 'text-light-muted' : 'text-text'}`}>
+                    <span className={`text-small ${disabled ? 'text-light-muted' : 'text-text'}`}>
                       {formatLabel(ext)}
                     </span>
                   </span>
-                  <span className={`font-mono text-label ${disabled ? 'text-light-muted' : 'text-muted'}`}>
+                  <span className={`text-small ${disabled ? 'text-light-muted' : 'text-muted'}`}>
                     {count}
                   </span>
                 </label>
@@ -138,7 +125,7 @@ export default function ResultsSidebar({
       </div>
 
       {/* Sort */}
-      <div>
+      <div className="py-md">
         <SectionLabel>Sort by</SectionLabel>
         <ul className="flex flex-col">
           {SORT_OPTIONS.map((option) => (
@@ -151,9 +138,9 @@ export default function ResultsSidebar({
                   onChange={() => onSort(option.key)}
                   className="accent-accent"
                 />
-                <span className="font-mono text-label uppercase text-text">{option.label}</span>
+                <span className="text-small text-text">{option.label}</span>
                 {option.key === 'width' && (
-                  <span className="font-mono text-label text-muted">
+                  <span className="text-small text-muted">
                     {knownWidth} of {filteredCount}
                   </span>
                 )}
@@ -167,7 +154,7 @@ export default function ResultsSidebar({
       {/* Source filter — collapsed by default; a developer affordance. Native
           <details> gives the disclosure with zero JS and the browser's own
           chevron, so no icon asset is needed. */}
-      <details>
+      <details className="py-md">
         <summary className="cursor-pointer font-mono text-label uppercase text-muted">Source</summary>
         <ul className="mt-xs flex flex-col">
           {SOURCE_GROUPS.map((group) => {
@@ -189,11 +176,11 @@ export default function ResultsSidebar({
                       onChange={() => onToggleGroup(group.id)}
                       className="accent-accent"
                     />
-                    <span className={`font-mono text-label uppercase ${disabled ? 'text-light-muted' : 'text-text'}`}>
+                    <span className={`text-small ${disabled ? 'text-light-muted' : 'text-text'}`}>
                       {group.label}
                     </span>
                   </span>
-                  <span className={`font-mono text-label ${disabled ? 'text-light-muted' : 'text-muted'}`}>
+                  <span className={`text-small ${disabled ? 'text-light-muted' : 'text-muted'}`}>
                     {count}
                   </span>
                 </label>
@@ -203,12 +190,12 @@ export default function ResultsSidebar({
         </ul>
       </details>
 
-      {/* Display — a switch, not a checkbox: this is a display mode, not a
-          filter (design-system.md). Same control as the landing demo grid. */}
-      <div>
+      {/* Display — the pill switch; list view is deferred, so this section
+          holds only Invert background. */}
+      <div className="pt-md">
         <SectionLabel>Display</SectionLabel>
         <div className="flex items-center justify-between gap-xs py-xs">
-          <span className="font-mono text-label uppercase text-text">Invert background</span>
+          <span className="text-small text-text">Invert background</span>
           <button
             type="button"
             role="switch"

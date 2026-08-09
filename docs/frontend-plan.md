@@ -352,3 +352,31 @@ declared canonical over the demo's chip. Source bar chip content-sized via
 `field-sizing: content`, 28ch ellipsized fallback. Copyright line regained
 "Nothing is stored or logged." Spacing: all design values mapped onto the
 scale (10/12→8, chip verticals→0); no new step needed.
+
+**Figma-alignment pass (2026-08-10):**
+- **FIND control removed** from the sidebar per design. The capability stays
+  in `results-model.ts` (`query` in `FilterState`, `matchesQuery` tested);
+  the island passes `''`. Reinstating it is one input. STATUS.md item
+  unchecked accordingly.
+- **List view: DEFERRED, not cancelled** — the design exists (Grid/List
+  toggle in the frame); we are holding the feature. DISPLAY holds only
+  Invert background until it lands.
+- **Radius policy replaced**: "4px only" → the named set sm 2 / md 4
+  (default) / full, with the `--radius-*` namespace wiped and stray aliases
+  rejected by verify-landing. Audit before the change: all 27 radius sites
+  used the `sm` alias incidentally (it rendered 4px); all were rewritten to
+  `md` except the download square (genuine sm 2px) and the toggle (full).
+- **Copyright notice reversed to the alert treatment** (accent on
+  `--color-notice-bg`, info icon, dismiss ×) — reversing the earlier
+  permanent-muted-line decision — and moved into the island so the
+  definition-of-done condition is enforceable: **dismissal is component
+  state, never storage; the notice reappears on every scan.** With JS off
+  the island doesn't render, so there is no grid and no download path —
+  nothing for the notice to caveat.
+- **Sidebar typography**: mono confined to section headings; option rows
+  sans `text-small`. Toggle rebuilt to the design (32×18 / 14px knob /
+  `--radius-full`, 44×44 hit area via `::before`). Sidebar on surface with
+  section dividers; grid area on bg; "Showing X of Y" right-aligned;
+  unselected tiles carry a visible 2px border-colour frame (same thickness
+  as the selected accent frame — no layout shift); the dimension chip pairs
+  the checkbox (20px / `--radius-md` / same inset).

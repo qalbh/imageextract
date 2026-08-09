@@ -59,15 +59,15 @@ export default function ImageCard({
           onToggle(image.id, event.shiftKey);
         }
       }}
-      className={`result-tile flex cursor-pointer flex-col rounded-sm border-2 bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
-        selected ? 'border-accent' : 'border-transparent'
+      className={`result-tile flex cursor-pointer flex-col rounded-md border-2 bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
+        selected ? 'border-accent' : 'border-border'
       }`}
     >
       {/* Image well: fills the tile width, hairline border, no inner padding.
           Invert swaps the ground to --color-text so a white-on-transparent logo
           stays visible (same swap as the landing demo). */}
       <div
-        className={`tile-well relative overflow-hidden rounded-sm border border-border ${
+        className={`tile-well relative overflow-hidden rounded-md border border-border ${
           invert ? 'bg-text' : 'bg-surface'
         }`}
       >
@@ -99,24 +99,33 @@ export default function ImageCard({
           />
         )}
 
-        {/* Selection indicator, top-left: accent-filled with a check when
-            selected; unselected keeps a --color-muted border so the square
-            holds its edge over white images. Purely visual — the tile is the
-            button. */}
+        {/* Selection indicator, top-left: accent-filled with a stroked SVG
+            check when selected (a glyph ✓ renders differently per platform);
+            unselected keeps a --color-muted border so the square holds its
+            edge over white images. Purely visual — the tile is the button. */}
         <span
           aria-hidden="true"
-          className={`tile-check absolute left-xs top-xs flex items-center justify-center rounded-sm border font-mono text-label ${
+          className={`tile-check absolute left-xs top-xs flex items-center justify-center rounded-md border ${
             selected ? 'border-accent bg-accent text-surface' : 'border-muted bg-surface text-transparent'
           }`}
         >
-          ✓
+          <svg viewBox="0 0 20 20" width="12" height="12" fill="none" aria-hidden="true">
+            <path
+              d="M4.5 10.5l3.5 3.5 7.5-8"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
         </span>
 
-        {/* Dimension chip, top-right. Strong overlay = measured, solid muted =
-            declared; surface text holds AA on both over any image. */}
+        {/* Dimension chip, top-right — the checkbox's pair: same 20px height,
+            same radius, same corner inset. Strong overlay = measured, solid
+            muted = declared; surface text holds AA on both over any image. */}
         {chip !== null && (
           <span
-            className={`absolute right-xs top-xs rounded-sm px-xs font-mono text-label text-surface ${
+            className={`tile-chip absolute right-xs top-xs inline-flex items-center rounded-md px-xs font-mono text-label text-surface ${
               chipMeasured ? 'bg-overlay-strong' : 'bg-muted'
             }`}
           >
@@ -133,7 +142,7 @@ export default function ImageCard({
           <p className="truncate text-caption font-medium text-text" title={image.filename}>
             {image.filename}
           </p>
-          <span className="inline-block w-fit rounded-sm bg-bg px-xs font-mono text-label uppercase text-muted">
+          <span className="inline-block w-fit rounded-md bg-bg px-xs font-mono text-label uppercase text-muted">
             {formatLabel(image.ext)}
           </span>
         </div>

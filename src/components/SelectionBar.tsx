@@ -17,7 +17,7 @@ function DownloadZip({ className }: { className: string }) {
       type="button"
       disabled
       title="ZIP download ships with the download release"
-      className={`rounded-sm bg-border px-md py-xs font-mono text-label uppercase text-light-muted ${className}`}
+      className={`rounded-md bg-border px-md py-xs font-mono text-label uppercase text-light-muted ${className}`}
     >
       Download ZIP
     </button>
@@ -90,7 +90,7 @@ export default function SelectionBar({
             type="button"
             onClick={onOpenFilters}
             aria-expanded={filtersOpen}
-            className="rounded-sm border border-border px-sm py-xs font-mono text-label uppercase text-text md:hidden"
+            className="rounded-md border border-border px-sm py-xs font-mono text-label uppercase text-text md:hidden"
           >
             Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
           </button>

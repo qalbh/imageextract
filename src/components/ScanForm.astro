@@ -21,7 +21,7 @@ const { variant = 'default' } = Astro.props;
 			<span class="shrink-0 font-mono text-label uppercase text-muted">Source</span>
 			{/* Chip sized to its content, not the row: .source-input tracks the URL
 			    via field-sizing where supported, 28ch ellipsized fallback elsewhere. */}
-			<span class="flex min-w-0 items-center gap-xs rounded-sm border border-border bg-surface px-sm py-xs focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent">
+			<span class="flex min-w-0 items-center gap-xs rounded-md border border-border bg-surface px-sm py-xs focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent">
 				<input
 					id="scan-url"
 					name="url"
@@ -53,11 +53,11 @@ const { variant = 'default' } = Astro.props;
 				type="url"
 				required
 				placeholder="https://example.com"
-				class="w-full rounded-sm border border-border bg-surface px-sm py-xs text-body text-text placeholder:text-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+				class="w-full rounded-md border border-border bg-surface px-sm py-xs text-body text-text placeholder:text-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
 			/>
 			<button
 				type="submit"
-				class="shrink-0 rounded-sm bg-accent px-md py-xs text-small font-medium text-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+				class="shrink-0 rounded-md bg-accent px-md py-xs text-small font-medium text-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
 			>
 				Extract
 			</button>

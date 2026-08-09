@@ -47,7 +47,7 @@ const sourceHost = new URL(demoScan.pageUrl).host + new URL(demoScan.pageUrl).pa
 			placeholder="Filter by name"
 			data-search
 			aria-label="Filter by filename"
-			class="rounded-sm border border-border bg-surface px-sm py-xs font-mono text-caption text-text placeholder:text-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+			class="rounded-md border border-border bg-surface px-sm py-xs font-mono text-caption text-text placeholder:text-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
 		/>
 		<div class="flex flex-wrap gap-xs" role="group" aria-label="Filter by format">
 			<button type="button" data-chip="all" aria-pressed="true" class="chip">All <span class="text-muted">{tiles.length}</span></button>
@@ -134,7 +134,7 @@ const sourceHost = new URL(demoScan.pageUrl).host + new URL(demoScan.pageUrl).pa
 		aspect-ratio: inherit;
 		padding: 0;
 		border: 1px solid var(--color-border);
-		border-radius: var(--radius-sm);
+		border-radius: var(--radius-md);
 		background: var(--color-surface);
 		overflow: hidden;
 		cursor: pointer;
@@ -158,7 +158,7 @@ const sourceHost = new URL(demoScan.pageUrl).host + new URL(demoScan.pageUrl).pa
 		width: var(--spacing-sm);
 		height: var(--spacing-sm);
 		border: 1px solid var(--color-border);
-		border-radius: var(--radius-sm);
+		border-radius: var(--radius-md);
 		background: var(--color-surface);
 	}
 	#demo [data-select][aria-pressed='true'] .check {
@@ -178,7 +178,7 @@ const sourceHost = new URL(demoScan.pageUrl).host + new URL(demoScan.pageUrl).pa
 	}
 	#demo .badge {
 		border: 1px solid var(--color-border);
-		border-radius: var(--radius-sm);
+		border-radius: var(--radius-md);
 		padding: 0 var(--spacing-xs);
 		color: var(--color-muted);
 		background: var(--color-surface);
@@ -196,7 +196,7 @@ const sourceHost = new URL(demoScan.pageUrl).host + new URL(demoScan.pageUrl).pa
 		font-family: var(--font-mono);
 		font-size: var(--text-caption);
 		border: 1px solid var(--color-border);
-		border-radius: var(--radius-sm);
+		border-radius: var(--radius-md);
 		padding: var(--spacing-xs) var(--spacing-sm);
 		background: var(--color-surface);
 		color: var(--color-text);
@@ -230,7 +230,7 @@ const sourceHost = new URL(demoScan.pageUrl).host + new URL(demoScan.pageUrl).pa
 		gap: var(--spacing-md);
 		margin-top: var(--spacing-md);
 		padding: var(--spacing-sm) var(--spacing-md);
-		border-radius: var(--radius-sm);
+		border-radius: var(--radius-md);
 		background: var(--color-text);
 		color: var(--color-surface);
 	}
@@ -261,7 +261,7 @@ const sourceHost = new URL(demoScan.pageUrl).host + new URL(demoScan.pageUrl).pa
 		margin: var(--spacing-sm) auto 0;
 		width: fit-content;
 		padding: var(--spacing-xs) var(--spacing-md);
-		border-radius: var(--radius-sm);
+		border-radius: var(--radius-md);
 		background: var(--color-text);
 		color: var(--color-surface);
 		z-index: 3;

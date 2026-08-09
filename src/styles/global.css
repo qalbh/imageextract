@@ -59,6 +59,10 @@
      dark enough that surface text holds ≥7:1 even over a pure-white image. */
   --color-overlay: rgb(17 17 17 / 0.5);
   --color-overlay-strong: rgb(17 17 17 / 0.7);
+  /* Accent-tinted ground for the copyright notice (~7% accent over white).
+     Accent text on it: 5.0:1 (AA at text-small); accent icon/×: 5.0:1 vs
+     the 3:1 non-text threshold. */
+  --color-notice-bg: #EDF1FF;
 
   /* Self-hosted webfonts first, metric-matched fallback face next, system
      stack last — all inside the one token. */
@@ -97,14 +101,16 @@
   --spacing-xl: 64px;
   --spacing-2xl: 120px;
 
-  /* Radius — every token pinned to 4px so no utility can render another. */
-  --radius-xs: 4px;
-  --radius-sm: 4px;
+  /* Radius — the complete named set (2026-08-09, replacing "4px only").
+     md is the default; sm is small controls (the download square); full is
+     the toggle track/knob only. The namespace wipe removes Tailwind's OWN
+     defaults first — without it a stray rounded-lg would render Tailwind's
+     8px, not fail. A stray alias now generates no CSS and the landing gate
+     rejects it; a fourth value needs raising before it exists. */
+  --radius-*: initial;
+  --radius-sm: 2px;
   --radius-md: 4px;
-  --radius-lg: 4px;
-  --radius-xl: 4px;
-  --radius-2xl: 4px;
-  --radius-3xl: 4px;
+  --radius-full: 9999px;
 
   --container-content: 1280px;
   /* Centered state-message column (error/empty/robots on /results). */
@@ -149,7 +155,7 @@ body {
 .skeleton-tile {
   aspect-ratio: 262 / 240;
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   background: var(--color-surface);
   animation: skeleton-pulse 1.5s ease-in-out infinite;
 }
@@ -177,6 +183,11 @@ body {
 }
 .tile-check {
   width: 20px;
+  height: 20px;
+}
+/* The dimension chip is the checkbox's pair: same height, radius, and corner
+   inset, so the two corners read as one system. */
+.tile-chip {
   height: 20px;
 }
 .tile-download {
@@ -269,41 +280,44 @@ body {
 }
 
 /* Display-mode switch (invert background). Filtering uses checkboxes/radios;
-   display modes use a switch (design-system.md). Squared to the 4px radius; every
-   dimension derives from spacing tokens. */
+   display modes use this pill (design-system.md). Component constants from the
+   design: 32×18 track, 14px circular knob at a 2px inset, 14px travel
+   (2 + 14 + 14 + 2 = 32). The visual is exactly that size; the ::before
+   expands the hit area to 44×44 (18 + 2×13, 32 + 2×6) with no visual or
+   layout change — ::after is the knob, so ::before is free. */
 .toggle {
   position: relative;
   display: inline-block;
   flex-shrink: 0;
-  width: var(--spacing-lg); /* 40 */
-  height: var(--spacing-md); /* 24 */
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  /* Solid track in the off state — a surface track's hairline vanishes on the
-     surface sidebar and the control read as a bare grey knob. */
+  width: 32px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-full);
   background: var(--color-border);
   cursor: pointer;
 }
+.toggle::before {
+  content: '';
+  position: absolute;
+  inset: -13px -6px;
+}
 .toggle[aria-checked='true'] {
   background: var(--color-accent);
-  border-color: var(--color-accent);
 }
 .toggle::after {
   content: '';
   position: absolute;
-  top: calc((var(--spacing-md) - var(--spacing-sm)) / 2); /* 4 */
-  left: calc((var(--spacing-md) - var(--spacing-sm)) / 2); /* 4 */
-  width: var(--spacing-sm); /* 16 */
-  height: var(--spacing-sm);
-  border-radius: var(--radius-sm);
-  background: var(--color-muted);
-  transition:
-    transform 150ms ease,
-    background 150ms ease;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  transition: transform 150ms ease;
 }
 .toggle[aria-checked='true']::after {
-  transform: translateX(var(--spacing-sm)); /* 40 − 16 − 2×4 = 16 travel */
-  background: var(--color-surface);
+  transform: translateX(14px);
 }
 .toggle:focus-visible {
   outline: 2px solid var(--color-accent);
