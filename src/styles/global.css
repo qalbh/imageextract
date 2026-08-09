@@ -143,3 +143,19 @@
     animation: none;
   }
 }
+
+/* Results tiles skip rendering while off-screen so a 1,000-image grid stays
+   responsive. The uniform square aspect makes contain-intrinsic-size accurate;
+   `auto` lets each tile remember its real box after first render. */
+.result-tile {
+  content-visibility: auto;
+  contain-intrinsic-size: auto var(--layout-tile-min);
+}
+
+/* Selected tile: a 2px accent frame drawn INSIDE the border box (negative
+   offset) so the paint containment from content-visibility can't clip it —
+   an outline, not a box-shadow (shadows are on the design-system NEVER list). */
+.tile-selected {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}

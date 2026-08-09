@@ -1,12 +1,32 @@
-import { useEffect, useState } from 'react';
-import type { ScanResult } from '../lib/extract';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { ImageExt, ScanImage, ScanResult } from '../lib/extract';
+import {
+  TILE_REVEAL_CAP,
+  applyFilters,
+  canonicalFormats,
+  formatAllCount,
+  formatCounts,
+  groupCounts,
+  invertWithin,
+  knownWidthCount,
+  selectAll,
+  selectedUrls,
+  sortImages,
+  toggleId,
+  type FilterState,
+  type SortKey,
+  type SourceGroupId,
+} from '../lib/results-model';
 import ImageCard from './ImageCard';
+import ResultsSidebar from './ResultsSidebar';
+import SelectionBar from './SelectionBar';
 
 /**
  * The page's only island. The URL form is static HTML that submits ?url=
  * via native browser behavior; this component reads the param on mount and
  * runs the scan, so the input works with zero JavaScript and every scan has
- * a shareable URL.
+ * a shareable URL. It also owns all results-view interaction state and renders
+ * the sidebar / grid / selection bar over the pure model in lib/results-model.
  */
 
 type ViewState =
@@ -30,6 +50,10 @@ const ERRORS: Record<string, { heading: string; retry: boolean }> = {
   'too-many-redirects': { heading: 'Too many redirects', retry: false },
   timeout: { heading: 'The site took too long to respond', retry: true },
 };
+
+// Stable empty manifest so the derived memos keep referential stability while
+// the view is in a non-results state.
+const NO_IMAGES: ScanImage[] = [];
 
 async function runScan(url: string): Promise<ViewState> {
   let response: Response;
@@ -85,6 +109,21 @@ function TruncatedBanner({ reason }: { reason: 'image-cap' | 'size-cap' }) {
 export default function ResultsGrid() {
   const [state, setState] = useState<ViewState>({ kind: 'idle' });
 
+  // --- results-view interaction state (hooks run unconditionally, per the
+  // rules of hooks; they operate over an empty manifest until a scan lands) ---
+  const [query, setQuery] = useState('');
+  const [formats, setFormats] = useState<ReadonlySet<ImageExt>>(() => new Set());
+  const [groups, setGroups] = useState<ReadonlySet<SourceGroupId>>(() => new Set());
+  const [sortKey, setSortKey] = useState<SortKey>('document');
+  const [selected, setSelected] = useState<ReadonlySet<string>>(() => new Set());
+  const [measured, setMeasured] = useState<ReadonlyMap<string, { w: number; h: number }>>(
+    () => new Map(),
+  );
+  const [revealCap, setRevealCap] = useState(TILE_REVEAL_CAP);
+  const [invert, setInvert] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+
   useEffect(() => {
     const url = new URLSearchParams(window.location.search).get('url');
     if (!url) return;
@@ -101,6 +140,102 @@ export default function ResultsGrid() {
     setState({ kind: 'loading', hostname });
     void runScan(url).then(setState);
   }, []);
+
+  const images = state.kind === 'results' ? state.result.images : NO_IMAGES;
+
+  // Best-known width: measured (load-time truth) preferred over declared.
+  const widthOf = useCallback((img: ScanImage) => measured.get(img.id)?.w ?? img.width, [measured]);
+
+  const filtered = useMemo(
+    () => applyFilters(images, { query, formats, groups }),
+    [images, query, formats, groups],
+  );
+
+  // Frozen sort: this memo deliberately omits `measured` from its deps.
+  // Measured dimensions arriving on image load refresh the badges (they re-run
+  // widthOf during render) but must NOT reorder tiles under the pointer.
+  // Re-picking a sort (sortKey change) or changing the filter recomputes the
+  // order with the newest widths.
+  const sorted = useMemo(() => sortImages(filtered, sortKey, widthOf), [filtered, sortKey]);
+
+  const visible = useMemo(() => sorted.slice(0, revealCap), [sorted, revealCap]);
+
+  // Applying a filter resets the reveal window to the first cap of the filtered
+  // set (sort reorders the same set, so it keeps the window).
+  useEffect(() => {
+    setRevealCap(TILE_REVEAL_CAP);
+  }, [query, formats, groups]);
+
+  // Incremental reveal: append another batch when the sentinel scrolls near.
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setRevealCap((cap) => Math.min(cap + TILE_REVEAL_CAP, sorted.length));
+        }
+      },
+      { rootMargin: '400px' },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [sorted.length]);
+
+  // Faceted counts — Format honours the active Source + query; Source honours
+  // the active Format + query. The shown format rows are fixed from the full
+  // manifest so they never reflow (canonicalFormats).
+  const filterState: FilterState = { query, formats, groups };
+  const formatOrder = useMemo(() => canonicalFormats(images), [images]);
+  const fmtCounts = useMemo(() => formatCounts(images, filterState), [images, query, groups]);
+  const allFmtCount = useMemo(() => formatAllCount(images, filterState), [images, query, groups]);
+  const grpCounts = useMemo(() => groupCounts(images, filterState), [images, query, formats]);
+  const knownWidth = useMemo(() => knownWidthCount(filtered, widthOf), [filtered, widthOf]);
+
+  const onMeasured = useCallback((id: string, w: number, h: number) => {
+    setMeasured((prev) => {
+      const next = new Map(prev);
+      next.set(id, { w, h });
+      return next;
+    });
+  }, []);
+  const onToggleSelect = useCallback((id: string) => setSelected((prev) => toggleId(prev, id)), []);
+  const onToggleFormat = useCallback(
+    (ext: ImageExt) =>
+      setFormats((prev) => {
+        const next = new Set(prev);
+        if (next.has(ext)) next.delete(ext);
+        else next.add(ext);
+        return next;
+      }),
+    [],
+  );
+  const onToggleGroup = useCallback(
+    (id: SourceGroupId) =>
+      setGroups((prev) => {
+        const next = new Set(prev);
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        return next;
+      }),
+    [],
+  );
+
+  const handleSelectAll = () => setSelected((prev) => selectAll(prev, filtered));
+  const handleClear = () => setSelected(new Set());
+  const handleInvert = () => setSelected((prev) => invertWithin(prev, filtered));
+  const handleCopy = () => {
+    const text = selectedUrls(images, selected).join('\n');
+    void navigator.clipboard?.writeText(text).then(
+      () => {
+        setCopied(true);
+        window.setTimeout(() => setCopied(false), 1500);
+      },
+      () => {
+        // Clipboard denied (permissions / insecure context) — leave the label.
+      },
+    );
+  };
 
   switch (state.kind) {
     case 'idle':
@@ -162,20 +297,68 @@ export default function ResultsGrid() {
       return (
         <div>
           {state.result.truncated !== undefined && <TruncatedBanner reason={state.result.truncated} />}
-          <p className="mb-sm font-mono text-label uppercase text-muted">
-            {state.result.images.length} image{state.result.images.length === 1 ? '' : 's'}
-          </p>
-          {/* Columns from --layout-tile-min via auto-fill (inline style — an
-              arbitrary Tailwind utility would be off-token). gap = --spacing-md
-              (24px, the grid gutter). */}
-          <ul
-            className="grid gap-md"
-            style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(var(--layout-tile-min), 1fr))' }}
-          >
-            {state.result.images.map((image) => (
-              <ImageCard key={image.id} image={image} />
-            ))}
-          </ul>
+          <div className="flex gap-md">
+            <aside className="shrink-0" style={{ width: 'var(--layout-sidebar)' }}>
+              <ResultsSidebar
+                query={query}
+                onQuery={setQuery}
+                formatOrder={formatOrder}
+                formats={formats}
+                formatCounts={fmtCounts}
+                allCount={allFmtCount}
+                onToggleFormat={onToggleFormat}
+                onClearFormats={() => setFormats(new Set())}
+                groups={groups}
+                groupCounts={grpCounts}
+                onToggleGroup={onToggleGroup}
+                sortKey={sortKey}
+                onSort={setSortKey}
+                knownWidth={knownWidth}
+                filteredCount={filtered.length}
+                invert={invert}
+                onInvert={setInvert}
+              />
+            </aside>
+
+            <div className="min-w-0 flex-1">
+              <p className="mb-sm font-mono text-label uppercase text-muted">
+                Showing {visible.length} of {sorted.length}
+              </p>
+              {sorted.length === 0 ? (
+                <p className="py-lg text-small text-muted">No images match these filters.</p>
+              ) : (
+                <ul
+                  className="grid gap-md"
+                  style={{
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(var(--layout-tile-min), 1fr))',
+                  }}
+                >
+                  {visible.map((image) => (
+                    <ImageCard
+                      key={image.id}
+                      image={image}
+                      selected={selected.has(image.id)}
+                      invert={invert}
+                      onToggle={onToggleSelect}
+                      onMeasured={onMeasured}
+                    />
+                  ))}
+                </ul>
+              )}
+              {revealCap < sorted.length && <div ref={sentinelRef} aria-hidden="true" />}
+            </div>
+          </div>
+
+          <SelectionBar
+            total={images.length}
+            selectedCount={selected.size}
+            filteredCount={filtered.length}
+            copied={copied}
+            onSelectAll={handleSelectAll}
+            onClear={handleClear}
+            onInvert={handleInvert}
+            onCopy={handleCopy}
+          />
         </div>
       );
   }

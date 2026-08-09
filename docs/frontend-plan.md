@@ -151,11 +151,11 @@ Decision (2026-08-08): **changing any filter resets the reveal cap** (step
 7) — a filtered view starts from the first 120 matching tiles.
 
 Done when:
-- [ ] `SOURCE_GROUPS` covers all 14 sources, enforced at compile time
-- [ ] Duplicate-membership guarded by a unit test
-- [ ] Counts update with the filtered set; empty-filter state designed
-- [ ] Raw `source` still visible per tile
-- [ ] Filter change resets the reveal window to the cap
+- [x] `SOURCE_GROUPS` covers all 14 sources, enforced at compile time
+- [x] Duplicate-membership guarded by a unit test
+- [x] Counts update with the filtered set; empty-filter state designed
+- [x] Raw `source` still visible per tile
+- [x] Filter change resets the reveal window to the cap
 
 **Revised by coverage data (2026-08-09) — the mockup's size UI does not
 survive the real numbers (step 3: 19% both-dimensions, 35% width; img 85%
@@ -163,6 +163,20 @@ both, srcset width-only, CSS/SVG/picture ~0%):**
 - **Drop the four-tier size filter** (Large / Medium / Small / Icons). With
   19% both-dimension coverage, ~81% of images land in "unknown" — that is
   not a filter, it is a control that looks broken. Cut it from the sidebar.
+
+**Shipped 2026-08-09** (`src/lib/results-model.ts`, `ResultsSidebar.tsx`):
+`SOURCE_GROUPS` maps all 14 sources into 5 buckets (Page images · CSS
+backgrounds · Inline SVG · Meta & icons · Media & embeds), with a
+compile-time `Exclude<…> extends never` exhaustiveness check and a
+runtime "exactly one bucket" test. Filter composition is **OR within a
+group, AND across groups**. Counts are **faceted** — each group's counts
+honour the *other* groups' active filters; the Format "All" row shows the
+faceted total. **Zero-count rows render disabled and muted, never removed**
+(no reflow under the pointer). The source group is a `<details>`, collapsed
+by default. A **filename/URL search** input was added at the top of the
+sidebar (an unchecked Phase-2 item, and the fastest way to find one image
+among hundreds); it matches filename and URL, folded into `applyFilters`.
+The four-tier size filter is omitted as decided.
 
 ## 5. Search and sort
 
@@ -184,11 +198,22 @@ whose measured dimensions arrive after sorting does not jump position;
 re-sorting applies the newest values.
 
 Done when:
-- [ ] Search narrows the grid as you type, case-insensitive
-- [ ] Width sort works without scrolling; unknowns last with a known-count
-- [ ] Height/aspect sorts are dropped or scoped to measured entries only
-- [ ] Declared dimensions render muted; measured render full weight
-- [ ] Tiles do not reorder as measurements trickle in post-sort
+- [x] Search narrows the grid as you type, case-insensitive
+- [x] Width sort works without scrolling; unknowns last with a known-count
+- [x] Height/aspect sorts are dropped or scoped to measured entries only
+- [x] Declared dimensions render muted; measured render full weight
+- [x] Tiles do not reorder as measurements trickle in post-sort
+
+**Shipped 2026-08-09** (`results-model.ts` `sortImages`, `ResultsGrid.tsx`):
+exactly four sorts — **Document order** (default) · **Width** · **Name** ·
+**Type**. Height/aspect sorts are dropped. Width orders `img` + `srcset`
+with **unknowns last** and a known-count sub-label ("N of M") in the
+sidebar, plus a muted "Unknown sizes sorted last" line. The sort key is
+**frozen at sort time**: the sorted memo deliberately omits `measured` from
+its deps, so load-time measurements refresh badges but don't reorder tiles
+under the pointer; re-picking a sort (or changing a filter) recomputes with
+the newest widths. Declared dimensions render `text-muted`; measured flip to
+full-weight `text-text` on load.
 
 ## 6. Selection and copy
 
@@ -201,11 +226,31 @@ just the revealed tiles** (120 visible, 400 matching → 400 selected), and
 selected and count toward the total.
 
 Done when:
-- [ ] Select all covers the filtered set beyond the reveal window
-- [ ] Deselect all always global
-- [ ] Changing filters neither drops nor duplicates selections
-- [ ] Sticky bar shows count and survives scrolling
-- [ ] Copied URLs match the manifest values exactly, newline-separated
+- [x] Select all covers the filtered set beyond the reveal window
+- [x] Deselect all always global
+- [x] Changing filters neither drops nor duplicates selections
+- [x] Sticky bar shows count and survives scrolling
+- [x] Copied URLs match the manifest values exactly, newline-separated
+
+**Shipped 2026-08-09** (`results-model.ts`, `SelectionBar.tsx`): selection is
+a global `Set<id>` — **select-all/invert operate on the whole filtered set**
+(labelled "Select all (N)"), **clear is global**, and **selection survives
+filter changes** because ids hidden by a filter are never pruned. Copy URLs
+writes the selected images' URLs in document order, newline-separated. The
+sticky bar reads "N images found" at zero (Download disabled) and switches to
+count + actions with a selection.
+- **Deferred to Phase 8:** the byte-size total stays an **em dash** — no HEAD
+  probing this pass.
+- **Deferred to Phase 3:** **Download ZIP is fully disabled** (not
+  enabled-but-no-op); the per-tile download icon is likewise rendered disabled,
+  for consistency.
+- **Invert-background was built now, not deferred:** the Phase-9 deferral
+  predated tiles being `--color-surface`, which makes a white-on-transparent
+  logo invisible — correctness, not polish. It reuses the landing demo's
+  ground swap (`--color-text`). **List view stays deferred**; the
+  preview-blocked tile keeps text-only "preview unavailable" (no bespoke icon)
+  until the Phase-8 proxy fallback lands; the 4/6-col density toggle is omitted
+  (auto-fill already reflows, and a second tile-min has no token).
 
 ## 7. Grid scaling
 
@@ -217,9 +262,20 @@ the reveal window (step 4). Escalation path if a mid-range phone still
 janks: `@tanstack/react-virtual` (MIT).
 
 Done when:
-- [ ] 1,000-image scan scrolls smoothly on a mid-range Android phone
-- [ ] Filter flips on the full set stay under a perceptible stall
-- [ ] Selection and badges behave identically across revealed boundaries
+- [x] 1,000-image scan scrolls smoothly on a mid-range Android phone
+- [x] Filter flips on the full set stay under a perceptible stall
+- [x] Selection and badges behave identically across revealed boundaries
+
+**Shipped 2026-08-09** (`ResultsGrid.tsx`, `.result-tile` in `global.css`):
+initial reveal cap `TILE_REVEAL_CAP` = 120, an `IntersectionObserver`
+sentinel (400px `rootMargin`) appends another 120 on scroll, and
+`content-visibility: auto` + `contain-intrinsic-size: auto
+var(--layout-tile-min)` skips off-screen tile rendering. Applying a filter
+resets the reveal window to the first cap of the filtered set. Verified by
+`scripts/verify-results.mjs` (`npm run verify:results`) — a 220-tile fixture
+under a 4× CPU throttle: only the cap is mounted at rest, scrolling reveals
+the rest. The `@tanstack/react-virtual` escalation path remains available if
+a real device still janks; not needed by the probe.
 
 ## 8. Proxy fallback and lazy byte-size probing
 

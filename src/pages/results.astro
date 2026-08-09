@@ -16,14 +16,16 @@ import ResultsGrid from '../components/ResultsGrid';
 		<link rel="canonical" href="https://imageextract.pics/results" />
 	</Fragment>
 
-	<main class="mx-auto max-w-5xl px-4 py-10">
+	<main class="mx-auto max-w-content px-sm py-lg">
 		<ScanForm />
 
-		<p class="mt-8 border-b border-neutral-200 pb-2 text-xs text-neutral-500">
+		{/* Permanent copyright notice above the grid — a muted line, not a
+		    dismissible alert. Downloads happen on this page, so it stays put. */}
+		<p class="mt-lg border-b border-border pb-xs text-small text-muted">
 			Images belong to their creators. Only download what you have the right to use.
 		</p>
 
-		<div class="mt-6">
+		<div class="mt-md">
 			<ResultsGrid client:load />
 		</div>
 	</main>

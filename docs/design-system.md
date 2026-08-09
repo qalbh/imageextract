@@ -79,8 +79,33 @@ tile reveal cap **120** (a JS constant — recorded here, lands in code with
 the grid-scaling step).
 
 **Tile badge corners:** on results tiles the **source badge is top-right**
-and the **selection checkbox (next pass) is top-left** — opposite corners so
-they never collide.
+and the **selection checkbox is top-left** — opposite corners so they never
+collide.
+
+## Results view
+
+- **Sidebar** is `--layout-sidebar` (260px) wide, applied via inline
+  `style={{ width: 'var(--layout-sidebar)' }}` (a CSS var, not an arbitrary
+  utility). The grid area is `flex-1 min-w-0` beside it.
+- **Selection bar** is a sticky bottom bar, `--layout-stickybar` (64px) tall,
+  `bg-surface` with a top `border-border`.
+- **Form controls** (filter checkboxes, sort radios, the invert toggle) are
+  native `<input>`s tinted with `accent-accent` (`accent-color: --color-accent`)
+  — no custom control chrome. The source-group filter is a native `<details>`
+  disclosure, collapsed by default, so its chevron is the browser's own.
+- **Selected tile** uses `.tile-selected` — a 2px `--color-accent` outline at
+  `outline-offset: -2px` (drawn *inside* the border box so `content-visibility`
+  paint containment can't clip it), plus `border-accent`. An outline, never a
+  shadow.
+- **`.result-tile`** carries `content-visibility: auto` +
+  `contain-intrinsic-size: auto var(--layout-tile-min)` so off-screen tiles skip
+  rendering; the uniform square makes the intrinsic size accurate.
+- **Faceted filter counts:** a filter row whose count is zero under the other
+  active filters renders disabled and `--color-light-muted`, never removed — the
+  list must not reflow while the pointer is aiming at a row.
+- **Invert background** reuses `--color-text` as the tile ground (and
+  `--color-surface` for the caption on it) — the same swap the landing demo
+  uses; no new colour.
 
 ## Interaction
 

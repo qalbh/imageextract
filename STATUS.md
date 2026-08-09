@@ -28,7 +28,7 @@ Phase 1 is complete: the whole server-side engine — scan, extraction, robots, 
 
 ### In progress
 
-- [ ] Phase 2 restyle: migrate `index.astro`, `ImageCard`, `ResultsGrid` onto the design tokens (first pass + route split shipped; filters, sorting, selection, and ZIP deliberately later)
+- [ ] Phase 2 remaining: proxy fallback on hotlink 403, lazy byte-size probing, and the mobile pass. Restyle, route split, filters, sort, selection, copy, invert-background, and incremental reveal are all shipped; results.astro is now on tokens and off the verify-gate PRE_RESTYLE list. ZIP is Phase 3.
 
 ---
 
@@ -56,13 +56,13 @@ Phase 1 is complete: the whole server-side engine — scan, extraction, robots, 
 - [ ] Proxy fallback on hotlink 403 (card shows "preview unavailable" for now)
 - [x] Dimension badges from `naturalWidth`/`naturalHeight`
 - [ ] Byte-size badges, lazy only (badge renders an em dash; probing not wired)
-- [ ] Type filter with live counts
-- [ ] Search across filename, URL, type, dimensions
-- [ ] Sort by size and dimensions
-- [ ] Selection state, select all, deselect all
-- [ ] Invert-background toggle
-- [ ] Copy selected URLs
-- [ ] **Virtualized rendering** — see risks below
+- [x] Type filter with live counts (faceted; grouped source filter alongside it)
+- [x] Search across filename and URL (type is a filter; dimensions are the width sort)
+- [x] Sort — Document order / Width / Name / Type (height & aspect dropped per coverage data; width sorts unknowns last)
+- [x] Selection state, select all, deselect all (global selection, survives filter changes)
+- [x] Invert-background toggle (brought forward from Phase 9 — a white-on-transparent logo is invisible on the surface-coloured tile)
+- [x] Copy selected URLs
+- [x] **Incremental reveal + content-visibility** in place of full virtualization (cap 120, IntersectionObserver append; @tanstack/react-virtual escalation path if a real device janks)
 - [x] Empty state (zero images found)
 - [x] Error states per failure type (incl. distinct `truncated` wording per reason)
 - [ ] Mobile layout

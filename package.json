@@ -13,6 +13,7 @@
 		"test": "vitest run",
 		"test:watch": "vitest",
 		"verify:landing": "astro build && node scripts/verify-landing.mjs",
+		"verify:results": "astro build && node scripts/verify-results.mjs",
 		"generate-types": "wrangler types",
 		"deploy": "astro build && wrangler deploy",
 		"cf-typegen": "wrangler types"

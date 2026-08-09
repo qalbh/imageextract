@@ -49,12 +49,10 @@ async function walk(dir) {
 // Pre-restyle results-view files, still on the old neutral/numeric utilities.
 // Their token migration is frontend-plan step 1; delete each entry here when
 // it lands, so the gate then covers it (self-retiring, like doc-sync's
-// allowlist). The landing surface (index.astro, ScanForm, Layout) is in scope.
-const PRE_RESTYLE = new Set([
-  // ResultsGrid.tsx and ImageCard.tsx were restyled onto tokens and now pass
-  // the gate. results.astro (page shell) is not yet migrated.
-  'src/pages/results.astro',
-]);
+// allowlist). The whole of src/pages + src/components is now migrated onto
+// tokens, so this set is empty — kept so a future pre-restyle file can be
+// parked here again.
+const PRE_RESTYLE = new Set([]);
 
 async function sourceChecks() {
   const dirs = [join(root, 'src', 'pages'), join(root, 'src', 'components')];

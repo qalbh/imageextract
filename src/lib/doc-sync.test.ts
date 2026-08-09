@@ -43,7 +43,6 @@ type Allow =
   | { token: string; kind: 'external'; note: string };
 
 const ALLOWLIST: Allow[] = [
-  { token: 'SOURCE_GROUPS', kind: 'planned', retiresAt: 'frontend-plan.md step 4 (source-group filter)' },
   {
     token: 'css-external',
     kind: 'historical',
@@ -128,6 +127,14 @@ describe('layer 2: identifier existence', () => {
 
   // (c) Hyphenated enum-ish literals must appear as a literal somewhere in the
   // lib source. `css-external` never does — that is the catch.
+  //
+  // Known false-positive class: this harvest cannot tell an enum literal from a
+  // hyphenated CSS property (`content-visibility`), an HTTP header
+  // (`cache-control`), or an npm package (`client-zip`) — all legitimately live
+  // outside src/lib. When one trips this test, the fix is to REMOVE the
+  // backticks in the doc (they aren't our identifiers), not to add an allowlist
+  // entry — an allowlist grows unbounded and hides the next real drift.
+  // `content-visibility` (STATUS.md) was the first; it will not be the last.
   it('backticked hyphenated literals appear in lib source', () => {
     for (const token of harvest(archDocs, /`([a-z]+(?:-[a-z]+)+)`/g)) {
       if (allowed.has(token)) continue;
