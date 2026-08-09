@@ -55,6 +55,18 @@ export function canProxyFallback(img: ScanImage): boolean {
   return img.url.startsWith('https://') || img.url.startsWith('http://');
 }
 
+// Download target for one image. http(s) goes through the proxy for the
+// attachment disposition (browsers ignore `download` on cross-origin
+// anchors — the reason the proxy exists); data: URIs are exempt from that
+// restriction, so the anchor points at the URI itself — no proxy, no
+// subrequest, nothing to disable. The anchor's download attribute carries
+// the manifest filename: it names data: downloads outright, and for proxy
+// downloads the server's Content-Disposition wins per spec — the attribute
+// is only the fallback.
+export function downloadHref(img: ScanImage): string {
+  return canProxyFallback(img) ? proxyUrl(img.url, { download: true }) : img.url;
+}
+
 const GROUP_OF: Record<ImageSource, SourceGroupId> = (() => {
   const map = {} as Record<ImageSource, SourceGroupId>;
   for (const group of SOURCE_GROUPS) for (const source of group.sources) map[source] = group.id;

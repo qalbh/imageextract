@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { ScanImage } from '../lib/extract';
-import { ICON_SOURCES, formatLabel, proxyUrl } from '../lib/results-model';
+import { ICON_SOURCES, downloadHref, formatLabel, proxyUrl } from '../lib/results-model';
 
 /**
  * One grid cell — the whole tile is the selection control (role=button):
@@ -67,6 +67,9 @@ export default function ImageCard({
       aria-label={`${selected ? 'Deselect' : 'Select'} ${image.filename}`}
       onClick={(event) => onToggle(image.id, event.shiftKey)}
       onKeyDown={(event) => {
+        // Only when the TILE itself is focused — the download anchor inside
+        // bubbles its keydown here, and Enter on it must download, not toggle.
+        if (event.target !== event.currentTarget) return;
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault(); // Space would otherwise scroll the page
           onToggle(image.id, event.shiftKey);
@@ -168,16 +171,20 @@ export default function ImageCard({
             {formatLabel(image.ext)}
           </span>
         </div>
-        <button
-          type="button"
-          disabled
-          aria-label="Download (ships with the download release)"
-          title="Single-image download ships with the download release"
+        {/* Live on every tile: http(s) through the proxy's attachment path,
+            data: URIs downloaded natively via the download attribute. Enabled
+            even when the preview is dead — dead means the inline proxy GET
+            failed once, which makes success unlikely, not impossible; a
+            failed attempt costs one subrequest and the browser reports it. */}
+        <a
+          href={downloadHref(image)}
+          download={image.filename}
+          aria-label={`Download ${image.filename}`}
           onClick={(event) => event.stopPropagation()}
-          className="tile-download flex shrink-0 items-center justify-center rounded-sm border border-border text-light-muted"
+          className="tile-download flex shrink-0 items-center justify-center rounded-sm border border-border text-muted hover:border-text hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
         >
           ↓
-        </button>
+        </a>
       </div>
     </li>
   );

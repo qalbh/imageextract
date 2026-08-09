@@ -156,8 +156,10 @@ badge** on the tile; source is a sidebar filter, which is where it does its work
 - **Tile footer** (`.tile-footer`, 56px, on `--color-surface`): filename in
   sans `text-caption` `font-medium`, truncated with the full value on hover;
   the format tag beneath it as a solid `--color-bg` chip (`text-label` mono);
-  a bordered square download button (`.tile-download`, 28×28) at the right,
-  centred against the two lines (disabled until Phase 3).
+  a bordered square download anchor (`.tile-download`, 28×28) at the right,
+  centred against the two lines — live since Phase 3 step 2 (`text-muted`,
+  hover border/text to `--color-text` per the interaction rules; it stops
+  propagation so it never toggles selection).
 - **Tile component constants** (from the tile design, defined in `global.css`):
   checkbox `.tile-check` 20×20 · download `.tile-download` 28×28 · footer
   `.tile-footer` 56px · well `.tile-well` 262:180. The design's off-scale

@@ -6,6 +6,7 @@ import {
   applyFilters,
   canProxyFallback,
   canonicalFormats,
+  downloadHref,
   formatAllCount,
   formatCounts,
   formatLabel,
@@ -109,6 +110,19 @@ describe('canProxyFallback', () => {
       canProxyFallback(img({ source: 'inline-svg', ext: 'svg', url: 'data:image/svg+xml,%3Csvg%3E%3C%2Fsvg%3E' })),
     ).toBe(false);
     expect(canProxyFallback(img({ source: 'img', ext: 'png', url: 'data:image/png;base64,AAAA' }))).toBe(false);
+  });
+});
+
+describe('downloadHref', () => {
+  it('routes http(s) through the proxy with download=1', () => {
+    expect(downloadHref(img({ source: 'img', ext: 'png', url: 'https://cdn.test/a.png' }))).toBe(
+      '/api/proxy?url=https%3A%2F%2Fcdn.test%2Fa.png&download=1',
+    );
+  });
+
+  it('points data: URIs at themselves — browsers honour download on data:, no proxy needed', () => {
+    const uri = 'data:image/svg+xml,%3Csvg%3E%3C%2Fsvg%3E';
+    expect(downloadHref(img({ source: 'inline-svg', ext: 'svg', url: uri }))).toBe(uri);
   });
 
   it('sourceGroupOf resolves each source to its bucket', () => {

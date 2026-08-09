@@ -73,13 +73,13 @@ Phase 1 is complete: the whole server-side engine — scan, extraction, robots, 
 
 - [x] Proxy fallback on hotlink 403 — one retry per tile via a monotonic parent-owned status map; verified by the verify:results fallback scenario: 1 proxy request per failed tile and zero new proxy/origin requests across a filter round trip (the remount case). Still owed: one by-hand check against a live hotlink-protected origin before Phase 3 closes.
 - [ ] Lazy byte-size probing via proxy HEAD — individually-selected images only, capped abortable queue; select-all probes nothing (em dash + "Calculate size" action) (moved from Phase 2)
-- [ ] Single-image download through the proxy
+- [x] Single-image download — a same-origin anchor per tile (proxy download=1 for http(s); data: URIs download natively via the download attribute, no proxy). Verified in the verify:results download checks: a real file lands on disk with exact bytes; the server's disposition name wins over the anchor attribute; pointer and keyboard downloads don't toggle selection; data: downloads make zero proxy calls. Determined: a mid-stream proxy abort makes the browser discard the partial file and mark the download failed — never a silently short file.
 - [ ] `client-zip` streaming assembly in the browser
 - [ ] Concurrency cap of 6 parallel fetches — must bound bytes in flight, not just request count (see AGENTS.md Phase 3 constraint)
 - [ ] Per-file progress
 - [ ] Failures skipped and reported, never fatal
 - [ ] Cancel button that aborts in-flight requests
-- [ ] Filename sanitization and numeric-suffix dedupe
+- [ ] Filename rule for the ZIP, settled with step 2: the archive uses MANIFEST filenames, which extract.ts already makes scan-unique (uniqueFilename appends -2, -3…; data URIs get inline-N.svg) — no assembly-time dedupe machinery needed. Single downloads use the proxy's disposition name; the browser suffixes disk collisions.
 - [ ] Optional numeric prefix preserving grid order
 - [ ] `URL.revokeObjectURL` on every object URL
 

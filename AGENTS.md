@@ -265,6 +265,14 @@ stream, never close it cleanly: a complete download is exactly one whose
 body stream ends without error, which is how the client (and later
 `client-zip`) tells truncated from complete.
 
+Determined empirically (2026-08-10, mid-stream probe against Chromium): when
+a browser-owned download's stream errors mid-body — what the proxy's abort
+produces — the browser **discards the partial file and marks the download
+failed** (headless reports "canceled"; headed Chrome shows a failed entry in
+the download shelf). The user never receives a silently short file, and
+nothing can or needs to be done client-side once the anchor navigation has
+handed the download to the browser.
+
 The proxy must reject non-image `Content-Type`, and must set
 `X-Content-Type-Options: nosniff` plus `Content-Disposition: attachment`
 when `download=1`.
@@ -349,7 +357,11 @@ the evidence, and the gap between it and the box text stays visible.
 - [ ] `robots.txt` respected with no override path
 - [ ] Rate limits live before public launch
 - [ ] Byte-size probing verified lazy by counting network calls on a large page
-- [ ] Preview falls back to proxy on hotlink 403
+- [x] Preview falls back to proxy on hotlink 403 — verified by the
+      verify:results fallback scenario (1 proxy request per failed tile;
+      zero re-requests across a filter round trip); a live
+      hotlink-protected origin has NOT yet been checked by hand (owed
+      before Phase 3 closes)
 - [ ] Large ZIP completes on a mid-range Android phone
 - [ ] `limits` block set in `wrangler.jsonc`
 - [ ] Copyright notice and abuse contact shipped

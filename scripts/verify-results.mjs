@@ -26,6 +26,8 @@ const dist = join(root, 'dist', 'client');
 const REVEAL_CAP = 120;
 const FIXTURE_N = 220;
 const CPU_THROTTLE = 4; // 4× slower than the reference device
+// Body served for recovered thumbnails AND real-HTTP download emulation.
+const FB_SVG_BODY = '<svg xmlns="http://www.w3.org/2000/svg" width="80" height="60"><rect width="80" height="60" fill="#888"/></svg>';
 
 const results = [];
 const ok = (name, pass, detail = '') => {
@@ -58,6 +60,23 @@ function serve() {
     const server = createServer(async (req, res) => {
       try {
         const p = decodeURIComponent((req.url || '/').split('?')[0]);
+        // Download emulation for the fallback/download scenario: Chromium
+        // cancels downloads served from Playwright route.fulfill, so
+        // download=1 proxy requests must travel real HTTP. Mirrors the real
+        // proxy's shape: attachment disposition named from the target's URL
+        // path (which must WIN over the anchor's download attribute).
+        if (p === '/api/proxy') {
+          const q = new URL(req.url, 'http://x').searchParams;
+          const target = q.get('url') ?? '';
+          const name = target.split('/').filter(Boolean).pop() ?? 'image';
+          res.setHeader('content-type', 'image/svg+xml');
+          res.setHeader('cache-control', 'private, max-age=3600');
+          if (q.get('download') === '1') {
+            res.setHeader('content-disposition', `attachment; filename="${name}"`);
+          }
+          res.end(FB_SVG_BODY);
+          return;
+        }
         let file = join(dist, p);
         if (existsSync(file) && (await stat(file)).isDirectory()) file = join(file, 'index.html');
         else if (!existsSync(file)) {
@@ -145,19 +164,25 @@ async function main() {
     // which route-fulfilled responses can't reliably emulate.
     // -----------------------------------------------------------------------
     const FB_N = 8;
+    const DATA_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><circle cx="20" cy="20" r="15" fill="#4a5"/></svg>';
+    const DATA_URI = `data:image/svg+xml,${encodeURIComponent(DATA_SVG)}`;
     const fbFixture = {
       pageUrl: 'https://example.com/fb',
-      images: Array.from({ length: FB_N }, (_, i) => ({
-        id: `fb${i}`,
-        url: `https://hotlink.test/fb-${i}.${i % 2 === 0 ? 'png' : 'webp'}`,
-        filename: `fb-${i}`,
-        ext: i % 2 === 0 ? 'png' : 'webp',
-        source: 'img',
-      })),
+      images: [
+        ...Array.from({ length: FB_N }, (_, i) => ({
+          id: `fb${i}`,
+          url: `https://hotlink.test/fb-${i}.${i % 2 === 0 ? 'png' : 'webp'}`,
+          filename: `fb-${i}`,
+          ext: i % 2 === 0 ? 'png' : 'webp',
+          source: 'img',
+        })),
+        // A data: URI tile (inline-svg style): downloads natively via the
+        // download attribute, no proxy involvement.
+        { id: 'fbdata', url: DATA_URI, filename: 'inline-1.svg', ext: 'svg', source: 'inline-svg' },
+      ],
     };
     const directCounts = new Map();
     const proxyCounts = new Map();
-    const SVG_BODY = '<svg xmlns="http://www.w3.org/2000/svg" width="80" height="60"><rect width="80" height="60" fill="#888"/></svg>';
 
     const fb = await browser.newPage({ viewport: { width: 1280, height: 900 } });
     await fb.route('**/*', (route) => {
@@ -169,13 +194,16 @@ async function main() {
       if (u.includes('/api/proxy?')) {
         const target = new URL(u).searchParams.get('url') ?? '';
         proxyCounts.set(target, (proxyCounts.get(target) ?? 0) + 1);
+        // download=1 must travel real HTTP (the static server emulates the
+        // proxy) — Chromium cancels downloads served from route.fulfill.
+        if (new URL(u).searchParams.get('download') === '1') return route.continue();
         const idx = Number(target.match(/fb-(\d+)/)?.[1] ?? -1);
         return idx % 2 === 0
           ? route.fulfill({
               status: 200,
               headers: { 'cache-control': 'private, max-age=3600' },
               contentType: 'image/svg+xml',
-              body: SVG_BODY,
+              body: FB_SVG_BODY,
             })
           : route.fulfill({ status: 502, contentType: 'text/plain', body: 'upstream error' });
       }
@@ -212,6 +240,58 @@ async function main() {
     );
     const deadAfter = await fb.locator('text=preview unavailable').count();
     ok('fallback: dead tiles stay dead across the round trip', deadAfter === FB_N / 2, `${deadAfter} dead`);
+
+    // -----------------------------------------------------------------------
+    // Single-image download — captures REAL downloads (Chromium writes a temp
+    // file we read back), so the anchor/download mechanics are verified, not
+    // assumed. Runs after the count assertions above: a download adds a
+    // deliberate, user-initiated proxy request.
+    // -----------------------------------------------------------------------
+    const anchors = await fb.locator('a[download]').count();
+    const proxyAnchors = await fb.locator('a[download][href*="/api/proxy"]').count();
+    ok(
+      'download: every tile has an enabled anchor (proxy for http, self for data:)',
+      anchors === FB_N + 1 && proxyAnchors === FB_N,
+      `${anchors} anchors, ${proxyAnchors} via proxy`,
+    );
+
+    // Pointer download from a recovered tile: disposition name must win over
+    // the anchor attribute, bytes must match, selection must not toggle.
+    const tile0 = fb.locator('li', { hasText: 'fb-0' }).first();
+    const pressedBefore = await tile0.getAttribute('aria-pressed');
+    const [dl1] = await Promise.all([fb.waitForEvent('download'), tile0.locator('a[download]').click()]);
+    const dl1Bytes = await readFile(await dl1.path(), 'utf8');
+    ok(
+      'download: click → real file, server disposition name wins, no selection toggle',
+      dl1.suggestedFilename() === 'fb-0.png' &&
+        dl1Bytes === FB_SVG_BODY &&
+        (await tile0.getAttribute('aria-pressed')) === pressedBefore,
+      `name=${dl1.suggestedFilename()}, ${dl1Bytes.length}B, pressed ${pressedBefore}→${await tile0.getAttribute('aria-pressed')}`,
+    );
+
+    // Keyboard: Enter on the focused anchor downloads and must NOT toggle the
+    // tile (the tile's keydown handler ignores bubbled events).
+    const tile2 = fb.locator('li', { hasText: 'fb-2' }).first();
+    await tile2.locator('a[download]').focus();
+    const [dl2] = await Promise.all([fb.waitForEvent('download'), fb.keyboard.press('Enter')]);
+    ok(
+      'download: Enter on the anchor downloads without toggling selection',
+      dl2.suggestedFilename() === 'fb-2.png' && (await tile2.getAttribute('aria-pressed')) === 'false',
+      `name=${dl2.suggestedFilename()}`,
+    );
+
+    // data: URI tile: downloads natively (no proxy request), named by the
+    // anchor attribute since data: carries no headers.
+    const proxyCountBefore = [...proxyCounts.values()].reduce((a, b) => a + b, 0);
+    const dataTile = fb.locator('li', { hasText: 'inline-1.svg' }).first();
+    const [dl3] = await Promise.all([fb.waitForEvent('download'), dataTile.locator('a[download]').click()]);
+    const dl3Bytes = await readFile(await dl3.path(), 'utf8');
+    const proxyCountAfter = [...proxyCounts.values()].reduce((a, b) => a + b, 0);
+    ok(
+      'download: data: URI downloads natively — attr name, exact bytes, zero proxy calls',
+      dl3.suggestedFilename() === 'inline-1.svg' && dl3Bytes === DATA_SVG && proxyCountAfter === proxyCountBefore,
+      `name=${dl3.suggestedFilename()}, ${dl3Bytes.length}B, proxy ${proxyCountBefore}→${proxyCountAfter}`,
+    );
     await fb.close();
   } finally {
     await browser.close();
