@@ -285,3 +285,126 @@ export function selectedUrls(
 // Initial reveal cap — the design-system tile-reveal constant. Intersection
 // observer appends another batch of this size on scroll.
 export const TILE_REVEAL_CAP = 120;
+
+// ---------------------------------------------------------------------------
+// Byte-size probing (Phase 3 step 3). Sizes are cached per scan; probing is
+// individually user-initiated — bulk operations never auto-probe (decided
+// 2026-08-10; a concurrency cap spreads a burst out, it doesn't prevent one).
+// ---------------------------------------------------------------------------
+
+// Aligned with the documented download concurrency cap; the probe queue and
+// step 4's GET queue share this shape.
+export const PROBE_CONCURRENCY = 6;
+// Client-side probe timeout — a third of the proxy's own 30s ceiling. A HEAD
+// returns headers only, so even a slow origin answers in a few seconds; 10s
+// bounds how long a hung probe can hold a queue slot (six hung probes would
+// otherwise freeze the queue for the server's full 30s).
+export const PROBE_TIMEOUT_MS = 10_000;
+// Shift-range auto-probe threshold. A range is the "what I can see" gesture:
+// a screenful is ~12–16 tiles at desktop widths, so 24 covers a generous
+// viewport-and-a-bit — at most 4 queue rounds, settled in seconds, never a
+// surprising burst. Anything larger is bulk selection, the same class as
+// select-all and invert, and falls to the explicit Calculate-size action.
+export const PROBE_AUTO_LIMIT = 24;
+
+// Terminal per scan, like the fallback map: no auto-retry, no re-probe.
+// 'unknown-length' is a 2xx with no Content-Length (chunked origin — a GET
+// would not learn more); 'failed' is any error, timeout included.
+export type SizeEntry = number | 'unknown-length' | 'failed';
+
+/**
+ * One HEAD through the proxy. Returns 'canceled' only for the caller's own
+ * abort (deselection); a timeout is a 'failed' result, not a cancellation —
+ * it frees the queue slot and renders as unknown.
+ */
+export async function probeSize(
+  url: string,
+  options: { signal: AbortSignal; timeoutMs?: number; fetchImpl?: typeof fetch },
+): Promise<SizeEntry | 'canceled'> {
+  const fetchImpl = options.fetchImpl ?? fetch;
+  const timeout = new AbortController();
+  const timer = setTimeout(() => timeout.abort(), options.timeoutMs ?? PROBE_TIMEOUT_MS);
+  // Manual signal combine — AbortSignal.any is newer than some targets.
+  const combined = new AbortController();
+  const forward = () => combined.abort();
+  options.signal.addEventListener('abort', forward);
+  timeout.signal.addEventListener('abort', forward);
+  try {
+    const response = await fetchImpl(proxyUrl(url), { method: 'HEAD', signal: combined.signal });
+    if (!response.ok) return 'failed';
+    const length = response.headers.get('content-length');
+    if (length === null) return 'unknown-length';
+    const bytes = Number(length);
+    return Number.isFinite(bytes) && bytes >= 0 ? bytes : 'unknown-length';
+  } catch {
+    return options.signal.aborted ? 'canceled' : 'failed';
+  } finally {
+    clearTimeout(timer);
+    options.signal.removeEventListener('abort', forward);
+  }
+}
+
+// Exact decoded byte size of a data: URI — free, synchronous, no probe needed.
+export function dataUriBytes(url: string): number {
+  const comma = url.indexOf(',');
+  if (comma === -1) return 0;
+  const header = url.slice(0, comma);
+  const payload = url.slice(comma + 1);
+  if (/;base64$/i.test(header)) {
+    const padding = payload.endsWith('==') ? 2 : payload.endsWith('=') ? 1 : 0;
+    return Math.max(0, Math.floor((payload.length * 3) / 4) - padding);
+  }
+  try {
+    return new TextEncoder().encode(decodeURIComponent(payload)).length;
+  } catch {
+    return new TextEncoder().encode(payload).length;
+  }
+}
+
+// Decimal units (KB = 1000), NOT binary — the number must match what the
+// user's downloads folder and every OS file panel show.
+export function formatBytes(bytes: number): string {
+  if (bytes < 1000) return `${bytes} B`;
+  const units: Array<[number, string]> = [
+    [1e9, 'GB'],
+    [1e6, 'MB'],
+    [1e3, 'KB'],
+  ];
+  for (const [divisor, unit] of units) {
+    if (bytes >= divisor) {
+      const value = (bytes / divisor).toFixed(1).replace(/\.0$/, '');
+      return `${value} ${unit}`;
+    }
+  }
+  return `${bytes} B`;
+}
+
+// The selection bar's numbers. `pending` is the island's set of ids with a
+// probe in flight. The bar never silently undercounts: every selected member
+// is either summed, counted unknown (settled without a size), pending, or
+// unprobed (Calculate size covers those).
+export function sizeSummary(
+  selected: ReadonlySet<string>,
+  sizes: ReadonlyMap<string, SizeEntry>,
+  pending: ReadonlySet<string>,
+): { knownBytes: number; knownCount: number; unknownCount: number; pendingCount: number; unprobedCount: number } {
+  let knownBytes = 0;
+  let knownCount = 0;
+  let unknownCount = 0;
+  let pendingCount = 0;
+  let unprobedCount = 0;
+  for (const id of selected) {
+    const entry = sizes.get(id);
+    if (typeof entry === 'number') {
+      knownBytes += entry;
+      knownCount += 1;
+    } else if (entry === 'unknown-length' || entry === 'failed') {
+      unknownCount += 1;
+    } else if (pending.has(id)) {
+      pendingCount += 1;
+    } else {
+      unprobedCount += 1;
+    }
+  }
+  return { knownBytes, knownCount, unknownCount, pendingCount, unprobedCount };
+}

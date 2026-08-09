@@ -7,18 +7,25 @@ import {
   formatAllCount,
   formatCounts,
   groupCounts,
+  PROBE_AUTO_LIMIT,
+  PROBE_CONCURRENCY,
   canProxyFallback,
+  dataUriBytes,
   invertWithin,
   knownWidthCount,
+  probeSize,
   selectAll,
   selectRange,
   selectedUrls,
+  sizeSummary,
   sortImages,
   toggleId,
   type FilterState,
+  type SizeEntry,
   type SortKey,
   type SourceGroupId,
 } from '../lib/results-model';
+import { createFetchQueue } from '../lib/fetch-queue';
 import ImageCard from './ImageCard';
 import ResultsSidebar from './ResultsSidebar';
 import SelectionBar from './SelectionBar';
@@ -130,6 +137,20 @@ export default function ResultsGrid() {
   const [fallbacks, setFallbacks] = useState<ReadonlyMap<string, 'proxy' | 'dead'>>(
     () => new Map(),
   );
+  // Byte sizes per image id — terminal per scan like fallbacks (resets by
+  // navigation). Refs are the authoritative store so probe guards never read
+  // a stale render closure; the state copies exist to trigger renders.
+  const sizesRef = useRef<Map<string, SizeEntry>>(new Map());
+  const pendingSizesRef = useRef<Set<string>>(new Set());
+  const [sizes, setSizes] = useState<ReadonlyMap<string, SizeEntry>>(() => new Map());
+  const [pendingSizes, setPendingSizes] = useState<ReadonlySet<string>>(() => new Set());
+  // The probe queue — the same substrate step 4's GET streams will reuse.
+  // Probes weigh 0: only the concurrency bound governs HEADs.
+  const probeQueueRef = useRef<ReturnType<typeof createFetchQueue> | null>(null);
+  if (probeQueueRef.current === null) {
+    probeQueueRef.current = createFetchQueue({ maxConcurrent: PROBE_CONCURRENCY });
+  }
+  const probeQueue = probeQueueRef.current;
   const [revealCap, setRevealCap] = useState(TILE_REVEAL_CAP);
   const [invert, setInvert] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -253,20 +274,83 @@ export default function ResultsGrid() {
     [],
   );
 
+  const imageById = useMemo(() => new Map(images.map((img) => [img.id, img])), [images]);
+
+  // Resolve one image's byte size. data: URIs are computed synchronously
+  // (exact decoded length — free); http(s) goes through the probe queue as a
+  // HEAD. Guards read the refs, never a render closure, so a settled or
+  // in-flight id is never re-probed.
+  const resolveSize = useCallback(
+    (img: ScanImage | undefined) => {
+      if (!img) return;
+      if (sizesRef.current.has(img.id) || pendingSizesRef.current.has(img.id)) return;
+      if (!canProxyFallback(img)) {
+        sizesRef.current.set(img.id, dataUriBytes(img.url));
+        setSizes(new Map(sizesRef.current));
+        return;
+      }
+      pendingSizesRef.current.add(img.id);
+      setPendingSizes(new Set(pendingSizesRef.current));
+      void probeQueue.enqueue(img.id, 0, (signal) => probeSize(img.url, { signal })).then((result) => {
+        pendingSizesRef.current.delete(img.id);
+        // 'canceled' (deselection) caches nothing; a probe that resolved
+        // before its cancel landed still caches — the subrequest is spent
+        // and sizes are immutable facts.
+        if (result !== 'canceled') sizesRef.current.set(img.id, result);
+        setPendingSizes(new Set(pendingSizesRef.current));
+        setSizes(new Map(sizesRef.current));
+      });
+    },
+    [probeQueue],
+  );
+
   // Whole-tile toggle. Shift-click extends a range from the last-clicked tile
   // across the CURRENT filtered+sorted order; a plain click toggles one.
+  // Auto-probing follows the burst rule: a single toggle-on probes its image;
+  // a shift-range probes only when the range spans ≤ PROBE_AUTO_LIMIT — a
+  // larger range is bulk selection (same class as select-all/invert) and
+  // falls to the explicit Calculate-size action.
   const handleTileToggle = (id: string, shift: boolean) => {
     const anchor = lastClickedRef.current;
     if (shift && anchor && anchor !== id) {
       setSelected((prev) => selectRange(prev, sorted, anchor, id));
+      const a = sorted.findIndex((img) => img.id === anchor);
+      const b = sorted.findIndex((img) => img.id === id);
+      if (a !== -1 && b !== -1) {
+        const [lo, hi] = a <= b ? [a, b] : [b, a];
+        if (hi - lo + 1 <= PROBE_AUTO_LIMIT) {
+          for (let k = lo; k <= hi; k += 1) resolveSize(sorted[k]);
+        }
+      } else {
+        resolveSize(imageById.get(id));
+      }
     } else {
+      const turningOn = !selected.has(id);
       setSelected((prev) => toggleId(prev, id));
+      if (turningOn) resolveSize(imageById.get(id));
+      else probeQueue.cancel(id);
     }
     lastClickedRef.current = id;
   };
+  // Bulk selection ops never auto-probe (the burst rule); invert and clear
+  // cancel in-flight probes for images they deselect.
   const handleSelectAll = () => setSelected((prev) => selectAll(prev, filtered));
-  const handleClear = () => setSelected(new Set());
-  const handleInvert = () => setSelected((prev) => invertWithin(prev, filtered));
+  const handleClear = () => {
+    probeQueue.cancelAll();
+    setSelected(new Set());
+  };
+  const handleInvert = () => {
+    for (const img of filtered) if (selected.has(img.id)) probeQueue.cancel(img.id);
+    setSelected((prev) => invertWithin(prev, filtered));
+  };
+  const handleCalculateSize = () => {
+    for (const id of selected) resolveSize(imageById.get(id));
+  };
+  const handleCancelSizing = () => probeQueue.cancelAll();
+  const summary = useMemo(
+    () => sizeSummary(selected, sizes, pendingSizes),
+    [selected, sizes, pendingSizes],
+  );
   // Mobile sheet "Clear" resets the filters (not sort/invert, which aren't
   // filters); the count feeds the Filters trigger label.
   const clearFilters = () => {
@@ -434,11 +518,14 @@ export default function ResultsGrid() {
               copied={copied}
               activeFilterCount={activeFilterCount}
               filtersOpen={sheetOpen}
+              summary={summary}
               onOpenFilters={() => setSheetOpen(true)}
               onSelectAll={handleSelectAll}
               onClear={handleClear}
               onInvert={handleInvert}
               onCopy={handleCopy}
+              onCalculateSize={handleCalculateSize}
+              onCancelSizing={handleCancelSizing}
             />
           </div>
 

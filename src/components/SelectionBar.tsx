@@ -1,15 +1,27 @@
+import { formatBytes } from '../lib/results-model';
+
 /**
  * Selection bar — a plain bar; the parent positions it (sticky at the bottom).
  * Desktop is a single row: count/size on the left, actions + Download on the
  * right. Mobile is two rows so nothing overflows: row 1 the four actions, row 2
  * the Filters trigger + count/size on the left and Download on the right.
  *
- * Two things are deliberately inert this pass: the byte-size total renders an em
- * dash (no HEAD probing — Phase 8), and Download ZIP is fully disabled (ZIP
- * assembly is Phase 3), never enabled-but-no-op.
+ * The size total never silently undercounts: every selected member is summed,
+ * named unknown, counted as sizing, or covered by the Calculate-size action —
+ * which names its own cost ("Calculate size (487)"); the count IS the
+ * confirmation. Download ZIP stays fully disabled (step 4), never
+ * enabled-but-no-op.
  */
 const actionClass =
   'font-mono text-label uppercase text-muted enabled:hover:text-text disabled:text-light-muted';
+
+export interface SizeSummaryView {
+  knownBytes: number;
+  knownCount: number;
+  unknownCount: number;
+  pendingCount: number;
+  unprobedCount: number;
+}
 
 function DownloadZip({ className }: { className: string }) {
   return (
@@ -31,11 +43,14 @@ export default function SelectionBar({
   copied,
   activeFilterCount,
   filtersOpen,
+  summary,
   onOpenFilters,
   onSelectAll,
   onClear,
   onInvert,
   onCopy,
+  onCalculateSize,
+  onCancelSizing,
 }: {
   total: number;
   selectedCount: number;
@@ -43,19 +58,38 @@ export default function SelectionBar({
   copied: boolean;
   activeFilterCount: number;
   filtersOpen: boolean;
+  summary: SizeSummaryView;
   onOpenFilters: () => void;
   onSelectAll: () => void;
   onClear: () => void;
   onInvert: () => void;
   onCopy: () => void;
+  onCalculateSize: () => void;
+  onCancelSizing: () => void;
 }) {
   const hasSelection = selectedCount > 0;
 
+  const sizeText = summary.knownCount > 0 ? formatBytes(summary.knownBytes) : '—';
   const info = (
-    <span className="font-mono text-label uppercase text-muted">
+    <span className="flex items-center gap-xs font-mono text-label uppercase text-muted">
       {hasSelection ? (
         <>
-          {selectedCount} selected · <span>—</span>
+          <span>
+            {selectedCount} selected · {sizeText}
+            {summary.unknownCount > 0 ? ` + ${summary.unknownCount} unknown` : ''}
+          </span>
+          {summary.pendingCount > 0 ? (
+            <>
+              <span>· sizing {summary.pendingCount}…</span>
+              <button type="button" onClick={onCancelSizing} className={actionClass}>
+                Cancel
+              </button>
+            </>
+          ) : summary.unprobedCount > 0 ? (
+            <button type="button" onClick={onCalculateSize} className={actionClass}>
+              Calculate size ({summary.unprobedCount})
+            </button>
+          ) : null}
         </>
       ) : (
         `${total} image${total === 1 ? '' : 's'} found`
@@ -82,21 +116,24 @@ export default function SelectionBar({
         <DownloadZip className="hidden md:inline-flex" />
       </div>
 
-      {/* Filters trigger (mobile only) + count/size; Download at the right —
-          mobile row 2; desktop left side. */}
-      <div className="flex flex-1 items-center justify-between gap-sm border-t border-border md:order-1 md:flex-none md:gap-md md:border-t-0">
-        <div className="flex items-center gap-sm md:gap-md">
-          <button
-            type="button"
-            onClick={onOpenFilters}
-            aria-expanded={filtersOpen}
-            className="rounded-md border border-border px-sm py-xs font-mono text-label uppercase text-text md:hidden"
-          >
-            Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
-          </button>
-          {info}
-        </div>
-        <DownloadZip className="md:hidden" />
+      {/* Count + size + Calculate/Sizing — its own mobile row (row 2): the
+          size strings share a row with nothing, so "Calculate size (487)"
+          and "sizing 42… Cancel" can never crowd the chrome. Desktop left. */}
+      <div className="flex flex-1 items-center border-t border-border md:order-1 md:flex-none md:border-t-0">
+        {info}
+      </div>
+
+      {/* Mobile chrome — row 3: Filters trigger + Download ZIP. */}
+      <div className="flex flex-1 items-center justify-between gap-sm border-t border-border md:hidden">
+        <button
+          type="button"
+          onClick={onOpenFilters}
+          aria-expanded={filtersOpen}
+          className="rounded-md border border-border px-sm py-xs font-mono text-label uppercase text-text"
+        >
+          Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
+        </button>
+        <DownloadZip className="" />
       </div>
     </div>
   );

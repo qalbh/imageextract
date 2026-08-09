@@ -213,12 +213,14 @@ badge** on the tile; source is a sidebar filter, which is where it does its work
   `instanceId` so the search `id` and sort-radio `name` stay unique.
 - **`.results-grid`** is 2-up on phones and switches to the auto-fill grid at
   `md`.
-- **`.selection-bar`** is two rows on phones (row 1 the four actions; row 2 the
-  Filters trigger + count/size on the left and Download on the right), a single
-  row from `md`. Mobile height is `calc(var(--layout-stickybar) * 1.5)`.
+- **`.selection-bar`** is three rows on phones (row 1 the four actions; row 2
+  the count + size + Calculate/Sizing controls on their own row, so the probe
+  strings can never crowd the chrome; row 3 the Filters trigger + Download), a
+  single row from `md`. Mobile height is `calc(var(--layout-stickybar) * 2)`.
 - **`.filter-sheet`** is `fixed`, `max-height: 70vh`, stopping
-  `calc(var(--layout-stickybar) * 1.5)` off the bottom (matching the mobile
-  selection-bar height) so that bar stays visible while it's open. `.filter-scrim`
+  `calc(var(--layout-stickybar) * 2)` off the bottom (matching the mobile
+  selection-bar height — the two values must move together) so that bar stays
+  visible while it's open. `.filter-scrim`
   (`--color-overlay`) dims the content behind at `z 20`, below the bottom chrome
   (`z 30`) and the sheet (`z 40`). Clear/Apply sit at the sheet's base; filters
   are live, so Apply only dismisses.

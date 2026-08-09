@@ -29,6 +29,14 @@ const CPU_THROTTLE = 4; // 4× slower than the reference device
 // Body served for recovered thumbnails AND real-HTTP download emulation.
 const FB_SVG_BODY = '<svg xmlns="http://www.w3.org/2000/svg" width="80" height="60"><rect width="80" height="60" fill="#888"/></svg>';
 
+// HEAD-probe emulation state (probing scenario). Targets encode their
+// behaviour in the filename: sz-<i>-<bytes>.png answers Content-Length
+// <bytes>; "nolen" answers 200 without a length; "err" answers 502; "slow"
+// delays long enough to be canceled mid-flight. Peak concurrency is tracked
+// server-side to assert the queue's cap.
+const probeStats = { counts: new Map(), active: 0, peak: 0 };
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
 const results = [];
 const ok = (name, pass, detail = '') => {
   results.push({ name, pass, detail });
@@ -69,6 +77,24 @@ function serve() {
           const q = new URL(req.url, 'http://x').searchParams;
           const target = q.get('url') ?? '';
           const name = target.split('/').filter(Boolean).pop() ?? 'image';
+          if (req.method === 'HEAD') {
+            probeStats.counts.set(target, (probeStats.counts.get(target) ?? 0) + 1);
+            probeStats.active += 1;
+            probeStats.peak = Math.max(probeStats.peak, probeStats.active);
+            await sleep(name.includes('slow') ? 4000 : 120);
+            probeStats.active -= 1;
+            if (name.includes('err')) {
+              res.statusCode = 502;
+            } else {
+              res.setHeader('content-type', 'image/png');
+              const m = name.match(/sz-\d+-(\d+)/);
+              // "nolen" (and anything unmatched) sends no Content-Length —
+              // the 'unknown-length' case. Node adds none for HEAD unless set.
+              if (m && !name.includes('nolen')) res.setHeader('content-length', m[1]);
+            }
+            res.end();
+            return;
+          }
           res.setHeader('content-type', 'image/svg+xml');
           res.setHeader('cache-control', 'private, max-age=3600');
           if (q.get('download') === '1') {
@@ -293,6 +319,137 @@ async function main() {
       `name=${dl3.suggestedFilename()}, ${dl3Bytes.length}B, proxy ${proxyCountBefore}→${proxyCountAfter}`,
     );
     await fb.close();
+
+    // -----------------------------------------------------------------------
+    // Byte-size probing — lazy, individually user-initiated, capped queue.
+    // HEADs travel real HTTP (the server above), which also tracks peak
+    // concurrency; thumbnails are aborted (their fallbacks too — irrelevant
+    // here, only method HEAD is counted).
+    // -----------------------------------------------------------------------
+    const PR_N = 30;
+    const prFixture = {
+      pageUrl: 'https://example.com/probe',
+      images: [
+        ...Array.from({ length: PR_N }, (_, i) => {
+          const marker = i === 7 ? 'nolen' : i === 8 ? 'err' : String((i + 1) * 100000);
+          return {
+            id: `sz${i}`,
+            url: `https://probe.test/sz-${i}-${marker}.png`,
+            filename: `sz-${i}-${marker}`,
+            ext: 'png',
+            source: 'img',
+          };
+        }),
+        { id: 'prdata', url: DATA_URI, filename: 'inline-2.svg', ext: 'svg', source: 'inline-svg' },
+      ],
+    };
+    probeStats.counts.clear();
+    probeStats.peak = 0;
+    const pr = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    await pr.route('**/*', (route) =>
+      route.request().resourceType() === 'image' ? route.abort() : route.continue(),
+    );
+    await pr.route('**/api/scan*', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(prFixture) }),
+    );
+    await pr.goto(`${base}/results?url=${encodeURIComponent(prFixture.pageUrl)}`, { waitUntil: 'load' });
+    await pr.waitForSelector('li.result-tile', { timeout: 15000 });
+    await pr.waitForTimeout(700);
+    const headTotal = () => [...probeStats.counts.values()].reduce((a, b) => a + b, 0);
+    ok('probing: zero HEADs on load and render', headTotal() === 0, `${headTotal()} HEADs`);
+
+    // Single selection probes exactly that image; the cache survives
+    // deselect + reselect.
+    const przTile = (i) => pr.locator('li', { hasText: `sz-${i}-` }).first();
+    await przTile(0).click();
+    await pr.waitForTimeout(600);
+    ok('probing: selecting one tile sends exactly one HEAD', headTotal() === 1, `${headTotal()} HEADs`);
+    const bar1 = (await pr.locator('text=/1 selected/').first().textContent()) ?? '';
+    ok('probing: bar shows the probed size', bar1.includes('100 KB'), bar1.trim().slice(0, 60));
+    await przTile(0).click(); // deselect
+    await przTile(0).click(); // reselect
+    await pr.waitForTimeout(500);
+    ok('probing: deselect + reselect re-probes nothing (cache)', headTotal() === 1, `${headTotal()} HEADs`);
+
+    // Shift-range at or under the threshold auto-probes; a range above it
+    // probes nothing and falls to Calculate size.
+    await przTile(2).click();
+    await przTile(6).click({ modifiers: ['Shift'] }); // span 5 ≤ 24
+    await pr.waitForTimeout(900);
+    ok('probing: small shift-range auto-probes its span', headTotal() === 6, `${headTotal()} HEADs (1 + 5)`);
+    await przTile(0).click(); // toggles sz0 OFF, sets the anchor
+    await przTile(29).click({ modifiers: ['Shift'] }); // span 30 > 24
+    await pr.waitForTimeout(600);
+    const calcButton = pr.getByRole('button', { name: /Calculate size/ });
+    ok(
+      'probing: oversized shift-range probes nothing and offers Calculate size',
+      headTotal() === 6 && (await calcButton.count()) === 1,
+      `${headTotal()} HEADs, button "${(await calcButton.textContent())?.trim()}"`,
+    );
+
+    // Calculate size probes the rest through the capped queue; the bar names
+    // the unknowns instead of undercounting.
+    await calcButton.click();
+    await pr.waitForTimeout(3000);
+    const eachOnce = [...probeStats.counts.values()].every((n) => n === 1);
+    ok(
+      'probing: Calculate size probes each remaining image once, peak ≤ 6',
+      probeStats.counts.size === PR_N && eachOnce && probeStats.peak <= 6 && probeStats.peak >= 2,
+      `${probeStats.counts.size} targets, peak ${probeStats.peak}`,
+    );
+    const barFinal = (await pr.locator('text=/30 selected/').first().textContent()) ?? '';
+    ok(
+      'probing: total is honest — sum plus named unknowns',
+      barFinal.includes('44.8 MB') && barFinal.includes('+ 2 unknown'),
+      barFinal.trim().slice(0, 80),
+    );
+
+    // data: URI sizes are computed locally — no HEAD.
+    await pr.locator('li', { hasText: 'inline-2.svg' }).first().click();
+    await pr.waitForTimeout(300);
+    ok('probing: data: URI sizes locally with zero HEADs', headTotal() === PR_N, `${headTotal()} HEADs`);
+    await pr.close();
+
+    // Cancel: slow probes, cancel mid-flight, counts freeze and the action
+    // returns. Only the admitted batch (≤ concurrency cap) ever reaches the
+    // server; canceled pending probes never do.
+    const SLOW_N = 8;
+    const slowFixture = {
+      pageUrl: 'https://example.com/slow',
+      images: Array.from({ length: SLOW_N }, (_, i) => ({
+        id: `sl${i}`,
+        url: `https://probe.test/slow-${i}.png`,
+        filename: `slow-${i}`,
+        ext: 'png',
+        source: 'img',
+      })),
+    };
+    probeStats.counts.clear();
+    probeStats.peak = 0;
+    const sl = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    await sl.route('**/*', (route) =>
+      route.request().resourceType() === 'image' ? route.abort() : route.continue(),
+    );
+    await sl.route('**/api/scan*', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(slowFixture) }),
+    );
+    await sl.goto(`${base}/results?url=${encodeURIComponent(slowFixture.pageUrl)}`, { waitUntil: 'load' });
+    await sl.waitForSelector('li.result-tile', { timeout: 15000 });
+    await sl.getByRole('button', { name: /Select all/ }).click();
+    await sl.waitForTimeout(400);
+    ok('probing: select-all probes nothing', headTotal() === 0, `${headTotal()} HEADs`);
+    await sl.getByRole('button', { name: /Calculate size/ }).click();
+    await sl.waitForSelector('text=/sizing \\d+/', { timeout: 5000 });
+    await sl.getByRole('button', { name: 'Cancel' }).click();
+    await sl.waitForTimeout(400);
+    const frozen = headTotal();
+    await sl.waitForTimeout(1500);
+    ok(
+      'probing: Cancel freezes the burst — only the admitted batch reached the server',
+      headTotal() === frozen && frozen <= 6 && frozen < SLOW_N && (await sl.getByRole('button', { name: /Calculate size/ }).count()) === 1,
+      `${frozen} of ${SLOW_N} HEADs arrived, none after cancel`,
+    );
+    await sl.close();
   } finally {
     await browser.close();
     server.close();

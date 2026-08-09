@@ -260,18 +260,20 @@ body {
   position: fixed;
   left: 0;
   right: 0;
-  bottom: calc(var(--layout-stickybar) * 1.5); /* clears the two-row mobile selection bar */
+  bottom: calc(var(--layout-stickybar) * 2); /* clears the three-row mobile selection bar */
   z-index: 40;
   display: flex;
   flex-direction: column;
   max-height: 70vh;
 }
 
-/* Selection bar: two stacked rows on phones (actions; then filters + count +
-   download), collapsing to a single row from md (48rem). Height is fixed so the
-   filter sheet can clear it exactly (see .filter-sheet bottom). */
+/* Selection bar: three stacked rows on phones (actions; count + size +
+   Calculate/Sizing on their own row so the probe strings never crowd the
+   chrome; then Filters + Download ZIP), collapsing to a single row from md
+   (48rem). Height is fixed so the filter sheet can clear it exactly (see
+   .filter-sheet bottom — the two values must move together). */
 .selection-bar {
-  height: calc(var(--layout-stickybar) * 1.5);
+  height: calc(var(--layout-stickybar) * 2);
 }
 @media (min-width: 48rem) {
   .selection-bar {

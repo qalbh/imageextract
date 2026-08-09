@@ -6,7 +6,9 @@ import {
   applyFilters,
   canProxyFallback,
   canonicalFormats,
+  dataUriBytes,
   downloadHref,
+  formatBytes,
   formatAllCount,
   formatCounts,
   formatLabel,
@@ -14,14 +16,17 @@ import {
   invertWithin,
   knownWidthCount,
   matchesQuery,
+  probeSize,
   proxyUrl,
   selectAll,
   selectRange,
   selectedUrls,
+  sizeSummary,
   sortImages,
   sourceGroupOf,
   toggleId,
   type FilterState,
+  type SizeEntry,
 } from './results-model';
 
 // Compact ScanImage builder for fixtures.
@@ -351,6 +356,123 @@ describe('selection', () => {
   it('selectedUrls returns document-order URLs of the selection', () => {
     const sel = new Set(['C', 'A']);
     expect(selectedUrls(set, sel)).toEqual([set[0]!.url, set[2]!.url]);
+  });
+});
+
+describe('probeSize', () => {
+  const okResponse = (headers: Record<string, string>) =>
+    new Response(null, { status: 200, headers });
+
+  it('returns bytes from Content-Length', async () => {
+    const result = await probeSize('https://cdn.test/a.png', {
+      signal: new AbortController().signal,
+      fetchImpl: async () => okResponse({ 'content-length': '123456' }),
+    });
+    expect(result).toBe(123456);
+  });
+
+  it('sends HEAD to the proxy URL', async () => {
+    let saw = { url: '', method: '' };
+    await probeSize('https://cdn.test/a.png', {
+      signal: new AbortController().signal,
+      fetchImpl: async (input, init) => {
+        saw = { url: String(input), method: init?.method ?? '' };
+        return okResponse({ 'content-length': '1' });
+      },
+    });
+    expect(saw.method).toBe('HEAD');
+    expect(saw.url).toBe('/api/proxy?url=https%3A%2F%2Fcdn.test%2Fa.png');
+  });
+
+  it('returns unknown-length for a 2xx without Content-Length', async () => {
+    const result = await probeSize('https://cdn.test/a.png', {
+      signal: new AbortController().signal,
+      fetchImpl: async () => okResponse({}),
+    });
+    expect(result).toBe('unknown-length');
+  });
+
+  it('returns failed for non-2xx', async () => {
+    const result = await probeSize('https://cdn.test/a.png', {
+      signal: new AbortController().signal,
+      fetchImpl: async () => new Response('nope', { status: 403 }),
+    });
+    expect(result).toBe('failed');
+  });
+
+  it('times out to failed — a hung probe frees its slot as a result, not a cancellation', async () => {
+    const result = await probeSize('https://cdn.test/hang.png', {
+      signal: new AbortController().signal,
+      timeoutMs: 30,
+      fetchImpl: (_input, init) =>
+        new Promise((_res, rej) => {
+          init?.signal?.addEventListener('abort', () => rej(new Error('aborted')));
+        }),
+    });
+    expect(result).toBe('failed');
+  });
+
+  it('returns canceled only for the caller-owned abort (deselection)', async () => {
+    const controller = new AbortController();
+    const pending = probeSize('https://cdn.test/slow.png', {
+      signal: controller.signal,
+      timeoutMs: 5000,
+      fetchImpl: (_input, init) =>
+        new Promise((_res, rej) => {
+          init?.signal?.addEventListener('abort', () => rej(new Error('aborted')));
+        }),
+    });
+    controller.abort();
+    expect(await pending).toBe('canceled');
+  });
+});
+
+describe('dataUriBytes', () => {
+  it('computes base64 payload size with padding', () => {
+    // "hello" = 5 bytes → base64 aGVsbG8= (8 chars, 1 pad)
+    expect(dataUriBytes('data:image/png;base64,aGVsbG8=')).toBe(5);
+  });
+
+  it('computes percent-encoded payload size in bytes, not chars', () => {
+    const svg = '<svg>naïve</svg>';
+    const uri = `data:image/svg+xml,${encodeURIComponent(svg)}`;
+    expect(dataUriBytes(uri)).toBe(new TextEncoder().encode(svg).length);
+  });
+
+  it('returns 0 for a malformed data URI', () => {
+    expect(dataUriBytes('data:image/png')).toBe(0);
+  });
+});
+
+describe('formatBytes', () => {
+  it('uses decimal units so the number matches the downloads folder', () => {
+    expect(formatBytes(999)).toBe('999 B');
+    expect(formatBytes(1000)).toBe('1 KB');
+    expect(formatBytes(1536)).toBe('1.5 KB');
+    expect(formatBytes(8_200_000)).toBe('8.2 MB');
+    expect(formatBytes(2_000_000_000)).toBe('2 GB');
+  });
+});
+
+describe('sizeSummary', () => {
+  it('splits the selection into known / unknown / pending / unprobed, never dropping a member', () => {
+    const selected = new Set(['a', 'b', 'c', 'd', 'e']);
+    const sizes = new Map<string, SizeEntry>([
+      ['a', 1000],
+      ['b', 500],
+      ['c', 'unknown-length'],
+      ['d', 'failed'],
+    ]);
+    const pending = new Set(['e']);
+    const s = sizeSummary(selected, sizes, pending);
+    expect(s).toEqual({ knownBytes: 1500, knownCount: 2, unknownCount: 2, pendingCount: 1, unprobedCount: 0 });
+    expect(s.knownCount + s.unknownCount + s.pendingCount + s.unprobedCount).toBe(selected.size);
+  });
+
+  it('counts unprobed members separately from pending ones', () => {
+    const s = sizeSummary(new Set(['x', 'y']), new Map(), new Set(['x']));
+    expect(s.pendingCount).toBe(1);
+    expect(s.unprobedCount).toBe(1);
   });
 });
 

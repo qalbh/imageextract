@@ -176,6 +176,38 @@ throttle; the mid-range-phone run is still owed (Phase 3 device pass).
 path is `@tanstack/react-virtual` (MIT), already verified to genuinely
 window under the Preact compat layer before the sidebar was built on top.
 
+## The proxy stays referrerless; the fallback recovers less than implied
+
+Live check (2026-08-10) against real origins: the referrerless-403 class is
+real — i.pximg.net 403s referrerless at the edge (before path lookup),
+wx1.sinaimg.cn returns 403 referrerless vs 404 (a real lookup) with a weibo
+referer, doubanio 418 vs 404 — and for this commonest protected class
+(origins that REQUIRE a matching referer) our proxy fails exactly like the
+browser, because it also sends no Referer. The "Thumbnails send no Referer"
+entry above calls the per-tile proxy fallback the remedy for the elevated
+403 rate; for referer-required origins it is not. The fallback's genuine
+recovery classes are narrower: CORP/ORB-blocked origins (the browser refuses
+to embed cross-origin; a server-side fetch reads fine and re-serves from our
+origin) and geo/IP splits where the user's network and Cloudflare's edge get
+different answers. The mechanism stays because it costs nothing when it
+loses — one bounded retry, then an honest dead tile.
+
+Sending a Referer would recover the referer-required class and was
+rejected — and not on privacy grounds. The privacy argument is weak:
+hotlink protection passes only when the referer matches the origin's own
+domain, so the referer we would send discloses a page fetch that same
+origin already served during the scan; it learns nothing new. The real
+argument is the robots one: sending a Referer claiming the request came
+from browsing that page, when it didn't, impersonates a browser context to
+defeat a control the site deliberately configured. That is what turns a
+good-faith tool into a circumvention tool — the same line the no-override
+robots rule draws.
+
+**Cost:** dead tiles for referer-required origins, and downloads from those
+tiles fail the same way.
+**Revisit if:** never on the impersonation point. The recovery-class list
+can be re-derived if real scan data surfaces new splits.
+
 ## Open questions
 
 | Question | Trigger |

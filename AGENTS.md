@@ -181,13 +181,17 @@ rule with no network cost, recorded here because it is why tiny rasters don't
 get upscaled.
 
 Byte-size probing is lazy and **individually user-initiated** (decided
-2026-08-10): selecting images one at a time probes those images through a
-capped, abortable queue. **Select-all probes nothing** — the total renders an
-em dash with an explicit "Calculate size" action beside it, because select-all
-on 500 images would otherwise be a 500-HEAD burst from one click, and a
-concurrency cap only spreads a burst out rather than preventing it. There is
-no size sort (cut by the dimension-coverage data) and no other probing
-trigger; selection is the affordance. Probing every image upfront on an
+2026-08-10): single toggles and shift-ranges spanning ≤ `PROBE_AUTO_LIMIT`
+(24 — a generous screenful; larger ranges are the same burst class as
+select-all) probe through a capped, abortable queue (`PROBE_CONCURRENCY` 6,
+client timeout `PROBE_TIMEOUT_MS` 10s so a hung HEAD can't hold a slot for
+the server's full 30s). **Select-all and invert probe nothing** — the total
+renders an em dash with an explicit "Calculate size (N)" action, because a
+bulk click would otherwise be an N-HEAD burst, and a concurrency cap only
+spreads a burst out rather than preventing it. data: URIs never probe —
+their exact size is computed locally. There is no size sort (cut by the
+dimension-coverage data) and no other probing trigger; selection is the
+affordance. Probing every image upfront on an
 800-image page is the difference between a free tool and a bill.
 
 Hotlink-protected origins will 403 the direct preview. Detect `onerror` and
@@ -359,9 +363,11 @@ the evidence, and the gap between it and the box text stays visible.
 - [ ] Byte-size probing verified lazy by counting network calls on a large page
 - [x] Preview falls back to proxy on hotlink 403 — verified by the
       verify:results fallback scenario (1 proxy request per failed tile;
-      zero re-requests across a filter round trip); a live
-      hotlink-protected origin has NOT yet been checked by hand (owed
-      before Phase 3 closes)
+      zero re-requests across a filter round trip). Live check closed
+      2026-08-10: referrerless 403s are real (three origins), and for
+      referer-required origins the referrerless proxy fails too — its real
+      recovery classes are CORP/ORB blocks and geo/IP splits (DECISIONS:
+      "The proxy stays referrerless")
 - [ ] Large ZIP completes on a mid-range Android phone
 - [ ] `limits` block set in `wrangler.jsonc`
 - [ ] Copyright notice and abuse contact shipped

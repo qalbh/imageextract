@@ -300,14 +300,41 @@ Done when:
       failing direct loads → exactly 1 proxy request per tile ([1,1,1,1,1,1,1,1]);
       4 recovered via proxy, 4 dead showing "preview unavailable"; a PNG→All
       filter round trip (which unmounts and remounts the dead tiles) added
-      ZERO proxy and ZERO origin requests. NOT verified: a live
-      hotlink-protected origin actually 403ing the referrerless direct load
-      and serving the proxy — to be checked by hand once before Phase 3
-      closes.
-- [ ] Zero HEAD requests until the user selects individual images or clicks
-      Calculate size (verified by counting network calls on a large page)
-- [ ] Em dash remains for unprobed tiles and for un-calculated select-all
-      totals
+      ZERO proxy and ZERO origin requests. Live check closed 2026-08-10 —
+      verified live: the referrerless-403 class is real and current across
+      three origins (i.pximg.net 403, wx1.sinaimg.cn 403 vs 404-with-referer,
+      doubanio 418 block), and our proxy SHARES the failure for this class
+      because it is also referrerless (kept so deliberately — see the
+      DECISIONS entry: sending a Referer would be browser-context
+      impersonation). NOT verified: a full in-app scan→tile→fallback loop
+      against a real protected origin, because image-protecting sites also
+      page-protect (pixiv unreachable, douban bot-walls page fetches, weibo
+      robots-disallows * — our scanner correctly refuses it). That pattern is
+      itself a finding: the scan-side encounter rate for this class is
+      probably low. The fallback's real recovery classes are CORP/ORB blocks
+      and geo/IP splits; referer-required origins land as honest dead tiles.
+- [x] Zero HEAD requests until the user selects individual images or clicks
+      Calculate size — verified (2026-08-10, verify:results probing scenario,
+      HEADs counted server-side): 0 on load/render; 1 per single selection;
+      0 on deselect+reselect (cache); 5 for a 5-tile shift-range; 0 for a
+      30-tile range (> PROBE_AUTO_LIMIT 24 — falls to "Calculate size (24)");
+      0 on select-all
+- [x] Totals stay honest — verified: after Calculate size, the bar read
+      "30 selected · 44.8 MB + 2 unknown" (one no-Content-Length origin, one
+      502), never a silent undercount; peak queue concurrency measured at
+      exactly 6; Cancel froze a slow burst at 6 of 8 HEADs with zero arrivals
+      after, and the Calculate action returned
+
+**Probing shipped 2026-08-10** (`fetch-queue.ts` — the bounded queue step 4
+reuses (count cap + bytes-in-flight budget with an always-admit-one rule);
+`probeSize`/`dataUriBytes`/`formatBytes`/`sizeSummary` in `results-model.ts`):
+sizes cache per scan beside the fallbacks map; deselection cancels in-flight
+probes by key, but a probe that resolved before its cancel still caches —
+the subrequest is spent and sizes are immutable. Three terminal states
+(bytes / unknown-length / failed, timeout included — client timeout 10s so
+six hung HEADs can't freeze the queue for the server's 30s). data: URIs
+compute locally, exact decoded bytes, zero network. formatBytes is decimal
+(KB=1000) so the number matches the user's downloads folder.
 
 **Fallback shipped 2026-08-10** (`canProxyFallback`/`proxyUrl` in
 `results-model.ts`; the monotonic `fallbacks` map in `ResultsGrid.tsx`):
