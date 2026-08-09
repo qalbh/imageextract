@@ -198,7 +198,9 @@ whose measured dimensions arrive after sorting does not jump position;
 re-sorting applies the newest values.
 
 Done when:
-- [x] Search narrows the grid as you type, case-insensitive
+- [x] Search narrows the grid as you type, case-insensitive — shipped, then
+      the CONTROL was removed in the 2026-08-10 design pass (capability and
+      tests remain in the model; see the Figma-alignment note below)
 - [x] Width sort works without scrolling; unknowns last with a known-count
 - [x] Height/aspect sorts are dropped or scoped to measured entries only
 - [x] Declared dimensions render muted; measured render full weight
@@ -254,15 +256,18 @@ count + actions with a selection.
 
 ## 7. Grid scaling
 
-Incremental reveal (initial cap 120 tiles — the design-system constant —
+Incremental reveal (initial cap 120 tiles — `TILE_REVEAL_CAP` —
 auto-append via IntersectionObserver) plus `content-visibility: auto` on
-uniform `aspect-square` tiles, whose fixed ratio makes
-`contain-intrinsic-size` exact rather than estimated. Filter changes reset
-the reveal window (step 4). Escalation path if a mid-range phone still
-janks: `@tanstack/react-virtual` (MIT).
+uniform tiles (262:180 wells since the fidelity pass; the shared shape keeps
+`contain-intrinsic-size` near-exact). Filter changes reset the reveal window
+(step 4). Escalation path if a mid-range phone still janks:
+`@tanstack/react-virtual` (MIT).
 
 Done when:
-- [x] 1,000-image scan scrolls smoothly on a mid-range Android phone
+- [ ] 1,000-image scan scrolls smoothly on a mid-range Android phone —
+      REOPENED (2026-08-10 phase-boundary read): what was actually verified
+      is 220 tiles at 4× CPU throttle in desktop Chrome (verify:results);
+      the real-device claim retires with the Phase 3 ZIP device pass
 - [x] Filter flips on the full set stay under a perceptible stall
 - [x] Selection and badges behave identically across revealed boundaries
 
@@ -280,14 +285,21 @@ a real device still janks; not needed by the probe.
 ## 8. Proxy fallback and lazy byte-size probing
 
 Hotlink-403 thumbnails retry once through `/api/proxy` (that tile only).
-Byte-size badges populate via proxy `HEAD` — only on selection or
-size-sort, never upfront.
+Byte-size badges populate via proxy `HEAD` — never upfront, and the trigger
+was re-decided (2026-08-10) after the size sort was cut by the coverage
+data: **selecting images individually probes those images** through a
+capped, abortable queue; **select-all probes nothing** — the selection-bar
+total renders an em dash with an explicit "Calculate size" action beside
+it, because a 500-image select-all would otherwise be a 500-HEAD burst
+from one click, and a concurrency cap only spreads a burst out rather than
+preventing it. No other probing affordance; selection is the affordance.
 
 Done when:
 - [ ] Fallback fires only after a direct-load error, once per tile
-- [ ] Zero HEAD requests until the user selects or sorts by size
-      (verified by counting network calls on a large page)
-- [ ] Em dash remains for unprobed tiles
+- [ ] Zero HEAD requests until the user selects individual images or clicks
+      Calculate size (verified by counting network calls on a large page)
+- [ ] Em dash remains for unprobed tiles and for un-calculated select-all
+      totals
 
 ## 9. Mobile pass and polish
 
@@ -297,7 +309,10 @@ keyboard/focus audit.
 Done when:
 - [x] Grid, filters, and selection usable one-handed at 390 px wide
 - [x] Invert toggle flips tile backgrounds without reloading images
-- [x] Focus order and visible focus states through form → filters → grid
+- [ ] Focus order and visible focus states through form → filters → grid —
+      REOPENED (2026-08-10 phase-boundary read): whole-tile keyboard
+      selection and the focus ring are verified, but the full ordered
+      walk-through was never run; the earlier check overclaimed
 
 **Shipped 2026-08-09 — two 390px frames.** Landing (`index.astro`) was already
 mobile-first (1-col capabilities/FAQ, `grid-cols-2` footer, `column-count: 2`

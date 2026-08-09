@@ -90,15 +90,15 @@ A free web tool that takes a public webpage URL and lists every image on it, so 
 
 ## Stack
 
-**Status: `client-zip` and Playwright not yet installed.**
+**Status: `client-zip` not yet installed (arrives with Phase 3 ZIP work). playwright-core is installed and drives the verify gates.**
 
 - Astro 7, TypeScript strict, Tailwind
-- React only as an Astro island, and only for the interactive results grid
+- Preact via `@astrojs/preact` with compat — the island is written as React-flavoured JSX but ships Preact's runtime (see DECISIONS.md); one island only, the interactive results grid
 - Cloudflare Workers with static assets — site and API deploy as one unit
 - `HTMLRewriter` for HTML parsing (built into Workers, streaming, no dependency)
 - `zod` for validating query params at the Worker boundary
 - `client-zip` for building ZIPs in the browser
-- Vitest for unit tests, Playwright for browser tests
+- Vitest for unit tests (in real workerd); playwright-core for the browser verify gates (verify:landing, verify:results)
 
 State the license of any new dependency when you introduce it. No AGPL.
 
@@ -159,20 +159,41 @@ up. Not solved yet; do not design the ZIP path without addressing it.
 
 ## Cost model — memorize this
 
-**Status: UI not built; the proxy costs (download, HEAD probing) are live server-side.**
+**Status: the results UI is built (Phase 2 complete); its two proxy consumers — the hotlink fallback and byte-size probing — plus downloads/ZIP are Phase 3. The proxy's server side (inline GET, download=1, HEAD) is live.**
 
 | Feature | Where it runs | Cost |
 |---|---|---|
-| Thumbnail preview | `<img>` pointed directly at the origin | Zero |
-| Dimension badge | `naturalWidth`/`naturalHeight` on load | Zero |
-| Type filter, search, sort, select | Client state | Zero |
+| Thumbnail preview | `<img>` pointed directly at the origin, lazy-loaded | Zero |
+| Dimension badge | Declared dims from the manifest at first paint (free — read from bytes we already streamed), upgraded to measured `naturalWidth`/`naturalHeight` on load | Zero |
+| Filters (format, source), sort, select | Client state | Zero |
 | Copy URLs | Clipboard | Zero |
 | Byte-size badge | `HEAD` via proxy — **lazy only** | 1 subrequest (+ amortized DoH pair per hostname) |
 | Download / ZIP | Proxy | 1 subrequest per image (+ amortized DoH pair per hostname) + bandwidth |
 
-Byte-size badges must be lazy: show `—` until the user selects an image or sorts by size. Probing every image upfront on an 800-image page is the difference between a free tool and a bill.
+Two client-side mechanisms change what "zero cost" means at scale, on both
+sides of the wire: the **reveal model** (120 tiles mounted initially,
+IntersectionObserver appends; with content-visibility, off-screen tiles skip
+rendering) and lazy `<img>` loading together mean an 800-image scan renders
+cheaply AND fetches only viewport thumbnails — not 800 requests against the
+origin on render. The **icon-source contain rule** (favicon, inline-svg render
+contain at natural size; everything else covers the 262:180 well) is a display
+rule with no network cost, recorded here because it is why tiny rasters don't
+get upscaled.
 
-Hotlink-protected origins will 403 the direct preview. Detect `onerror` and fall back to the proxy for that one thumbnail only.
+Byte-size probing is lazy and **individually user-initiated** (decided
+2026-08-10): selecting images one at a time probes those images through a
+capped, abortable queue. **Select-all probes nothing** — the total renders an
+em dash with an explicit "Calculate size" action beside it, because select-all
+on 500 images would otherwise be a 500-HEAD burst from one click, and a
+concurrency cap only spreads a burst out rather than preventing it. There is
+no size sort (cut by the dimension-coverage data) and no other probing
+trigger; selection is the affordance. Probing every image upfront on an
+800-image page is the difference between a free tool and a bill.
+
+Hotlink-protected origins will 403 the direct preview. Detect `onerror` and
+fall back to the proxy for that one thumbnail only — the aggregate is bounded
+by lazy loading plus the reveal cap, so a fully protected page costs viewport
+tiles, not the whole manifest.
 
 ## Security
 
@@ -253,7 +274,11 @@ and leading dots; cap length; deduplicate with a numeric suffix.
 
 ## Politeness
 
-**Status: robots enforcement and the honest User-Agent are live; rate limits and user-facing notices not built.**
+**Status: robots enforcement and the honest User-Agent string are live. The
+/bot explainer page the UA links to does NOT exist yet — it ships in Phase 5
+and is deliberately unlinked from the site until it does, but the UA already
+carries its URL, which is why that page is a pre-launch hard blocker. Rate
+limits and user-facing notices not built.**
 
 - Respect `robots.txt` before scanning. On a block, return `robotsBlocked` and show "This site has asked automated tools not to access this page." **No override button.**
 - Honest User-Agent naming the tool with a URL explaining it.
@@ -308,6 +333,15 @@ the token table: `docs/design-system.md`.
 Traffic is the entire acquisition channel, so this is an architectural concern rather than a marketing afterthought. Every tool variant gets its own statically generated page with real explanatory copy, generated from a content collection. Budget: LCP under 2.0s on 4G.
 
 ## Definition of done
+
+**When marking a done-when box, record what was actually verified — not a
+restatement of the box text.** "Verified: 220 tiles at 4× CPU throttle in
+desktop Chrome" can be audited; a bare [x] next to "smooth on a mid-range
+Android phone" cannot. Both overclaims reopened at the Phase 2 boundary came
+from the same mechanism: the person writing the checklist was the person
+satisfying it, and "verified keyboard selection" became "verified focus
+order" without anyone lying. The fix is procedural, not attentional — state
+the evidence, and the gap between it and the box text stays visible.
 
 - [ ] SSRF guard unit-tested against every reserved range, including a redirect chain into one
 - [ ] Nothing written to KV, R2, D1, or cache

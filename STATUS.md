@@ -1,6 +1,6 @@
 # STATUS — imageextract.pics
 
-Last updated: 8 August 2026
+Last updated: 10 August 2026
 
 Living document. Update it at the end of each working session rather than trying to remember what state things were in.
 
@@ -8,7 +8,9 @@ Living document. Update it at the end of each working session rather than trying
 
 ## Where we are right now
 
-**Phase 2 of 8. Roughly 30% of the way to a launchable product.**
+**Phase 3 of 8. Roughly 40% of the way to a launchable product.**
+
+Phase 2 is complete: the full results UI — token restyle, route split, faceted filters, four sorts, whole-tile selection with shift-ranges, incremental reveal, the dismissible per-scan copyright notice, and the 390px mobile pass (bottom-sheet filters) — shipped and verified. Phase 3 (download) is next, sequenced: hotlink proxy fallback → single-image download → lazy byte-size probing → client-zip assembly.
 
 Phase 1 is complete: the whole server-side engine — scan, extraction, robots, proxy, and the security layer around all of it — is built, suite green in workerd, and verified against live sites. What remains is mostly volume rather than difficulty — with two exceptions flagged below.
 
@@ -28,7 +30,8 @@ Phase 1 is complete: the whole server-side engine — scan, extraction, robots, 
 
 ### In progress
 
-- [ ] Phase 2 remaining: proxy fallback on hotlink 403, lazy byte-size probing, and the keyboard/focus audit. Restyle, route split, filters, sort, selection, copy, invert-background, incremental reveal, and the 390px mobile pass (landing + results bottom sheet) are all shipped; results.astro is on tokens and off the verify-gate PRE_RESTYLE list. ZIP is Phase 3.
+- [ ] Phase 3, sequenced by dependency: hotlink proxy fallback → single-image download → lazy byte-size probing (individually-selected images only; select-all shows an em dash with an explicit "Calculate size" action) → client-zip streaming assembly. The proxy fallback and byte-probing items moved here from the Phase 2 list — they are proxy consumers, not grid work.
+- [ ] Phase 2 leftover: the keyboard/focus audit (form → filters → grid focus order) was never run as a full pass; whole-tile keyboard selection and the focus ring are verified, the ordered walk-through is not.
 
 ---
 
@@ -53,9 +56,7 @@ Phase 1 is complete: the whole server-side engine — scan, extraction, robots, 
 - [x] Results grid as a React island
 - [x] Route split: `/` fully static zero-JS, island on `/results` (noindex,nofollow + query-less canonical + `no-referrer` for thumbnail privacy)
 - [x] Thumbnails loaded direct from origin (the zero-cost path, `loading="lazy"`)
-- [ ] Proxy fallback on hotlink 403 (card shows "preview unavailable" for now)
-- [x] Dimension badges from `naturalWidth`/`naturalHeight`
-- [ ] Byte-size badges, lazy only (badge renders an em dash; probing not wired)
+- [x] Dimension badges — declared dims from the manifest at first paint, upgraded to measured `naturalWidth`/`naturalHeight` on load
 - [x] Type filter with live counts (faceted; grouped source filter alongside it)
 - [ ] Search across filename and URL (model + tests shipped; the sidebar control was removed per the 2026-08-10 design pass — reinstating it is one input)
 - [x] Sort — Document order / Width / Name / Type (height & aspect dropped per coverage data; width sorts unknowns last)
@@ -70,9 +71,11 @@ Phase 1 is complete: the whole server-side engine — scan, extraction, robots, 
 
 ### Phase 3 — Download
 
+- [ ] Proxy fallback on hotlink 403 — one retry per tile, aggregate bounded by lazy loading + the reveal cap (moved from Phase 2; card shows "preview unavailable" for now)
+- [ ] Lazy byte-size probing via proxy HEAD — individually-selected images only, capped abortable queue; select-all probes nothing (em dash + "Calculate size" action) (moved from Phase 2)
 - [ ] Single-image download through the proxy
 - [ ] `client-zip` streaming assembly in the browser
-- [ ] Concurrency cap of 6 parallel fetches
+- [ ] Concurrency cap of 6 parallel fetches — must bound bytes in flight, not just request count (see AGENTS.md Phase 3 constraint)
 - [ ] Per-file progress
 - [ ] Failures skipped and reported, never fatal
 - [ ] Cancel button that aborts in-flight requests
@@ -85,7 +88,7 @@ Phase 1 is complete: the whole server-side engine — scan, extraction, robots, 
 - [ ] Rate limiting binding: ~30 scans/hour, ~500 proxy calls/hour per IP
 - [ ] Domain blocklist, editable without redeploy
 - [ ] `limits.cpu_ms` and `limits.subrequests` in `wrangler.jsonc`
-- [ ] Honest User-Agent naming the tool and linking to `/bot`
+- [x] Honest User-Agent naming the tool — the string is **live** (sent since Phase 1) and already carries the `/bot` URL; what does NOT exist is the `/bot` page itself, which is the Phase 5 hard blocker. The split matters: the UA is advertising a URL that 404s until that page ships.
 - [ ] Full log audit — no page URLs, no image URLs, anywhere
 - [ ] Friendly rate-limit message
 
@@ -137,7 +140,7 @@ Phase 1 is complete: the whole server-side engine — scan, extraction, robots, 
 
 **Static parse coverage is unmeasured.** Competitors use headless browsers and find substantially more on JavaScript-heavy sites. We do not yet know our real number. If it lands below 60% on ecommerce, the product needs rethinking — and that decision is currently deferred to Phase 8. Deferring it is a choice, not an oversight.
 
-**An 800-image grid will not render naively.** Eight hundred DOM nodes each holding a full-resolution `<img>` will stall a mid-range phone. Needs virtualization or pagination, decided in Phase 2 rather than discovered in testing.
+**Large-grid rendering: decided and shipped, one verification open.** The Phase 2 answer is incremental reveal (cap 120, IntersectionObserver append) plus content-visibility on fixed-ratio tiles — not virtualization, not pagination (pagination resets on filter changes and makes select-all ambiguous; see DECISIONS.md). Verified at 220 tiles under 4× CPU throttle in desktop Chrome: 120 tiles / ~1.5k DOM nodes at rest. What remains open is the real mid-range Android verification, which retires with the Phase 3 ZIP device pass; @tanstack/react-virtual stays the escalation path if that device run janks.
 
 **The proxy is a deliberately open endpoint.** Rate limits and size caps are the only defence, since verifying that a URL came from a prior scan is not possible statelessly. Accepted risk, mitigated rather than eliminated.
 

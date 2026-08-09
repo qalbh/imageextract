@@ -41,8 +41,10 @@ table above (not 6-digit hex), which is also why doc-sync layer 3 skips them.
 ## Type
 
 Sans (`--font-sans`) for body and headings — **Schibsted Grotesk**. Mono
-(`--font-mono`) for **all** metadata, badges, counts, and labels — **IBM
-Plex Mono**. Both are self-hosted, latin-subset, variable woff2 with a
+(`--font-mono`) for **section labels, badges, and metadata** — **IBM Plex
+Mono** — with the exact scope pinned by the Mono's-scope rule below (option
+rows are sans; this sentence used to claim "all counts and labels" and
+contradicted it). Both are self-hosted, latin-subset, variable woff2 with a
 metric-matched fallback face and the system stack last, all inside the one
 token; see README for licences.
 
@@ -96,11 +98,9 @@ sidebar 260px (`--layout-sidebar`) · grid gutter 24px (`--layout-gutter`) ·
 sticky bar 64px (`--layout-stickybar`) · landing demo-grid height 1040px
 (`--layout-demo` — derived from the demo grid's final content; changes if
 that section's contents change) · results tile floor 220px
-(`--layout-tile-min` — auto-fill columns via inline
-`repeat(auto-fill, minmax(var(--layout-tile-min), 1fr))`; yields 4 columns
-in the post-sidebar grid area, 5 at full width until the sidebar lands) ·
-tile reveal cap **120** (a JS constant — recorded here, lands in code with
-the grid-scaling step).
+(`--layout-tile-min` — auto-fill columns via the `.results-grid` class;
+yields 4 columns in the post-sidebar grid area at content width) ·
+tile reveal cap **120** (`TILE_REVEAL_CAP` in `src/lib/results-model.ts`).
 
 **Tile corners:** on results tiles the **dimension chip is top-right** and the
 **selection checkbox is top-left** — opposite corners. There is **no source

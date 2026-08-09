@@ -13,9 +13,9 @@ In development. Not yet deployed.
 | Phase | State |
 |---|---|
 | Foundation, SSRF guard | Done |
-| Core engine (`/api/scan`, `/api/proxy`) | `/api/scan` done, proxy next |
-| Results UI | Not started |
-| Download and ZIP | Not started |
+| Core engine (`/api/scan`, `/api/proxy`) | Done |
+| Results UI (filters, sort, selection, mobile) | Done |
+| Download and ZIP | Next |
 | Abuse controls | Not started |
 | Trust pages, SEO, deploy | Not started |
 
@@ -26,7 +26,7 @@ See `STATUS.md` for the full breakdown.
 - Astro 7, TypeScript strict, Tailwind v4
 - Cloudflare Workers with static assets — site and API deploy as one unit
 - `HTMLRewriter` for streaming HTML parsing
-- React as a single island for the results grid; every other page ships zero JS
+- Preact (via `@astrojs/preact` with compat, so the island is written as React-flavoured JSX) for the single results-grid island; every other page ships zero JS
 - Vitest running in real workerd via `@cloudflare/vitest-pool-workers`
 
 ## Fonts
@@ -64,7 +64,7 @@ npm run build
 
 ## Politeness
 
-`robots.txt` is respected with no override path. The User-Agent identifies the tool and links to a page explaining it. Rate limits apply per IP. Abuse reports are welcome at the contact address in the footer.
+`robots.txt` is respected with no override path. The User-Agent identifies the tool and carries the URL of an explainer page (the page itself ships before launch). Per-IP rate limits are planned and land before public launch — they are not built yet. Abuse reports are welcome at the contact address in the footer.
 
 Images retrieved through this tool may be under copyright. Obtaining permission to use them is the user's responsibility.
 

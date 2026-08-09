@@ -149,6 +149,33 @@ recipe has more steps and a mandatory ordering.
 group (or otherwise reaping the workerd child) on shutdown — then the sweep
 becomes redundant and this can revert to a plain `astro dev stop`.
 
+## Incremental reveal over pagination
+
+The results grid scales by an incremental reveal — an initial cap of 120
+tiles (the `TILE_REVEAL_CAP` constant), an IntersectionObserver appending
+another batch as the user scrolls, and content-visibility: auto on the
+fixed-ratio tiles so off-screen ones skip rendering — not by pagination, and
+not (yet) by virtualization. Recorded here belatedly: the decision shipped in
+Phase 2 and has overridden the Figma frame twice (the frame shows page
+controls), but until now lived only in the frontend plan and design-system
+notes, while being cited as a DECISIONS entry.
+
+Pagination was rejected on two interactions, not aesthetics: a page control
+resets on every filter change, so a user narrowing 800 images loses their
+place each time a checkbox flips; and it makes select-all ambiguous — "select
+all" on page 2 of 4 either lies about its scope or silently spans pages the
+user never saw. The reveal model keeps one continuous list, so select-all
+over the whole filtered set (the pinned behaviour) stays honest, and a filter
+change simply resets the window to the first 120 of the new set.
+
+**Cost:** the DOM grows as the user scrolls — reveal bounds the initial
+render, not the eventual total; content-visibility keeps off-screen tiles
+cheap but they still exist as nodes. Verified to 220 tiles at 4× CPU
+throttle; the mid-range-phone run is still owed (Phase 3 device pass).
+**Revisit if:** the device run janks on a 1,000-image scan — the escalation
+path is `@tanstack/react-virtual` (MIT), already verified to genuinely
+window under the Preact compat layer before the sidebar was built on top.
+
 ## Open questions
 
 | Question | Trigger |
