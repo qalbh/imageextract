@@ -295,11 +295,31 @@ from one click, and a concurrency cap only spreads a burst out rather than
 preventing it. No other probing affordance; selection is the affordance.
 
 Done when:
-- [ ] Fallback fires only after a direct-load error, once per tile
+- [x] Fallback fires only after a direct-load error, once per tile —
+      verified (2026-08-10, verify:results fallback scenario): 8 tiles with
+      failing direct loads → exactly 1 proxy request per tile ([1,1,1,1,1,1,1,1]);
+      4 recovered via proxy, 4 dead showing "preview unavailable"; a PNG→All
+      filter round trip (which unmounts and remounts the dead tiles) added
+      ZERO proxy and ZERO origin requests. NOT verified: a live
+      hotlink-protected origin actually 403ing the referrerless direct load
+      and serving the proxy — to be checked by hand once before Phase 3
+      closes.
 - [ ] Zero HEAD requests until the user selects individual images or clicks
       Calculate size (verified by counting network calls on a large page)
 - [ ] Em dash remains for unprobed tiles and for un-calculated select-all
       totals
+
+**Fallback shipped 2026-08-10** (`canProxyFallback`/`proxyUrl` in
+`results-model.ts`; the monotonic `fallbacks` map in `ResultsGrid.tsx`):
+retry-once is enforced by parent-owned state, not component state, because
+tiles unmount on filter changes (measured: a filter round trip re-requests
+remounted images — sort/selection/invert do not). Only http(s) URLs retry;
+data: URIs (inline-svg) go straight to dead — the proxy would reject the
+scheme. Dead tiles mount no img at all, which also stopped the pre-existing
+origin re-request on every filter flip. Mid-retry the tile shows the neutral
+well ground; the fallback img is eager (it is by definition already in the
+viewport). The remount cost of RECOVERED tiles is absorbed by the proxy's
+cache-control: private, max-age=3600 — now marked load-bearing in proxy.ts.
 
 ## 9. Mobile pass and polish
 

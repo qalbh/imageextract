@@ -34,6 +34,27 @@ export type ExhaustiveGroups = AssertNever<Exclude<ImageSource, GroupedSource>>;
 // mush. Everything else covers the well.
 export const ICON_SOURCES: ReadonlySet<ImageSource> = new Set<ImageSource>(['favicon', 'inline-svg']);
 
+// The proxy URL for one image. Inline display by default; download adds the
+// attachment disposition (single-image download, Phase 3 step 2).
+export function proxyUrl(url: string, options?: { download?: boolean }): string {
+  const qs = `url=${encodeURIComponent(url)}`;
+  return options?.download === true ? `/api/proxy?${qs}&download=1` : `/api/proxy?${qs}`;
+}
+
+// Whether a failed direct thumbnail is worth one proxy retry. The only test is
+// scheme: the proxy fetches http/https, so a data: URI (inline-svg
+// serializations, embedded data URIs) would be rejected as bad-scheme — a
+// guaranteed-futile subrequest. Deliberately NO heuristic beyond that: the
+// browser's onerror carries no status code and the manifest cannot tell a 403
+// from a 404 or a dead host, while any ext/source guess would skip REAL
+// hotlink cases (stylesheet-sourced images are among the most
+// hotlink-protected on the web) to save a call on cases it cannot identify
+// anyway. One wasted subrequest per dead URL in the viewport, once per scan,
+// is the accepted cost — bounded by lazy loading plus the reveal cap.
+export function canProxyFallback(img: ScanImage): boolean {
+  return img.url.startsWith('https://') || img.url.startsWith('http://');
+}
+
 const GROUP_OF: Record<ImageSource, SourceGroupId> = (() => {
   const map = {} as Record<ImageSource, SourceGroupId>;
   for (const group of SOURCE_GROUPS) for (const source of group.sources) map[source] = group.id;

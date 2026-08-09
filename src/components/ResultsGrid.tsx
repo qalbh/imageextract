@@ -7,6 +7,7 @@ import {
   formatAllCount,
   formatCounts,
   groupCounts,
+  canProxyFallback,
   invertWithin,
   knownWidthCount,
   selectAll,
@@ -121,6 +122,14 @@ export default function ResultsGrid() {
   const [measured, setMeasured] = useState<ReadonlyMap<string, { w: number; h: number }>>(
     () => new Map(),
   );
+  // Thumbnail fallback status per image id — parent-owned because tiles
+  // unmount on filter changes and local state would retry dead URLs on every
+  // filter round trip. Transitions are monotonic (absent → 'proxy' → 'dead',
+  // never backwards), which is what enforces retry-once. Lives for the scan:
+  // every scan is a navigation, so the island (and this map) resets with it.
+  const [fallbacks, setFallbacks] = useState<ReadonlyMap<string, 'proxy' | 'dead'>>(
+    () => new Map(),
+  );
   const [revealCap, setRevealCap] = useState(TILE_REVEAL_CAP);
   const [invert, setInvert] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -208,6 +217,18 @@ export default function ResultsGrid() {
     setMeasured((prev) => {
       const next = new Map(prev);
       next.set(id, { w, h });
+      return next;
+    });
+  }, []);
+  // One retry through the proxy for http(s) URLs; data: URIs go straight to
+  // 'dead' (the proxy would reject the scheme). 'dead' is terminal, so a
+  // double onerror or a remount can never re-trigger a request.
+  const onImageError = useCallback((img: ScanImage) => {
+    setFallbacks((prev) => {
+      const current = prev.get(img.id);
+      if (current === 'dead') return prev;
+      const next = new Map(prev);
+      next.set(img.id, current === undefined && canProxyFallback(img) ? 'proxy' : 'dead');
       return next;
     });
   }, []);
@@ -390,8 +411,10 @@ export default function ResultsGrid() {
                       image={image}
                       selected={selected.has(image.id)}
                       invert={invert}
+                      fallback={fallbacks.get(image.id)}
                       onToggle={handleTileToggle}
                       onMeasured={onMeasured}
+                      onImageError={onImageError}
                     />
                   ))}
                 </ul>

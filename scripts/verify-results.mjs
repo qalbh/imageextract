@@ -131,6 +131,88 @@ async function main() {
     console.log(
       `\n  reveal: ${atRest} at rest → ${mounted} after scroll · ${domNodes} DOM nodes at rest · first tile ${firstTileMs}ms @ ${CPU_THROTTLE}× CPU`,
     );
+
+    // -----------------------------------------------------------------------
+    // Fallback scenario — proves retry-once ACROSS REMOUNTS, the property the
+    // suite cannot test (no DOM in workerd). 8 tiles whose direct loads all
+    // fail: even (png) recover through the proxy, odd (webp) die there too.
+    // The PNG→All filter round trip unmounts and remounts the DEAD webp
+    // tiles, so the zero-new-requests assertions are pure client logic
+    // (dead tiles mount no img; nothing re-attempts the origin) — they do
+    // not depend on caching. Remounting a RECOVERED tile is the one path
+    // this scenario does not exercise: that re-request is absorbed by the
+    // real proxy's cache-control (see the load-bearing note at proxy.ts),
+    // which route-fulfilled responses can't reliably emulate.
+    // -----------------------------------------------------------------------
+    const FB_N = 8;
+    const fbFixture = {
+      pageUrl: 'https://example.com/fb',
+      images: Array.from({ length: FB_N }, (_, i) => ({
+        id: `fb${i}`,
+        url: `https://hotlink.test/fb-${i}.${i % 2 === 0 ? 'png' : 'webp'}`,
+        filename: `fb-${i}`,
+        ext: i % 2 === 0 ? 'png' : 'webp',
+        source: 'img',
+      })),
+    };
+    const directCounts = new Map();
+    const proxyCounts = new Map();
+    const SVG_BODY = '<svg xmlns="http://www.w3.org/2000/svg" width="80" height="60"><rect width="80" height="60" fill="#888"/></svg>';
+
+    const fb = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    await fb.route('**/*', (route) => {
+      const u = route.request().url();
+      if (u.startsWith('https://hotlink.test/')) {
+        directCounts.set(u, (directCounts.get(u) ?? 0) + 1);
+        return route.abort(); // the direct load always fails
+      }
+      if (u.includes('/api/proxy?')) {
+        const target = new URL(u).searchParams.get('url') ?? '';
+        proxyCounts.set(target, (proxyCounts.get(target) ?? 0) + 1);
+        const idx = Number(target.match(/fb-(\d+)/)?.[1] ?? -1);
+        return idx % 2 === 0
+          ? route.fulfill({
+              status: 200,
+              headers: { 'cache-control': 'private, max-age=3600' },
+              contentType: 'image/svg+xml',
+              body: SVG_BODY,
+            })
+          : route.fulfill({ status: 502, contentType: 'text/plain', body: 'upstream error' });
+      }
+      return route.continue();
+    });
+    await fb.route('**/api/scan*', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(fbFixture) }),
+    );
+    await fb.goto(`${base}/results?url=${encodeURIComponent(fbFixture.pageUrl)}`, { waitUntil: 'load' });
+    await fb.waitForSelector('li.result-tile', { timeout: 15000 });
+    await fb.waitForTimeout(1200); // let error → retry → settle
+
+    const onceEach = (map) => [...map.values()].every((n) => n === 1) && map.size === FB_N;
+    ok(
+      'fallback: exactly one proxy request per failed tile',
+      onceEach(proxyCounts),
+      `${proxyCounts.size} URLs probed, counts [${[...proxyCounts.values()].join(',')}]`,
+    );
+    const recovered = await fb.locator('li img[src*="/api/proxy"]').count();
+    const dead = await fb.locator('text=preview unavailable').count();
+    ok('fallback: recovered tiles render proxy images, dead tiles the message', recovered === FB_N / 2 && dead === FB_N / 2, `${recovered} recovered, ${dead} dead`);
+
+    // Filter round trip: PNG-only unmounts the webp tiles; All remounts them.
+    // Retry-once must hold: no new proxy requests (dead tiles mount no img;
+    // recovered tiles cache-hit), and no direct-origin re-attempts either.
+    await fb.locator('aside label', { hasText: 'PNG' }).locator('input').check();
+    await fb.waitForTimeout(400);
+    await fb.locator('aside label', { hasText: 'All' }).locator('input').check();
+    await fb.waitForTimeout(800);
+    ok(
+      'fallback: filter round trip adds zero proxy and zero origin requests',
+      onceEach(proxyCounts) && onceEach(directCounts),
+      `proxy [${[...proxyCounts.values()].join(',')}], origin [${[...directCounts.values()].join(',')}]`,
+    );
+    const deadAfter = await fb.locator('text=preview unavailable').count();
+    ok('fallback: dead tiles stay dead across the round trip', deadAfter === FB_N / 2, `${deadAfter} dead`);
+    await fb.close();
   } finally {
     await browser.close();
     server.close();

@@ -168,6 +168,10 @@ export async function proxyImage(rawUrl: string, options: ProxyOptions): Promise
     'access-control-allow-origin': options.selfOrigin,
     // `private` keeps shared caches out of the no-persistence story while
     // letting the user's browser cache repeat thumbnail hits for free.
+    // LOAD-BEARING for the thumbnail fallback path (ResultsGrid): tiles
+    // unmount on filter changes, and a remounted fallback tile re-requests
+    // its proxy src — this max-age is what makes that a cache hit instead of
+    // a fresh subrequest per filter flip. Shortening it has a real cost.
     'cache-control': 'private, max-age=3600',
   });
   if (announced !== null) headers.set('content-length', String(announced));

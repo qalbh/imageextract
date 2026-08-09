@@ -4,6 +4,7 @@ import {
   ICON_SOURCES,
   SOURCE_GROUPS,
   applyFilters,
+  canProxyFallback,
   canonicalFormats,
   formatAllCount,
   formatCounts,
@@ -12,6 +13,7 @@ import {
   invertWithin,
   knownWidthCount,
   matchesQuery,
+  proxyUrl,
   selectAll,
   selectRange,
   selectedUrls,
@@ -65,6 +67,48 @@ describe('SOURCE_GROUPS', () => {
     expect(ICON_SOURCES.has('favicon')).toBe(true);
     expect(ICON_SOURCES.has('inline-svg')).toBe(true);
     expect(ICON_SOURCES.has('img')).toBe(false);
+  });
+});
+
+describe('proxyUrl', () => {
+  it('builds the inline proxy URL with the target encoded', () => {
+    expect(proxyUrl('https://example.com/a.png')).toBe(
+      '/api/proxy?url=https%3A%2F%2Fexample.com%2Fa.png',
+    );
+  });
+
+  it('encodes query strings and unicode so the target survives round-tripping', () => {
+    const url = 'https://cdn.test/img.php?id=1&size=large#frag';
+    const built = proxyUrl(url);
+    // The target must come back byte-identical when the Worker decodes it —
+    // & and # inside the target must not terminate our own query string.
+    expect(built).toBe(`/api/proxy?url=${encodeURIComponent(url)}`);
+    expect(new URL(built, 'https://ours.test').searchParams.get('url')).toBe(url);
+    expect(new URL(proxyUrl('https://cdn.test/naïve.png'), 'https://ours.test').searchParams.get('url')).toBe(
+      'https://cdn.test/naïve.png',
+    );
+  });
+
+  it('appends download=1 only when asked', () => {
+    expect(proxyUrl('https://example.com/a.png', { download: true })).toBe(
+      '/api/proxy?url=https%3A%2F%2Fexample.com%2Fa.png&download=1',
+    );
+    expect(proxyUrl('https://example.com/a.png', {})).not.toContain('download');
+  });
+});
+
+describe('canProxyFallback', () => {
+  it('allows http and https URLs', () => {
+    expect(canProxyFallback(img({ source: 'img', ext: 'png', url: 'https://cdn.test/a.png' }))).toBe(true);
+    expect(canProxyFallback(img({ source: 'stylesheet', ext: 'png', url: 'http://cdn.test/b.png' }))).toBe(true);
+  });
+
+  it('rejects data: URIs — the proxy would reject the scheme, so a retry is guaranteed futile', () => {
+    // inline-svg entries are serialized to data:image/svg+xml (extract.ts).
+    expect(
+      canProxyFallback(img({ source: 'inline-svg', ext: 'svg', url: 'data:image/svg+xml,%3Csvg%3E%3C%2Fsvg%3E' })),
+    ).toBe(false);
+    expect(canProxyFallback(img({ source: 'img', ext: 'png', url: 'data:image/png;base64,AAAA' }))).toBe(false);
   });
 
   it('sourceGroupOf resolves each source to its bucket', () => {

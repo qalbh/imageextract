@@ -71,7 +71,7 @@ Phase 1 is complete: the whole server-side engine — scan, extraction, robots, 
 
 ### Phase 3 — Download
 
-- [ ] Proxy fallback on hotlink 403 — one retry per tile, aggregate bounded by lazy loading + the reveal cap (moved from Phase 2; card shows "preview unavailable" for now)
+- [x] Proxy fallback on hotlink 403 — one retry per tile via a monotonic parent-owned status map; verified by the verify:results fallback scenario: 1 proxy request per failed tile and zero new proxy/origin requests across a filter round trip (the remount case). Still owed: one by-hand check against a live hotlink-protected origin before Phase 3 closes.
 - [ ] Lazy byte-size probing via proxy HEAD — individually-selected images only, capped abortable queue; select-all probes nothing (em dash + "Calculate size" action) (moved from Phase 2)
 - [ ] Single-image download through the proxy
 - [ ] `client-zip` streaming assembly in the browser

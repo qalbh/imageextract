@@ -1,13 +1,21 @@
 import { useState } from 'react';
 import type { ScanImage } from '../lib/extract';
-import { ICON_SOURCES, formatLabel } from '../lib/results-model';
+import { ICON_SOURCES, formatLabel, proxyUrl } from '../lib/results-model';
 
 /**
  * One grid cell — the whole tile is the selection control (role=button):
  * pointer or keyboard (Enter/Space) toggles it, shift-click extends a range
  * (handled by the parent against the filtered+sorted order). The <img> points
- * DIRECTLY at the origin URL — never the proxy — the zero-cost path the cost
- * model rests on; loading="lazy" keeps 1,000 thumbnails from hammering origins.
+ * DIRECTLY at the origin URL — the zero-cost path the cost model rests on;
+ * loading="lazy" keeps 1,000 thumbnails from hammering origins.
+ *
+ * Failure state lives in the PARENT (the fallback prop), never here: tiles
+ * unmount on filter changes (measured — a filter round trip re-requests
+ * remounted images), so local failure state would retry dead URLs on every
+ * filter flip. On a direct-load error the parent flips this tile to 'proxy'
+ * (one retry through /api/proxy — same-origin, inline GET) and on a proxy
+ * error to 'dead', which renders "preview unavailable" and mounts NO img at
+ * all, so a dead tile never re-requests anything.
  *
  * The well is 262:180 with object-cover — a preview crops rather than
  * letterboxes. Icon sources (ICON_SOURCES: favicon, inline-svg) are the
@@ -18,18 +26,23 @@ export default function ImageCard({
   image,
   selected,
   invert,
+  fallback,
   onToggle,
   onMeasured,
+  onImageError,
 }: {
   image: ScanImage;
   selected: boolean;
   invert: boolean;
+  fallback: 'proxy' | 'dead' | undefined;
   onToggle: (id: string, shift: boolean) => void;
   onMeasured: (id: string, width: number, height: number) => void;
+  onImageError: (image: ScanImage) => void;
 }) {
   const [measured, setMeasured] = useState<{ w: number; h: number } | null>(null);
-  const [failed, setFailed] = useState(false);
   const isIcon = ICON_SOURCES.has(image.source);
+  // The proxy src is derived, not stored — the parent map holds only status.
+  const src = fallback === 'proxy' ? proxyUrl(image.url) : image.url;
 
   // Dimension chip. Measured (load-time truth) renders on the strong overlay
   // chip; page-declared values render on a solid muted chip. When nothing is
@@ -71,15 +84,24 @@ export default function ImageCard({
           invert ? 'bg-text' : 'bg-surface'
         }`}
       >
-        {failed ? (
+        {fallback === 'dead' ? (
           <span className="absolute inset-0 flex items-center justify-center px-xs text-center font-mono text-label text-muted">
             preview unavailable
           </span>
         ) : (
           <img
-            src={image.url}
+            /* key swaps the element on src change so the proxy retry starts
+               from a clean node, not one with a pending error state. Between
+               the direct failure and the proxy paint the well ground shows —
+               the same neutral hold as any tile before first paint. */
+            key={src}
+            src={src}
             alt={image.filename}
-            loading="lazy"
+            /* Direct loads stay lazy (the cost model). The fallback img is
+               eager: onerror only fires for images whose load was attempted,
+               i.e. tiles already in or near the viewport — lazy would just
+               re-defer an on-screen image. */
+            loading={fallback === 'proxy' ? undefined : 'lazy'}
             decoding="async"
             className={
               isIcon
@@ -95,7 +117,7 @@ export default function ImageCard({
                 onMeasured(image.id, naturalWidth, naturalHeight);
               }
             }}
-            onError={() => setFailed(true)}
+            onError={() => onImageError(image)}
           />
         )}
 
