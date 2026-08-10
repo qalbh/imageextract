@@ -17,9 +17,11 @@ import ResultsGrid from '../components/ResultsGrid';
 		<link rel="canonical" href="https://imageextract.pics/results" />
 	</Fragment>
 
-	<SiteHeader anchorPrefix="/" />
+	<SiteHeader anchorPrefix="/" wide />
 
-	<main class="mx-auto max-w-content px-sm py-lg">
+	{/* Full-bleed shell, not max-w-content: /results is a scanning surface —
+	    see the reading-vs-scanning rule in docs/design-system.md. */}
+	<main class="results-shell py-lg">
 		{/* Compact SOURCE row (not the big hero input): the scanned URL as a chip
 		    with a clear ×, and a Re-scan link. */}
 		<ScanForm variant="compact" />

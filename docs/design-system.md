@@ -92,15 +92,36 @@ Scale (px): 88 / 48 / 32 / 20 / 16 / 14 / 13 / 11 —
 
 ## Layout constants
 
+**Reading surfaces vs scanning surfaces — the rule for picking a width.**
+`--container-content` (1280px) caps READING surfaces: pages where measured
+line length matters — the landing, and any future prose page. The results
+grid is FULL-BLEED (viewport minus `--layout-results-pad`, 40px from `md`,
+`--spacing-sm` below) because it is a SCANNING surface: density and tile
+size matter, line length does not. Beyond its derived maximum (sidebar +
+four capped tiles + gaps + pads) the results SHELL centres as a unit —
+sidebar and grid stay adjacent, margins split evenly outside the pair;
+centring the grid *within* the shell is a different, rejected decision
+(it detaches tiles from the filters). A new page picks by which kind of
+surface it is; do not widen `--container-content` to help a grid or cap a
+grid to match prose.
+
 Content max-width 1280px (`max-w-content`) · message column 34rem
 (`--container-message` → `max-w-message`, for centered state messages) ·
 sidebar 260px (`--layout-sidebar`) · grid gutter 24px (`--layout-gutter`) ·
 sticky bar 64px (`--layout-stickybar`) · landing demo-grid height 1040px
 (`--layout-demo` — derived from the demo grid's final content; changes if
 that section's contents change) · results tile floor 220px
-(`--layout-tile-min` — auto-fill columns via the `.results-grid` class;
-yields 4 columns in the post-sidebar grid area at content width) ·
-tile reveal cap **120** (`TILE_REVEAL_CAP` in `src/lib/results-model.ts`).
+(`.results-grid` — FIXED column counts, not auto-fill: 2 below `64rem`
+(mobile, and the 48–64rem band where the sidebar mounts), 3 from `64rem`,
+4 from `80rem`; tiles stretch so wide screens get BIGGER tiles, not more,
+capped at `--layout-tile-max` 400px with the grid LEFT-ALIGNED — scanning
+anchors top-left and the tiles stay adjacent to the sidebar; uncapped,
+2560px gave 539px gallery tiles) · `--layout-tile-min` 220px is no longer
+a grid floor — retained solely as the content-visibility placeholder in
+`.result-tile` · results shell padding 40px from `md`
+(`--layout-results-pad` — the single tuning knob for the results margins;
+the shell's centring max derives from it) · tile reveal cap **120**
+(`TILE_REVEAL_CAP` in `src/lib/results-model.ts`).
 
 **Tile corners:** on results tiles the **dimension chip is top-right** and the
 **selection checkbox is top-left** — opposite corners. There is **no source

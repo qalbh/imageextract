@@ -125,11 +125,22 @@
   /* Derived from the landing demo grid's final content — revisit if that
      section's contents change. */
   --layout-demo: 1040px;
-  /* Results grid tile floor for auto-fill columns. 220px yields 4 columns in
-     the post-sidebar grid area (1280 − 260 sidebar − 24 gutter = 996; 4×220 +
-     3×24 = 952 ≤ 996, 5×220 + 4×24 = 1196 > 996). Full-width (no sidebar yet)
-     it renders 5; auto-fill settles to 4 once the sidebar lands. */
+  /* NO LONGER a grid floor (the grid moved to fixed column counts,
+     2026-08-10) — retained solely as the content-visibility placeholder in
+     .result-tile's contain-intrinsic-size, where 220px stays a fair
+     estimate of a tile at the narrow end; `auto` self-corrects after first
+     render either way. */
   --layout-tile-min: 220px;
+  /* Ceiling on tile width in the fixed 4-column grid (just above the
+     natural 379px tiles at 1920) — growth stops here and the grid
+     left-aligns; see .results-grid. */
+  --layout-tile-max: 400px;
+  /* Horizontal padding of the full-bleed /results shell from md up. THE
+     tuning knob for the results margins — change this one value, nothing
+     else; the shell's centring max derives from it automatically. Set to
+     the lg spacing step (40); md (24) matched the reference but read tight
+     at the shell edges. Below md the shell keeps --spacing-sm. */
+  --layout-results-pad: 40px;
 }
 
 /* The page ground. Tiles/cards sit on --color-surface against this; the
@@ -238,9 +249,54 @@ body {
   gap: var(--spacing-md);
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
-@media (min-width: 48rem) {
+/* Fixed column counts, not auto-fill: wide screens get BIGGER tiles, not
+   more of them, expressed directly as a count. The ladder uses the
+   framework breakpoints: base 2 (mobile, and 48–64rem where the sidebar
+   mounts — a 3rd column there would drop tiles to ~129px), 3 from 64rem
+   (tiles 215–305px), 4 from 80rem. */
+@media (min-width: 64rem) {
   .results-grid {
-    grid-template-columns: repeat(auto-fill, minmax(var(--layout-tile-min), 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (min-width: 80rem) {
+  .results-grid {
+    /* Tiles stretch with the viewport but stop at --layout-tile-max:
+       uncapped, 2560px gives 539px tiles with 367px wells — a gallery, not
+       a scanning grid (barely two rows per screen). Capped at 400 (just
+       above 1920's natural 379px), the grid stays left-aligned WITHIN the
+       shell — and the shell itself centres as a unit at its derived max
+       (see .results-shell), so no leftover space ever opens inside the
+       grid area; the two alignments are different decisions. */
+    grid-template-columns: repeat(4, minmax(0, var(--layout-tile-max)));
+    justify-content: start;
+  }
+}
+
+/* The full-bleed /results shell: full viewport width minus a fixed pad —
+   NOT --container-content, which caps READING surfaces (the landing page,
+   where measured line length matters). The results grid is a SCANNING
+   surface with the opposite need. Applied to both the results header inner
+   row and <main> so their left edges align.
+   The shell CENTRES AS A UNIT beyond its natural maximum — sidebar and
+   grid stay adjacent, margins split evenly outside the pair. The max is
+   derived from the same constants as the grid (sidebar + sidebar↔grid gap
+   + 4 capped tiles + 3 gaps + both pads), so the cap binds at exactly the
+   viewport where tiles reach --layout-tile-max and no leftover space can
+   ever open up INSIDE the grid area. Centring the grid within the shell
+   would be a different (rejected) decision — that one detaches tiles from
+   the sidebar filters; this one moves nothing between them. */
+.results-shell {
+  padding-inline: var(--spacing-sm);
+  margin-inline: auto;
+  max-width: calc(
+    var(--layout-sidebar) + 4 * var(--layout-tile-max) + 4 * var(--spacing-md) +
+      2 * var(--layout-results-pad)
+  );
+}
+@media (min-width: 48rem) {
+  .results-shell {
+    padding-inline: var(--layout-results-pad);
   }
 }
 
