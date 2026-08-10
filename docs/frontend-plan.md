@@ -172,6 +172,42 @@ page (successful scan, zero images). Exact-vs-logical is its own
 DECISIONS.md entry; the deep-scan closure ("bot walls, not JavaScript")
 is another.
 
+lovehoney.eu (probed 2026-08-10, post-fixes): **geo/IP edge block, a
+wall sub-class the corpus rows don't show.** Akamai serves a static 403
+"Blocked request / technical difficulties" page (unchanged since 2022,
+reference-numbered) whose only `<img>` is the logo. Identical body to
+the bot UA, a stock-browser UA, AND real Chrome from the same network,
+so it keys on IP geography, not UA or TLS — unlike Anubis, real users
+here are blocked too. Not a consent interstitial: no redirect, no
+consent vendor, hard 403.
+
+**The scanner was correct throughout.** It extracted 100% of the page
+it was served — the block page holds one image and the manifest says
+one image, before the noscript/logical-cap fixes and after (they are
+irrelevant to a one-image page). "Returns 1 image on a major ecommerce
+site" will read like a parsing bug in every future skim of this
+document; it was not one, at any point.
+
+**This class is a limit on the corpus, not just a caveat on this
+site.** The entire coverage study ran from one network location, and
+lovehoney proves at least one failure mode is vantage-dependent:
+amazon/etsy/unsplash key on bot-ness, which travels with the scanner —
+this keys on IP geography, which does not. "Readable vs walled" is
+therefore not fully measurable from a laptop, and every classification
+in the table above carries that asterisk. The only way to answer this
+class is to re-run the walled probes from the deployed Worker's own
+egress (Phase 7 item in STATUS.md); if Cloudflare's vantage lands them
+readable, the corpus materially changes and gets re-recorded.
+
+**Open question — the consent-interstitial class (no specimen yet, do
+not go hunting).** A GDPR/geo consent redirect serving a near-empty
+interstitial would be a fourth page class, distinct from walls because
+it might be addressable — and .eu commerce is a large surface. But it
+is currently a hypothesis with zero specimens: lovehoney was suspected
+of being one and turned out to be a wall. Deferred-decision discipline
+applies: if a real consent-redirect specimen turns up in live scans,
+measure it then; no investigation opens on no evidence.
+
 **Post-fix recount (measured, not projected).** After noscript parsing
 and the logical-image cap landed: gymshark = 2,731 entries, **204 logical
 units, no truncation** (the page that exhausted the candidate cap at ~125

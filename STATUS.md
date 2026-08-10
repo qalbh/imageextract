@@ -126,6 +126,12 @@ Phase 1 is complete: the whole server-side engine — scan, extraction, robots, 
 - [ ] Deploy-on-push wired up
 - [ ] Billing alert configured
 - [ ] Anonymous error telemetry (error class only, never URLs)
+- [ ] Re-scan the walled probes (lovehoney.eu, amazon, etsy, unsplash)
+      from the deployed Worker. The coverage corpus ran from one network
+      location and lovehoney proved geo/IP walls are vantage-dependent —
+      Cloudflare's egress may land some of them in the readable class,
+      which would materially change the corpus (frontend-plan.md records
+      the limit). Cheap to run; the only way to answer this class.
 
 ### Phase 8 — Post-launch
 
