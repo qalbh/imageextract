@@ -23,7 +23,7 @@ const nav = [
 			wide ? 'results-shell' : 'mx-auto max-w-content px-md',
 		]}
 	>
-		<a href="/" class="flex items-center gap-xs text-body font-semibold text-text">
+		<a href="/" class="vt-wordmark flex items-center gap-xs text-body font-semibold text-text">
 			<span
 				class="flex size-md items-center justify-center rounded-md bg-accent font-mono text-label uppercase text-surface"
 				aria-hidden="true">IE</span
@@ -32,7 +32,7 @@ const nav = [
 		</a>
 		{/* The four-item nav can't sit beside the wordmark at 390px; below sm the
 		    header is wordmark-only rather than wrapping/clipping the nav. */}
-		<nav aria-label="Main" class="hidden sm:block">
+		<nav aria-label="Main" class="vt-nav hidden sm:block">
 			<ul class="flex gap-md text-caption text-muted">
 				{nav.map((item) => (
 					<li><a href={item.href} class="hover:text-text">{item.label}</a></li>

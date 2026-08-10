@@ -140,7 +140,7 @@
      else; the shell's centring max derives from it automatically. Set to
      the lg spacing step (40); md (24) matched the reference but read tight
      at the shell edges. Below md the shell keeps --spacing-sm. */
-  --layout-results-pad: 40px;
+  --layout-results-pad: 60px;
 }
 
 /* The page ground. Tiles/cards sit on --color-surface against this; the
@@ -148,6 +148,36 @@
    on /results (whose tiles were invisible white-on-white without it). */
 body {
   background: var(--color-bg);
+}
+
+/* Cross-document view transitions: / and /results pad their headers
+   differently (--container-content cap vs the full-bleed results shell), so
+   the wordmark and nav would jump on navigation. Both documents share this
+   stylesheet, so both opt in, and the BROWSER supplies the real old/new
+   positions — deliberately not a load animation, which would have to invent
+   an origin and would fire wrongly for anyone arriving at /results from a
+   shared link. Engines without the feature drop the at-rule and the
+   property per CSS error handling: instant cut, today's behaviour. */
+@view-transition {
+  navigation: auto;
+}
+.vt-wordmark {
+  view-transition-name: site-wordmark;
+}
+.vt-nav {
+  view-transition-name: site-nav;
+}
+/* 250ms — inside the asked 200-300 band and equal to the platform default,
+   so engines that ignore the pin behave identically. */
+::view-transition-group(site-wordmark),
+::view-transition-group(site-nav),
+::view-transition-group(root) {
+  animation-duration: 250ms;
+}
+@media (prefers-reduced-motion: reduce) {
+  @view-transition {
+    navigation: none;
+  }
 }
 
 /* Loading skeleton for the results grid — border + surface tokens, gentle
