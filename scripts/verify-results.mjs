@@ -764,16 +764,17 @@ async function main() {
     );
     await zc.close();
 
-    // Cap boundary: 251 selected → blocked with the stated reason, never
-    // truncated.
-    const zx = await zipPage(zipFixture(251));
+    // Cap boundary: 501 selected → blocked with the stated reason, never
+    // truncated. (Re-pinned when MAX_ZIP_IMAGES moved 250→500 with the
+    // 1,000/hr allowance, 2026-08-10.)
+    const zx = await zipPage(zipFixture(501));
     await zx.getByRole('button', { name: /Select all/ }).click();
     await zx.waitForTimeout(400);
     ok(
       'zip: over the cap → Download ZIP blocked with the reason stated',
       !(await zx.getByRole('button', { name: 'Download ZIP' }).first().isEnabled()) &&
-        (await zx.locator('text=/ZIP capped at 250 images/').count()) > 0,
-      '251 selected',
+        (await zx.locator('text=/ZIP capped at 500 images/').count()) > 0,
+      '501 selected',
     );
     await zx.close();
   } finally {

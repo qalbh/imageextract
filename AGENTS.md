@@ -158,8 +158,9 @@ working is in the constant's comment), unknown-size members at
 `ZIP_UNKNOWN_WEIGHT` (16 MB) corrected via setWeight the moment response
 headers arrive, and a queue slot is held until the member is WRITTEN into
 the archive so the accounting covers blob residency, not just open streams.
-Per-ZIP member cap `MAX_ZIP_IMAGES` (250) is rate-budget coherence, not
-memory — see its comment. The load-bearing ASSUMPTION, tested by the device
+Per-ZIP member cap `MAX_ZIP_IMAGES` (500 — half the 1,000/hr allowance,
+pinned, moves with it) is rate-budget coherence, not memory — see its
+comment. The load-bearing ASSUMPTION, tested by the device
 pass: the accumulating Blob archive is disk-backed on target browsers; if a
 browser holds it in memory, that — not transport — is the OOM path.
 Failures are skipped and reported twice (live counts in the bar; a
@@ -203,8 +204,11 @@ queue (`PROBE_CONCURRENCY` 6, client timeout `PROBE_TIMEOUT_MS` 10s).
 with an explicit "Calculate size (N)" action, and the dimension sorts
 (Image size / Width / Height) offer "Measure dimensions (N)" the same way;
 past `MEASURE_WARN_AT` (200) the count carries an hourly-allowance note,
-because past ~40% of the planned budget the bare count is no longer
-informed consent. A bulk click would otherwise be an N-request burst, and
+because past a couple hundred requests a bare count under one click is no
+longer informed consent — the rationale is BURST SIZE, and the number
+deliberately does not move with the allowance (it coincided with ~40% of
+the originally planned 500/hr; the coincidence, not the threshold, is
+what changed at 1,000). A bulk click would otherwise be an N-request burst, and
 a concurrency cap only spreads a burst out rather than preventing it.
 data: URIs never probe — size and dimensions are computed locally. A
 range-ignoring origin gets its stream cancelled after the prefix (gate
@@ -272,7 +276,7 @@ Those are the mechanisms that would actually give this Worker reach into
 private networks.
 
 Other limits: 100 KB cap on `robots.txt`, 5 MB cap on the fetched HTML,
-`MAX_ZIP_IMAGES` (250) per ZIP, 1,000 **logical** images per scan (a
+`MAX_ZIP_IMAGES` (500) per ZIP, 1,000 **logical** images per scan (a
 variant set counts once; variants of an admitted image are never trimmed)
 with a `truncated` reason. The ceiling on manifest ENTRIES is therefore
 `MAX_RAW_CANDIDATES` (5,000) — and that is a **transfer-size bound, not a
@@ -321,7 +325,12 @@ limits and user-facing notices not built.**
 
 - Respect `robots.txt` before scanning. On a block, return `robotsBlocked` and show "This site has asked automated tools not to access this page." **No override button.**
 - Honest User-Agent naming the tool with a URL explaining it.
-- Rate limit by IP: roughly 30 scans/hour, 500 proxy calls/hour.
+- Rate limit by IP: 30 scans/hour, 1,000 proxy calls/hour (decided
+  2026-08-10 from the measured session model — DECISIONS.md "The proxy
+  allowance is politeness, not cost recovery"). The 429 copy must
+  account for shared egress: many users can sit behind one carrier-NAT
+  or campus IP, so it must not accuse, and should say the limit is
+  shared by the network connection and when it resets.
 - Copyright notice above the results grid; abuse contact in the footer.
 
 ## Extraction surface

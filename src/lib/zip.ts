@@ -14,15 +14,17 @@ import { PROBE_CONCURRENCY, canProxyFallback, proxyUrl } from './results-model';
 
 // Per-ZIP member cap. NOT a memory bound (the byte budget below governs
 // memory) and not a time bound (Cancel exists) — it is coherence with the
-// abuse-control budget: Phase 4 plans ~500 proxy calls/hour/IP, and a ZIP
-// larger than the remaining allowance is an archive designed to fail once
-// limits are live. HALF the allowance, not all of it, because a full-budget
-// ZIP leaves nothing for a retry, and the ZIP is not the user's only proxy
-// spend — fallback thumbnails and HEAD probes draw from the same pool, so a
-// 500-member ZIP after a probing session would already be over. 250 leaves
-// room for one retry plus the probes that preceded it. If the Phase 4
-// allowance changes, this moves with it.
-export const MAX_ZIP_IMAGES = 250;
+// abuse-control budget: the Phase 4 allowance is 1,000 proxy calls/hour/IP
+// (decided 2026-08-10, DECISIONS.md), and a ZIP larger than the remaining
+// allowance is an archive designed to fail once limits are live. HALF the
+// allowance, not all of it, because a full-budget ZIP leaves nothing for a
+// retry, and the ZIP is not the user's only proxy spend — fallback
+// thumbnails and Range probes draw from the same pool. The measured
+// thorough session (~350 probes + fallbacks) plus a maximal 500-member ZIP
+// lands at ~865 of 1,000: it completes, once, with a tail for
+// user-initiated retries. Pinned at half the allowance and moves with it —
+// unlike MEASURE_WARN_AT, which deliberately does not.
+export const MAX_ZIP_IMAGES = 500;
 
 // Concurrent-transfer byte budget. Working (recorded, not just chosen):
 // mid-range Android ≈ 4 GB device RAM, tab realistically killable beyond

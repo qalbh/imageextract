@@ -354,11 +354,15 @@ export type SizeEntry = number | 'unknown-length' | 'failed';
 // the slash is the full byte size. The server's HEAD variant stays for
 // external callers; our client just no longer uses it.
 
-// A dimension-measure batch above this count gets an explicit note under the
-// button: past ~40% of the planned 500/hr per-IP proxy allowance (Phase 4),
-// the bare count alone is no longer informed consent — a full measure plus a
-// max ZIP (250) would exceed the hour. Moves with the Phase 4 allowance,
-// like MAX_ZIP_IMAGES.
+// A dimension-measure batch above this count gets an explicit note under
+// the button. The rationale is BURST SIZE: past a couple hundred requests,
+// authorising a single click on a bare count is no longer informed consent,
+// whatever the hourly budget happens to be. At the originally planned
+// 500/hr allowance this coincided with ~40% of the budget; the allowance is
+// now 1,000/hr (2026-08-10) and the number deliberately did NOT move —
+// burst size is the durable rationale, budget share was a coincidence. Do
+// not scale this to restore a ratio that was never the point; unlike
+// MAX_ZIP_IMAGES, it is not pinned to the allowance.
 export const MEASURE_WARN_AT = 200;
 
 // Exact decoded byte size of a data: URI — free, synchronous, no probe needed.

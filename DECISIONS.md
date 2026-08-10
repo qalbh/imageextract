@@ -292,6 +292,55 @@ owed, not optional.
 **Cost:** none — this is a measurement and presentation rule.
 **Revisit if:** never; exact-URL identity was simply the wrong unit.
 
+## The proxy allowance is politeness, not cost recovery
+
+Decided 2026-08-10: **1,000 proxy calls/hour per IP; `MAX_ZIP_IMAGES`
+pinned at half (500) and moving with it; scans stay at 30/hour.**
+
+The number came from a measured session model, not a guess: a normal
+session (128-image scan, browse, measure, size, 120-ZIP) costs ~225
+proxy calls; a thorough session (553-entry page, Measure ~350, 250-ZIP)
+~615; thorough with a maximal 500-member ZIP ~865. The deliberate line:
+**one honest session always completes** — even the maximal shape fits at
+86.5% with a tail for user-initiated retries — while sustained heavy use
+(two thorough sessions in an hour, 1,230) throttles. The originally
+planned 500/hr failed that test: the thorough session hit 123% mid-way,
+walling a user for doing exactly what the UI invites.
+
+The count limit's job is politeness and pipe-throttling, not cost
+recovery. A full allowance costs $0.0003 in Worker requests; the
+bandwidth vector is bounded per-request by the 50 MB / 20 MB caps and
+the image-only content-type rejection, and that defence is unchanged by
+this number. The tradeoff, named: doubling the allowance doubles what an
+abuser extracts per IP before rotating — but IP rotation defeats any
+per-IP number equally, so the marginal protection of 500-over-1,000 is
+small while its cost falls on the thorough users the tool is for.
+
+**What the model does not capture: one user per IP is an assumption.**
+Shared egress — offices, universities, carrier-grade NAT — puts many
+users behind one counter, so "two thorough sessions do not fit" can mean
+two unrelated people on the same mobile network. Not a reason to change
+the number, but it is the failure mode most likely to produce a confused
+support message. The user-facing 429 copy must account for it: no
+accusation ("you have made too many requests" indicts someone who may
+have made three), state that the limit is shared by the network
+connection, and say when it resets.
+
+Related but deliberately NOT moving: `MEASURE_WARN_AT` stays at 200. Its
+rationale is the size of the burst one click authorises, which does not
+change when the budget does — at 500/hr it happened to coincide with
+~40% of the allowance, and scaling it to restore that ratio would be
+preserving a coincidence.
+
+**Cost:** an abuser gets 1,000 proxied requests per IP per hour instead
+of 500 before rotating; accepted against per-request byte caps and the
+rotation argument above.
+**Revisit if:** live telemetry shows sustained per-IP pipe use the byte
+caps don't contain (lower it or split read/download budgets), or 429s
+cluster on carrier ASNs (the shared-egress assumption bit real users —
+finer keys are constrained by statelessness, so this needs design, not a
+number tweak).
+
 ## Open questions
 
 | Question | Trigger |
