@@ -131,7 +131,9 @@ type ScanResult = {
     // 'declared'; the UI renders declared values muted and flips to 'measured'
     // on load. variantGroup: shared id for every candidate of ONE logical
     // image — a whole <picture> (all its <source>s + fallback <img>) or a
-    // standalone <img>'s src+srcset. Collapsing variants in the UI is deferred.
+    // standalone <img>'s src+srcset. Collapsing variants in the UI is
+    // deferred but OWED — correctness, not polish (DECISIONS: "Coverage
+    // counts logical images"). The scan cap counts variantGroup units.
     width?: number; height?: number; dimensionSource?: 'declared' | 'measured';
     variantGroup?: string;
   }>;
@@ -270,8 +272,16 @@ Those are the mechanisms that would actually give this Worker reach into
 private networks.
 
 Other limits: 100 KB cap on `robots.txt`, 5 MB cap on the fetched HTML,
-`MAX_ZIP_IMAGES` (250) per ZIP, 1,000 images per scan with a `truncated`
-reason.
+`MAX_ZIP_IMAGES` (250) per ZIP, 1,000 **logical** images per scan (a
+variant set counts once; variants of an admitted image are never trimmed)
+with a `truncated` reason. The ceiling on manifest ENTRIES is therefore
+`MAX_RAW_CANDIDATES` (5,000) — and that is a **transfer-size bound, not a
+rendering one**: the reveal cap mounts 120 tiles regardless of manifest
+length, so the only cost of a big manifest is the JSON crossing the wire.
+Measured on the worst real page found (2,731 entries): 899 KB raw, 67 KB
+gzipped — acceptable on a phone connection; extrapolated to the full 5,000
+ceiling ≈ 1.6 MB raw / ~125 KB wire, still acceptable, so the ceiling
+stands.
 
 Per-image size caps — two constants, deliberately asymmetric (mirrors
 `MAX_ANNOUNCED_IMAGE_BYTES` / `MAX_STREAMED_IMAGE_BYTES` in
@@ -319,6 +329,17 @@ limits and user-facing notices not built.**
 `<img src>` is a small fraction. Resolve everything against `<base href>`, then absolute:
 
 `img[src]`, `img[srcset]`, `source[srcset]` in `<picture>`, lazy attributes (`data-src`, `data-lazy-src`, `data-original`, `data-srcset`, `data-bg` — note these appear on `<div>` as well as `<img>`), inline `style="background-image:url()"` and `image-set()`, `<style>` blocks, linked stylesheets (cap at 3), `video[poster]`, `<object data>`, `<embed src>`, inline `<svg>` (serialize the element; there is no URL), `link[rel~=icon]` and `apple-touch-icon`, `og:image` and `twitter:image` meta, JSON-LD `image` fields.
+
+**And `<noscript>` content, re-parsed through the same pipeline.** This is
+not scraping cleverness, and whoever later suspects it of being overreach
+should read this twice: noscript is the site's own answer to non-JS user
+agents, and a static HTML scanner IS a non-JS user agent. It is content
+addressed to us that we were throwing away — half of apple.com's rendered
+images existed statically nowhere else (measured 2026-08-10, coverage
+diagnosis). HTMLRewriter parses with scripting assumed on, so noscript
+arrives as raw text; the fragments are collected (bounded by
+`MAX_NOSCRIPT_TEXT`) and recurse once through `extractFromHtml` — same
+handlers, no duplicated logic, markup occurrences winning dedupe ties.
 
 Then dedupe by normalized URL (strip fragment, sort query params) and drop `data:` URIs over 100 KB.
 

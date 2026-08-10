@@ -141,6 +141,65 @@ So: a size-tier filter must treat "unknown" as a first-class, prominent tier,
 and sorting by height/aspect only meaningfully orders the `img` subset. Width
 sort covers `img` + `srcset` (~43% of entries here).
 
+### Static-parse coverage vs browser ground truth (7 live pages, 2026-08-10)
+
+The Phase 8 question ("measure real static-parse coverage") pulled forward
+and answered. **Method:** ground truth per page = headless Chromium
+(1440×900, DPR 1) loads the page, scrolls to the bottom to fire lazy
+loaders, then unions every main-frame network image response, every DOM
+`img.currentSrc`, and every computed `background-image` URL — minus
+tracking beacons (18 explicit host/path patterns), sub-3px pixels, and
+iframe/ad loads. Scan side = the real `/api/scan`. Both normalized
+identically to `resolveCandidate` (fragment stripped, params sorted).
+Matching: exact URL → **variant** (same origin+path, different sizing
+params) → miss; every miss searched in the HTML *the scanner's UA was
+served*, span-aware: `<noscript>`, `<script>` state JSON, plain markup,
+fetched stylesheet, or absent.
+
+| Page | Category | Truth | Exact | Logical | Misses were |
+|---|---|---|---|---|---|
+| allbirds /collections | ecommerce-SSR | 54 | 87.0% | 90.7% | ~5 script-JSON / page churn |
+| gymshark /collections | ecommerce-SPA | 158 | 39.9% | 45.6% → **98.1%** | 78 cap-trimmed + 7 noscript (both fixed) |
+| unsplash /t/wallpapers | js-gallery | — | — | — | Anubis bot wall (served `…/anubis/…/reject.webp`) |
+| theguardian /international | news | 105 | 1.0% | **100%** | — |
+| apple.com | marketing | 42 | 50.0% | 50% → **100%** | 21 of 42 only in `<noscript>` (fixed) |
+| en.wikipedia /Photography | anchor | 62 | 16.1% | 72.6% | 17 skin icons via stylesheet chain |
+| astro.build | anchor | 42 | 14.3% | **100%** | — |
+
+Probes: amazon robots-allows the scan but runs a per-request lottery (0,
+some, 117 images across three identical scans); etsy serves a challenge
+page (successful scan, zero images). Exact-vs-logical is its own
+DECISIONS.md entry; the deep-scan closure ("bot walls, not JavaScript")
+is another.
+
+**Post-fix recount (measured, not projected).** After noscript parsing
+and the logical-image cap landed: gymshark = 2,731 entries, **204 logical
+units, no truncation** (the page that exhausted the candidate cap at ~125
+products now fits with ~800 units of headroom); **83 of its 86
+previously-lost images land** (1 was a beacon, 2 rotated away between
+sweeps); apple = all 21 noscript-only images land, 42/42. Manifest
+transfer at the new entry ceiling: gymshark's 2,731-entry JSON is 899 KB
+raw, **67 KB gzipped** (13:1 — URL prefixes repeat); extrapolated to the
+`MAX_RAW_CANDIDATES` ceiling of 5,000 ≈ 1.6 MB raw / ~125 KB wire. This
+is a **transfer-size question only, not a rendering one** — the 120-tile
+reveal cap mounts the same DOM regardless of manifest length. Verdict:
+acceptable on a phone connection; the ceiling stands unchanged.
+
+**What contaminates this measurement** (anyone re-running it inherits
+these): (1) **beacon inflation** — tracking pixels served as images
+(google `/pagead/`, reddit `rp.gif`, `securemetrics.*`…) land in the
+network truth but never in the DOM-size filter; first-run allbirds read
+60.3%, which would have argued for the rethink the clean data does not
+support. (2) **weak-needle misclassification** — a bare pathname like
+`/w/load.php` matches unrelated references; wiki's stylesheet icons
+first classified as parser misses. (3) **cap-truncation masquerading as
+parser gaps** — gymshark's 78 "in-html" misses were candidates the parser
+had read and the cap had trimmed; distinguishing needs the raw-HTML URL
+count (2,998) against the manifest, not the miss list alone. Standing
+caveats: one viewport/DPR, per-request HTML variance (allbirds carousels,
+the amazon lottery), and inline-SVG counts are incomparable (manifest
+dedupes identical serializations; the DOM counts instances).
+
 ## 4. Filters — source groups and type
 
 Sidebar filter over ~5 user-facing source buckets derived from

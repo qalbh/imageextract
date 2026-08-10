@@ -129,8 +129,18 @@ Phase 1 is complete: the whole server-side engine — scan, extraction, robots, 
 
 ### Phase 8 — Post-launch
 
-- [ ] Measure real static-parse coverage across live sites
-- [ ] Decide whether a deep-scan mode is justified by the data
+- [x] Measure real static-parse coverage across live sites — pulled forward
+      and done 2026-08-10. Verified: 7 live pages (ecommerce SSR + SPA,
+      news, marketing, docs anchors), headless-Chromium ground truth at one
+      viewport (1440×900, DPR 1) with beacon exclusion and per-miss
+      classification against the scanner-served HTML. Method, corpus table,
+      and the measurement traps in frontend-plan.md.
+- [x] Decide whether a deep-scan mode is justified by the data — closed:
+      **not indicated**. On every readable page the truly-JS-built residue
+      was 0–1 images; the real gaps were our own (noscript blindness, cap
+      counting candidates), both fixed 2026-08-10. The boundary that
+      remains is bot walls, which stop headless browsers too. See
+      DECISIONS.md "Deep-scan mode closed".
 - [ ] Monitor subrequest volume and cost for the first month
 - [ ] Watch which sites produce zero results, and why
 - [ ] Expand landing pages based on actual search queries
@@ -139,7 +149,7 @@ Phase 1 is complete: the whole server-side engine — scan, extraction, robots, 
 
 ## Known risks
 
-**Static parse coverage is unmeasured.** Competitors use headless browsers and find substantially more on JavaScript-heavy sites. We do not yet know our real number. If it lands below 60% on ecommerce, the product needs rethinking — and that decision is currently deferred to Phase 8. Deferring it is a choice, not an oversight.
+**Static parse coverage is measured, and the assumption inverted.** The feared number — "below 60% on ecommerce means the product needs rethinking" — was tested 2026-08-10 against browser ground truth on 7 live pages. SSR ecommerce lands ≥90%; news, marketing, and docs land 100% in logical images. The one sub-60% reading (a headless-React Shopify collection at 45.6%) was **our cap policy, not static parsing**: the served HTML held 2,998 image URLs the parser had already read, and the candidate-counted cap trimmed them. With the noscript and logical-cap fixes it recounts at 98.1%, and apple.com went 50% → 100% on noscript alone. No rethink is indicated. What static parsing cannot reach is what origins refuse to serve — bot walls (Anubis, challenge pages), which stop headless browsers too. Full table and method in frontend-plan.md; the closure reasoning in DECISIONS.md.
 
 **Large-grid rendering: decided and shipped, one verification open.** The Phase 2 answer is incremental reveal (cap 120, IntersectionObserver append) plus content-visibility on fixed-ratio tiles — not virtualization, not pagination (pagination resets on filter changes and makes select-all ambiguous; see DECISIONS.md). Verified at 220 tiles under 4× CPU throttle in desktop Chrome: 120 tiles / ~1.5k DOM nodes at rest. What remains open is the real mid-range Android verification, which retires with the Phase 3 ZIP device pass; @tanstack/react-virtual stays the escalation path if that device run janks.
 
@@ -155,7 +165,7 @@ Phase 1 is complete: the whole server-side engine — scan, extraction, robots, 
 
 | Decision | Trigger for revisiting |
 |---|---|
-| Headless-browser deep scan | Phase 8 coverage data |
+| Headless-browser deep scan | **Closed 2026-08-10: not indicated.** The boundary is bot walls, not JavaScript — see DECISIONS.md. Reopens only if live-scan telemetry shows a class of *readable* pages with a large truly-absent residue |
 | Sign-in or quotas | Only if abuse outpaces rate limits |
 | Monetization | Not before real traffic exists |
 | Open-sourcing | Post-launch |

@@ -88,12 +88,21 @@ export interface HtmlExtraction {
   hitRawCap: boolean;
 }
 
+// MAX_IMAGES counts LOGICAL images (variant sets count once, see
+// finalizeManifest); the absolute ceiling on manifest ENTRIES is therefore
+// MAX_RAW_CANDIDATES — a transfer-size bound, not a rendering one (the
+// results UI mounts 120 tiles regardless).
 export const MAX_IMAGES = 1000;
 export const MAX_STYLESHEETS = 3;
-const MAX_RAW_CANDIDATES = 5000;
+export const MAX_RAW_CANDIDATES = 5000;
 const MAX_STYLE_TEXT = 262_144;
 const MAX_JSONLD_TEXT = 102_400;
 const MAX_DATA_URI = 102_400;
+// Bounds our buffered copy of <noscript> content (the 5 MB HTML cap already
+// bounds the bytes themselves — noscript is inside the same document, so
+// parsing it adds work, not transfer). Overflow drops silently, same policy
+// as MAX_STYLE_TEXT.
+export const MAX_NOSCRIPT_TEXT = 1_048_576;
 
 const LAZY_ATTRS = ['data-src', 'data-lazy-src', 'data-original', 'data-srcset', 'data-bg'];
 
@@ -249,9 +258,18 @@ function collectImageValue(value: unknown, out: JsonLdImage[], depth: number): v
   }
 }
 
-/** Streams the document through HTMLRewriter and collects raw candidates. */
+/**
+ * Streams the document through HTMLRewriter and collects raw candidates.
+ *
+ * `depth` is internal: <noscript> fragments re-enter this same function
+ * (depth 1) so they go through the identical pipeline with zero duplicated
+ * handler logic. Fragment passes do not collect noscript again — nested
+ * noscript is invalid HTML, and the guard makes non-recursion explicit
+ * rather than accidental.
+ */
 export async function extractFromHtml(
   body: ReadableStream<Uint8Array> | string,
+  depth = 0,
 ): Promise<HtmlExtraction> {
   const candidates: RawCandidate[] = [];
   const stylesheetHrefs: string[] = [];
@@ -309,6 +327,16 @@ export async function extractFromHtml(
   // <style> text arrives in chunks; flush per text node.
   let styleBuf = '';
   let styleTotal = 0;
+
+  // <noscript> content is the site's own answer to non-JS user agents —
+  // which is exactly what this scanner is. HTMLRewriter parses with
+  // scripting assumed ON, so that content arrives here as raw TEXT and no
+  // element handler ever fires inside it (measured: half of apple.com's
+  // rendered images existed statically only in noscript). Collect the
+  // fragments; they re-enter this pipeline after the main drain.
+  let noscriptBuf = '';
+  let noscriptTotal = 0;
+  const noscriptFragments: string[] = [];
 
   // <script type="application/ld+json"> — element handler flags, text
   // handler accumulates. Streaming is sequential, so one flag suffices.
@@ -554,6 +582,27 @@ export async function extractFromHtml(
       },
     });
 
+  if (depth === 0) {
+    rewriter.on('noscript', {
+      text(chunk) {
+        // Hard cap: a string body arrives as one big chunk, so the append
+        // itself must be sliced — a soft threshold check would admit the
+        // whole document in a single chunk. A mid-markup cut leaves a
+        // dangling tag that parses to nothing, which is the silent-drop
+        // policy working as intended.
+        if (noscriptTotal < MAX_NOSCRIPT_TEXT) {
+          const room = MAX_NOSCRIPT_TEXT - noscriptTotal;
+          noscriptBuf += chunk.text.length > room ? chunk.text.slice(0, room) : chunk.text;
+        }
+        noscriptTotal += chunk.text.length;
+        if (chunk.lastInTextNode) {
+          if (noscriptBuf.trim() !== '') noscriptFragments.push(noscriptBuf);
+          noscriptBuf = '';
+        }
+      },
+    });
+  }
+
   // The single most common way these tools under-report: lazy-loading
   // attributes live on <div>/<section>/<li> at least as often as on <img>,
   // so each selector is a bare [attr] matching any element.
@@ -590,6 +639,35 @@ export async function extractFromHtml(
     for (;;) {
       const { done } = await reader.read();
       if (done) break;
+    }
+  }
+
+  // A size-capped document can end mid-noscript without a final
+  // lastInTextNode; flush the residue rather than lose it.
+  if (noscriptBuf.trim() !== '') noscriptFragments.push(noscriptBuf);
+
+  // Noscript fragments re-enter the identical pipeline. Merge rules:
+  // candidates append AFTER the document's (so first-wins dedupe in
+  // finalizeManifest lets a markup occurrence beat its noscript duplicate),
+  // under the parent's raw-candidate budget; child variantGroups are
+  // namespaced — each fragment pass restarts its counter at vg-1, and an
+  // unremapped id would merge a noscript <picture> into an unrelated markup
+  // group, corrupting the logical-image cap; a child <base> is discarded
+  // (dead in every scripting-on browser — the document base governs);
+  // stylesheet hrefs merge under the same shared cap of MAX_STYLESHEETS.
+  for (let i = 0; i < noscriptFragments.length; i++) {
+    const fragment = await extractFromHtml(noscriptFragments[i] as string, 1);
+    for (const c of fragment.candidates) {
+      if (candidates.length >= MAX_RAW_CANDIDATES) {
+        hitRawCap = true;
+        break;
+      }
+      if (c.variantGroup !== undefined) c.variantGroup = `n${i}-${c.variantGroup}`;
+      candidates.push(c);
+    }
+    if (fragment.hitRawCap) hitRawCap = true;
+    for (const href of fragment.stylesheetHrefs) {
+      if (stylesheetHrefs.length < MAX_STYLESHEETS) stylesheetHrefs.push(href);
     }
   }
 
@@ -742,13 +820,31 @@ export function finalizeManifest(input: FinalizeInput): {
   const images: ScanImage[] = [];
   let imageCapHit = input.volumeCapHit === true;
 
+  // MAX_IMAGES counts LOGICAL images, not candidates: a grouped candidate's
+  // unit is its variantGroup; an ungrouped one (lone <img src>, favicon,
+  // CSS url — one image, no group) is its own unit, keyed by URL. A page of
+  // 375 products × 8 srcset widths is 375 units, not 3,000 — measured on a
+  // live Shopify collection, candidate counting exhausted the cap at ~125
+  // products while the served HTML held 2,998 image URLs the parser had
+  // already read. Admission: variants of an admitted unit are free (an
+  // admitted logical image never loses variants; a rejected one drops
+  // whole), so the loop must CONTINUE past the cap, not break — later
+  // candidates can belong to admitted units. Entry count is therefore
+  // bounded by MAX_RAW_CANDIDATES, not MAX_IMAGES.
+  const units = new Set<string>();
+
   for (const candidate of input.candidates) {
     const resolved = resolveCandidate(candidate.raw, base);
     if (resolved === null || seen.has(resolved)) continue;
     seen.add(resolved);
-    if (images.length >= MAX_IMAGES) {
-      imageCapHit = true;
-      break;
+    const unit =
+      candidate.variantGroup !== undefined ? `g:${candidate.variantGroup}` : `u:${resolved}`;
+    if (!units.has(unit)) {
+      if (units.size >= MAX_IMAGES) {
+        imageCapHit = true;
+        continue;
+      }
+      units.add(unit);
     }
     const ext = resolved.startsWith('data:')
       ? extFromDataUri(resolved)

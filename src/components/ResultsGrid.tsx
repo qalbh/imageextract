@@ -12,7 +12,6 @@ import {
   canProxyFallback,
   dataUriBytes,
   invertWithin,
-  MEASURE_WARN_AT,
   METRIC_SORTS,
   dimsKnownCounts,
   selectAll,
@@ -110,11 +109,13 @@ async function runScan(url: string): Promise<ViewState> {
 function TruncatedBanner({ reason }: { reason: 'image-cap' | 'size-cap' }) {
   // The two reasons demand different advice: image-cap means everything was
   // seen and the list was trimmed; size-cap means part of the page was never
-  // parsed at all.
+  // parsed at all. The image-cap copy must NOT state a tile count: the cap
+  // counts logical images and every size variant of an admitted image is
+  // kept, so the grid can legitimately show more than 1,000 tiles.
   return (
     <p className="mb-sm rounded-md border border-warning-border bg-warning-bg px-sm py-xs text-small text-warning-text">
       {reason === 'image-cap'
-        ? 'The whole page was scanned, but it has more than 1,000 images — showing the first 1,000.'
+        ? 'The whole page was scanned, but it has more than 1,000 images — only the first 1,000 are listed (with all their size variants).'
         : 'This page was too large to read completely, so some images may be missing entirely. Scanning a more specific page on the same site may find more.'}
     </p>
   );

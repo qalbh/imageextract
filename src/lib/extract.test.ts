@@ -5,6 +5,7 @@ import {
   extractFromHtml,
   finalizeManifest,
   parseSrcset,
+  type RawCandidate,
   type ScanImage,
   type TruncationReason,
 } from './extract';
@@ -374,5 +375,138 @@ describe('declared dimensions', () => {
   it('leaves dimensionSource undefined when nothing is declared', async () => {
     const { images } = await scan('<img src="/bare.png">');
     expect(byName(images, 'bare.png').dimensionSource).toBeUndefined();
+  });
+});
+
+describe('noscript extraction', () => {
+  it('finds images inside <noscript> with their natural source value', async () => {
+    const { images } = await scan('<noscript><img src="/ns.png"></noscript>');
+    expect(urls(images)).toEqual(['https://site.example/ns.png']);
+    expect((images[0] as ScanImage).source).toBe('img');
+  });
+
+  it('extracts a <picture> that exists only in noscript (the apple.com pattern)', async () => {
+    const html = `
+      <noscript><picture>
+        <source srcset="/hero_small.jpg, /hero_small_2x.jpg 2x" media="(max-width:734px)">
+        <source srcset="/hero_large.jpg, /hero_large_2x.jpg 2x" media="(min-width:735px)">
+        <img src="/hero_fallback.jpg">
+      </picture></noscript>`;
+    const { images } = await scan(html);
+    expect(urls(images).sort()).toEqual(
+      [
+        'https://site.example/hero_fallback.jpg',
+        'https://site.example/hero_large.jpg',
+        'https://site.example/hero_large_2x.jpg',
+        'https://site.example/hero_small.jpg',
+        'https://site.example/hero_small_2x.jpg',
+      ].sort(),
+    );
+    const groups = new Set(images.map((i) => i.variantGroup));
+    expect(groups.size).toBe(1);
+    expect([...groups][0]).toBeDefined();
+  });
+
+  it('reads lazy attributes inside noscript', async () => {
+    const { images } = await scan('<noscript><div data-src="/lazy.png"></div></noscript>');
+    expect(urls(images)).toEqual(['https://site.example/lazy.png']);
+    expect((images[0] as ScanImage).source).toBe('lazy');
+  });
+
+  it('dedupes a URL present in both markup and noscript — the markup occurrence wins', async () => {
+    const html =
+      '<img src="/dup.png" width="10" height="20"><noscript><img src="/dup.png"></noscript>';
+    const { images } = await scan(html);
+    expect(images).toHaveLength(1);
+    // First-wins kept the markup candidate: its declared dims survived.
+    expect((images[0] as ScanImage).width).toBe(10);
+    expect((images[0] as ScanImage).height).toBe(20);
+  });
+
+  it('namespaces noscript variantGroups away from markup groups', async () => {
+    const html =
+      '<img src="/a.png" srcset="/a2.png 2x">' +
+      '<noscript><img src="/b.png" srcset="/b2.png 2x"></noscript>';
+    const { images } = await scan(html);
+    const byUrl = (u: string): ScanImage =>
+      images.find((i) => i.url.endsWith(u)) as ScanImage;
+    const ga = byUrl('/a.png').variantGroup;
+    const gb = byUrl('/b.png').variantGroup;
+    expect(ga).toBeDefined();
+    expect(gb).toBeDefined();
+    expect(ga).not.toBe(gb);
+    // Each pair still shares its own group.
+    expect(byUrl('/a2.png').variantGroup).toBe(ga);
+    expect(byUrl('/b2.png').variantGroup).toBe(gb);
+  });
+
+  it('does not recurse into a noscript nested inside a noscript fragment', async () => {
+    // Raw text ends at the FIRST </noscript>, so the fragment carries an
+    // opened <noscript> whose content the depth-1 pass must not expand.
+    const html =
+      '<noscript><img src="/outer.png"><noscript><img src="/inner.png"></noscript></noscript>';
+    const { images } = await scan(html);
+    expect(urls(images)).toEqual(['https://site.example/outer.png']);
+  });
+
+  it('drops noscript content past the buffer cap silently, keeping what fit', async () => {
+    const filler = `<span>${'x'.repeat(1_100_000)}</span>`;
+    const html = `<noscript><img src="/early.png">${filler}<img src="/late.png"></noscript>`;
+    const { images } = await scan(html);
+    expect(urls(images)).toEqual(['https://site.example/early.png']);
+  });
+});
+
+describe('logical-image cap', () => {
+  it('admits all variants of the first MAX_IMAGES logical images, never a partial group', async () => {
+    const tags = Array.from(
+      { length: 1100 },
+      (_, i) => `<img src="/p/${i}.jpg" srcset="/p/${i}-2x.jpg 2x">`,
+    ).join('');
+    const { images, truncated } = await scan(tags);
+    expect(truncated).toBe('image-cap');
+    // 1000 logical images × 2 variants — entries exceed MAX_IMAGES by design.
+    expect(images).toHaveLength(MAX_IMAGES * 2);
+    const counts = new Map<string, number>();
+    for (const i of images) {
+      const g = i.variantGroup as string;
+      counts.set(g, (counts.get(g) ?? 0) + 1);
+    }
+    expect(counts.size).toBe(MAX_IMAGES);
+    expect([...counts.values()].every((n) => n === 2)).toBe(true);
+  });
+
+  it('admits a late candidate of an already-admitted unit after the cap fires', () => {
+    const candidates: RawCandidate[] = [
+      { raw: '/g0-a.jpg', source: 'img', variantGroup: 'vg-1' },
+      ...Array.from({ length: 999 }, (_, i) => ({
+        raw: `/lone/${i}.png`,
+        source: 'img' as const,
+      })),
+      // The cap (1000 units) is now exactly full. A late member of the
+      // admitted vg-1 must still land; a new unit must not.
+      { raw: '/g0-b.jpg', source: 'srcset', variantGroup: 'vg-1' },
+      { raw: '/new.png', source: 'img' },
+    ];
+    const { images, truncated } = finalizeManifest({
+      pageUrl: PAGE,
+      baseHref: null,
+      candidates,
+    });
+    expect(truncated).toBe('image-cap');
+    const u = urls(images);
+    expect(u).toContain('https://site.example/g0-b.jpg');
+    expect(u).not.toContain('https://site.example/new.png');
+    expect(images).toHaveLength(1001);
+  });
+
+  it('counts each distinct ungrouped URL as one logical image (existing lone-img behaviour)', async () => {
+    // Duplicates of one URL never double-count a unit.
+    const tags =
+      Array.from({ length: 999 }, (_, i) => `<img src="/img/${i}.png">`).join('') +
+      '<img src="/img/0.png"><img src="/img/998.png">';
+    const { images, truncated } = await scan(tags);
+    expect(truncated).toBeUndefined();
+    expect(images).toHaveLength(999);
   });
 });

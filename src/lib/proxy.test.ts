@@ -5,7 +5,6 @@ import {
   MAX_STREAMED_IMAGE_BYTES,
   NotAnImageError,
   SizeLimitError,
-  UpstreamHttpError,
   downloadFilename,
   proxyImage,
 } from './proxy';

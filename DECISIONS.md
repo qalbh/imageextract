@@ -31,7 +31,10 @@ The competitive landscape shows this product is a content surface with one inter
 
 Competitors run headless browsers and consequently need sign-in, quotas, and ads to cover per-request cost. Static parsing is fast and nearly free, and lets us be the no-signup option.
 
-**Cost:** we will miss images on JavaScript-heavy sites. The size of that gap is currently unmeasured.
+**Cost:** we will miss images on JavaScript-heavy sites. The size of that
+gap was unmeasured when this was decided; measured 2026-08-10 it is far
+smaller than feared — 0–1 truly-JS-built images per readable page once our
+own noscript and cap gaps were fixed. See "Deep-scan mode closed" below.
 **Revisit if:** Phase 8 data shows zero-result scans above 30%. Cloudflare Browser Rendering is the escape hatch, on the same platform.
 
 ## Zero persistence
@@ -233,11 +236,67 @@ subrequest per unmeasured image, not automatic.
 **Revisit if:** the static-parse decision itself is revisited (Phase 8
 coverage data) — the two stand or fall together.
 
+## Deep-scan mode closed: the boundary is bot walls, not JavaScript
+
+Decided 2026-08-10, on the coverage diagnosis (method and corpus table in
+frontend-plan.md). The Phase 8 question was "does the data justify a
+headless-browser deep scan?" The data answered a different question than
+the one we feared. The assumption was that JavaScript builds images a
+static parse cannot see; measured against browser ground truth on every
+page whose HTML we could actually read, the truly-JS-built residue was
+**0–1 images per page**. The big gaps were ours: noscript content
+discarded (half of apple.com's images), and a cap that counted srcset
+candidates instead of logical images (a Shopify collection at 45.6% for
+that reason alone). Both fixed the day they were found; the corpus then
+reads 90–100% everywhere the origin serves real HTML.
+
+What remains unreachable is what origins refuse to serve: Anubis
+proof-of-work walls (unsplash rejected us with its mascot), challenge
+pages (etsy: successful scan, zero images), and per-request lotteries
+(amazon: 0, some, and 117 images across three identical scans). No parser
+reaches content that never arrives, and headless browsers hit the same
+walls — a deep-scan mode buys ~1 image per readable page and nothing at
+all behind a wall.
+
+The honest-UA cost, now measured rather than assumed: identifying as
+`ImageExtractBot` is precisely what bot walls key on, so honesty makes us
+*more* wallable than a UA-spoofing competitor. That is the values choice
+already made ("robots.txt respected, no override" — same reasoning:
+impersonating a browser to defeat an origin's stated wishes is the thing
+we decided not to be). The number now sits next to the choice: it costs
+us the walled giants, and it costs everyone else those too.
+
+**Cost:** JS-only galleries (an app-shell page whose HTML holds no images)
+still scan empty, and walled origins scan empty or thin.
+**Revisit if:** live-scan telemetry shows a class of *readable* pages with
+a large truly-absent residue — that would mean the corpus was
+unrepresentative, not that the walls moved.
+
+## Coverage counts logical images, not exact URLs
+
+The first coverage sweep scored guardian at 1% and astro.build at 14% —
+exact-URL matching against what the browser loaded. Both are actually
+100%: the browser picks ONE sizing variant (by viewport, DPR, and in
+guardian's case UA-dependent srcset generation) from a set the manifest
+lists in full. The metric was wrong, not the scanner. Coverage claims in
+this project are therefore stated in **logical images** (same
+origin+path, any variant params), with exact-URL given alongside only as
+a diagnostic.
+
+Consequence for the UI: this reframes the deferred variantGroup-collapse
+work from polish to **correctness** — a grid that shows eight tiles for
+one product photo is misrepresenting what was found, in exactly the way
+exact-URL matching misrepresented coverage. Still deferred, but it is
+owed, not optional.
+
+**Cost:** none — this is a measurement and presentation rule.
+**Revisit if:** never; exact-URL identity was simply the wrong unit.
+
 ## Open questions
 
 | Question | Trigger |
 |---|---|
-| Headless-browser deep scan | Phase 8 coverage data |
+| Headless-browser deep scan | Closed 2026-08-10 — not indicated; see "Deep-scan mode closed" above |
 | Sign-in or quotas | Only if abuse outpaces rate limits |
 | Monetization | Not before real traffic exists |
 | Open-sourcing the repo | Post-launch |
