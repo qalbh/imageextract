@@ -12,8 +12,9 @@ import {
   canProxyFallback,
   dataUriBytes,
   invertWithin,
-  knownWidthCount,
-  probeSize,
+  MEASURE_WARN_AT,
+  METRIC_SORTS,
+  dimsKnownCounts,
   selectAll,
   selectRange,
   selectedUrls,
@@ -21,11 +22,14 @@ import {
   sortImages,
   toggleId,
   type FilterState,
+  type KnownDims,
   type SizeEntry,
+  type SortDirection,
   type SortKey,
   type SourceGroupId,
 } from '../lib/results-model';
 import { createFetchQueue } from '../lib/fetch-queue';
+import { dataUriDims, probeMeta, type ProbedDims } from '../lib/image-dimensions';
 import { ZIP_UNKNOWN_WEIGHT, assembleZip } from '../lib/zip';
 import ImageCard from './ImageCard';
 import ResultsSidebar from './ResultsSidebar';
@@ -126,6 +130,7 @@ export default function ResultsGrid() {
   const [formats, setFormats] = useState<ReadonlySet<ImageExt>>(() => new Set());
   const [groups, setGroups] = useState<ReadonlySet<SourceGroupId>>(() => new Set());
   const [sortKey, setSortKey] = useState<SortKey>('document');
+  const [sortDir, setSortDir] = useState<SortDirection>('largest');
   const [selected, setSelected] = useState<ReadonlySet<string>>(() => new Set());
   const [measured, setMeasured] = useState<ReadonlyMap<string, { w: number; h: number }>>(
     () => new Map(),
@@ -145,6 +150,23 @@ export default function ResultsGrid() {
   const pendingSizesRef = useRef<Set<string>>(new Set());
   const [sizes, setSizes] = useState<ReadonlyMap<string, SizeEntry>>(() => new Map());
   const [pendingSizes, setPendingSizes] = useState<ReadonlySet<string>>(() => new Set());
+  // Dimension results ride the SAME unified probe (one Range request answers
+  // size and dimensions). Successful dims land in `measured` (the map
+  // naturalWidth already feeds — chips and sorts need no new plumbing);
+  // terminal non-answers ('no-intrinsic', 'failed') are remembered here so
+  // nothing re-probes. Refs mirror state for stale-closure-free guards.
+  const measuredRef = useRef<Map<string, { w: number; h: number }>>(new Map());
+  const dimProbesRef = useRef<Map<string, 'no-intrinsic' | 'failed'>>(new Map());
+  const [dimProbes, setDimProbes] = useState<ReadonlyMap<string, 'no-intrinsic' | 'failed'>>(
+    () => new Map(),
+  );
+  // Bumped once when a Measure batch settles: the ONE re-sort the user asked
+  // for by clicking Measure. Outside the frozen-sort rule's scope, not an
+  // exception to it — that rule exists to stop TRICKLE reordering from
+  // measurements nobody requested; an explicit batch is a request for
+  // exactly this ordering.
+  const [measureEpoch, setMeasureEpoch] = useState(0);
+  const [measuring, setMeasuring] = useState(false);
   // The probe queue — the same substrate step 4's GET streams will reuse.
   // Probes weigh 0: only the concurrency bound governs HEADs.
   const probeQueueRef = useRef<ReturnType<typeof createFetchQueue> | null>(null);
@@ -212,8 +234,12 @@ export default function ResultsGrid() {
 
   const images = state.kind === 'results' ? state.result.images : NO_IMAGES;
 
-  // Best-known width: measured (load-time truth) preferred over declared.
-  const widthOf = useCallback((img: ScanImage) => measured.get(img.id)?.w ?? img.width, [measured]);
+  // Best-known dimensions: measured (load-time or probed truth) preferred
+  // over declared.
+  const dimsOf = useCallback(
+    (img: ScanImage): KnownDims => measured.get(img.id) ?? { w: img.width, h: img.height },
+    [measured],
+  );
 
   const filtered = useMemo(
     () => applyFilters(images, { query: '', formats, groups }),
@@ -225,7 +251,12 @@ export default function ResultsGrid() {
   // widthOf during render) but must NOT reorder tiles under the pointer.
   // Re-picking a sort (sortKey change) or changing the filter recomputes the
   // order with the newest widths.
-  const sorted = useMemo(() => sortImages(filtered, sortKey, widthOf), [filtered, sortKey]);
+  // measureEpoch is the deliberate exception: one bump per settled Measure
+  // batch re-sorts with the new dimensions.
+  const sorted = useMemo(
+    () => sortImages(filtered, sortKey, sortDir, dimsOf),
+    [filtered, sortKey, sortDir, measureEpoch],
+  );
 
   const visible = useMemo(() => sorted.slice(0, revealCap), [sorted, revealCap]);
 
@@ -259,14 +290,25 @@ export default function ResultsGrid() {
   const fmtCounts = useMemo(() => formatCounts(images, filterState), [images, groups]);
   const allFmtCount = useMemo(() => formatAllCount(images, filterState), [images, groups]);
   const grpCounts = useMemo(() => groupCounts(images, filterState), [images, formats]);
-  const knownWidth = useMemo(() => knownWidthCount(filtered, widthOf), [filtered, widthOf]);
+  const dimsCounts = useMemo(() => dimsKnownCounts(filtered, dimsOf), [filtered, dimsOf]);
+  // Measure candidates: filtered entries whose ACTIVE metric is unknown and
+  // not already terminally probed. naturalWidth measurements from scrolling
+  // shrink this live, for free.
+  const measureCandidates = useMemo(() => {
+    if (!METRIC_SORTS.has(sortKey)) return [] as ScanImage[];
+    return filtered.filter((img) => {
+      const d = dimsOf(img);
+      const unknown =
+        sortKey === 'width' ? d.w === undefined
+        : sortKey === 'height' ? d.h === undefined
+        : d.w === undefined || d.h === undefined;
+      return unknown && !dimProbesRef.current.has(img.id) && !pendingSizesRef.current.has(img.id);
+    });
+  }, [filtered, sortKey, dimsOf, dimProbes, pendingSizes]);
 
   const onMeasured = useCallback((id: string, w: number, h: number) => {
-    setMeasured((prev) => {
-      const next = new Map(prev);
-      next.set(id, { w, h });
-      return next;
-    });
+    measuredRef.current.set(id, { w, h });
+    setMeasured(new Map(measuredRef.current));
   }, []);
   // One retry through the proxy for http(s) URLs; data: URIs go straight to
   // 'dead' (the proxy would reject the scheme). 'dead' is terminal, so a
@@ -303,33 +345,54 @@ export default function ResultsGrid() {
 
   const imageById = useMemo(() => new Map(images.map((img) => [img.id, img])), [images]);
 
-  // Resolve one image's byte size. data: URIs are computed synchronously
-  // (exact decoded length — free); http(s) goes through the probe queue as a
-  // HEAD. Guards read the refs, never a render closure, so a settled or
-  // in-flight id is never re-probed.
-  const resolveSize = useCallback(
+  const recordDims = useCallback((id: string, dims: ProbedDims) => {
+    if (typeof dims === 'object') {
+      measuredRef.current.set(id, dims);
+      setMeasured(new Map(measuredRef.current));
+    } else {
+      dimProbesRef.current.set(id, dims);
+      setDimProbes(new Map(dimProbesRef.current));
+    }
+  }, []);
+
+  // Resolve one image's metadata — the UNIFIED probe: one prefix Range
+  // through the proxy yields the byte size (Content-Range total, or
+  // Content-Length on a range-ignored 200) AND the dimensions (parsed from
+  // the file header). A size probe measures dimensions for free and vice
+  // versa. data: URIs resolve both locally, zero network. Guards read the
+  // refs, never a render closure, so a settled or in-flight id is never
+  // re-probed.
+  const resolveProbe = useCallback(
     (img: ScanImage | undefined) => {
       if (!img) return;
-      if (sizesRef.current.has(img.id) || pendingSizesRef.current.has(img.id)) return;
+      const done =
+        sizesRef.current.has(img.id) &&
+        (measuredRef.current.has(img.id) || dimProbesRef.current.has(img.id));
+      if (done || pendingSizesRef.current.has(img.id)) return;
       if (!canProxyFallback(img)) {
         sizesRef.current.set(img.id, dataUriBytes(img.url));
         setSizes(new Map(sizesRef.current));
+        recordDims(img.id, dataUriDims(img.url));
         return;
       }
       pendingSizesRef.current.add(img.id);
       setPendingSizes(new Set(pendingSizesRef.current));
-      void probeQueue.enqueue(img.id, 0, (signal) => probeSize(img.url, { signal })).then((result) => {
+      return probeQueue.enqueue(img.id, 0, (signal) => probeMeta(img.url, { signal })).then((result) => {
         pendingSizesRef.current.delete(img.id);
-        // 'canceled' (deselection) caches nothing; a probe that resolved
-        // before its cancel landed still caches — the subrequest is spent
-        // and sizes are immutable facts.
-        if (result !== 'canceled') sizesRef.current.set(img.id, result);
+        // 'canceled' (deselection/cancel) caches nothing; a probe that
+        // resolved before its cancel landed still caches — the subrequest
+        // is spent and the answers are immutable facts.
+        if (result !== 'canceled') {
+          sizesRef.current.set(img.id, result.size);
+          if (!measuredRef.current.has(img.id)) recordDims(img.id, result.dims);
+        }
         setPendingSizes(new Set(pendingSizesRef.current));
         setSizes(new Map(sizesRef.current));
       });
     },
-    [probeQueue],
+    [probeQueue, recordDims],
   );
+  const resolveSize = resolveProbe;
 
   // Whole-tile toggle. Shift-click extends a range from the last-clicked tile
   // across the CURRENT filtered+sorted order; a plain click toggles one.
@@ -374,6 +437,18 @@ export default function ResultsGrid() {
     for (const id of selected) resolveSize(imageById.get(id));
   };
   const handleCancelSizing = () => probeQueue.cancelAll();
+  // Measure batch: probe every candidate, then ONE re-sort when the batch
+  // settles — the ordering the click asked for.
+  const handleMeasure = () => {
+    if (measureCandidates.length === 0) return;
+    setMeasuring(true);
+    const work = measureCandidates.map((img) => resolveProbe(img) ?? Promise.resolve());
+    void Promise.all(work).then(() => {
+      setMeasuring(false);
+      setMeasureEpoch((epoch) => epoch + 1);
+    });
+  };
+  const handleCancelMeasure = () => probeQueue.cancelAll();
 
   // ZIP assembly. Members in document order over the FULL selection (which
   // survives filters, so hidden-selected images are included). Admission
@@ -518,7 +593,13 @@ export default function ResultsGrid() {
     onToggleGroup,
     sortKey,
     onSort: setSortKey,
-    knownWidth,
+    sortDir,
+    onSortDir: setSortDir,
+    dimsCounts,
+    measureCount: measureCandidates.length,
+    measuring,
+    onMeasure: handleMeasure,
+    onCancelMeasure: handleCancelMeasure,
     filteredCount: filtered.length,
     invert,
     onInvert: setInvert,
@@ -629,6 +710,7 @@ export default function ResultsGrid() {
                       selected={selected.has(image.id)}
                       invert={invert}
                       fallback={fallbacks.get(image.id)}
+                      probedDims={measured.get(image.id)}
                       onToggle={handleTileToggle}
                       onMeasured={onMeasured}
                       onImageError={onImageError}

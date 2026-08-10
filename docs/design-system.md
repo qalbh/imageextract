@@ -189,7 +189,18 @@ badge** on the tile; source is a sidebar filter, which is where it does its work
   demo's badge pattern).
 - **Controls follow one rule:** checkboxes and radios are for **filtering**
   (format, source, sort); the **pill switch** (`.toggle`, `role="switch"`) is
-  for a **display mode** (invert background). Filter checkboxes/radios are
+  for a **display mode** (invert background). The sort-direction control is
+  a **text toggle button** ("↓ Largest first" / "↑ Smallest first"), not a
+  pill: a direction is two named values of a sort parameter, not an on/off
+  mode — a labelled button states its current value, which a pill cannot.
+- **Sort group:** one row per key (Document order · Image size · Width ·
+  Height · Name · Type) with the direction toggle applied to the metric
+  sorts — never Largest/Smallest as doubled rows. "Image size" means
+  DIMENSIONS (area); FILE size (bytes) lives only in the selection bar —
+  the two are deliberately named apart. Metric rows carry "n of m" known
+  counts; "Measure dimensions (N)" appears under the group when the active
+  metric has unmeasured probeable entries, with the hourly-allowance note
+  past `MEASURE_WARN_AT`. Filter checkboxes/radios are
   native `<input>`s tinted with `accent-accent`; the source-group filter is a
   native `<details>`, collapsed by default, so its chevron is the browser's
   own.

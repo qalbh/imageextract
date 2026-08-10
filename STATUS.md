@@ -31,6 +31,7 @@ Phase 1 is complete: the whole server-side engine — scan, extraction, robots, 
 ### In progress
 
 - [ ] Phase 3, sequenced by dependency: hotlink proxy fallback → single-image download → lazy byte-size probing (individually-selected images only; select-all shows an em dash with an explicit "Calculate size" action) → client-zip streaming assembly. The proxy fallback and byte-probing items moved here from the Phase 2 list — they are proxy consumers, not grid work.
+- [x] Dimension probing (2026-08-10): unified Range probe (size + dimensions from one subrequest, HEAD retired client-side), Image size/Width/Height sorts restored with direction toggle and honest "n of m" counts, explicit "Measure dimensions (N)" with the allowance note past 200. Gate 33/33 incl. the transfer-stop assertion (range-ignoring 30 MB origin held to 16 KB sent).
 - [ ] Phase 2 leftover: the keyboard/focus audit (form → filters → grid focus order) was never run as a full pass; whole-tile keyboard selection and the focus ring are verified, the ordered walk-through is not.
 
 ---

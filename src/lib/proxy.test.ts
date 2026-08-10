@@ -229,6 +229,69 @@ describe('proxyImage', () => {
     const init = fetchImpl.mock.calls[0]?.[1] as RequestInit;
     expect(init.method).toBe('HEAD');
   });
+
+  it('forwards a client Range upstream and passes 206 + Content-Range back', async () => {
+    const fetchImpl = upstreamFetch({
+      'https://site.example/big.jpg': {
+        status: 206,
+        headers: {
+          'content-type': 'image/jpeg',
+          'content-length': '4096',
+          'content-range': 'bytes 0-4095/9876543',
+        },
+        body: PNG_BYTES,
+      },
+    });
+    const response = await proxyImage('https://site.example/big.jpg', {
+      selfOrigin: ORIGIN,
+      range: 'bytes=0-4095',
+      dohCheck: false,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+    const init = fetchImpl.mock.calls[0]?.[1] as RequestInit;
+    expect(new Headers(init.headers).get('range')).toBe('bytes=0-4095');
+    // The 200-over-206 bug: the status used to be hard-coded 200, labelling a
+    // partial body as a complete resource. A 206 is now a 206.
+    expect(response.status).toBe(206);
+    expect(response.headers.get('content-range')).toBe('bytes 0-4095/9876543');
+  });
+
+  it('a full 200 stays 200 with no content-range and no range header sent', async () => {
+    const fetchImpl = upstreamFetch({
+      'https://site.example/cat.png': {
+        headers: { 'content-type': 'image/png', 'content-length': '11' },
+        body: PNG_BYTES,
+      },
+    });
+    const response = await proxyImage('https://site.example/cat.png', {
+      selfOrigin: ORIGIN,
+      dohCheck: false,
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+    const init = fetchImpl.mock.calls[0]?.[1] as RequestInit;
+    expect(new Headers(init.headers).get('range')).toBeNull();
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-range')).toBeNull();
+  });
+
+  it('cancelling the proxied body cancels the UPSTREAM stream (a probe stays kilobytes)', async () => {
+    // The range-ignored-origin path: a 200 with an endless body. The client
+    // reads a prefix and cancels; that cancellation must PROPAGATE to the
+    // upstream fetch or a 4 KB probe silently becomes a full transfer.
+    const upstream = endlessBody();
+    const response = await image('https://site.example/endless.png', {
+      'https://site.example/endless.png': {
+        headers: { 'content-type': 'image/png' },
+        body: upstream.stream,
+      },
+    });
+    const reader = response.body!.getReader();
+    await reader.read(); // take one chunk, like the probe does
+    await reader.cancel();
+    // Cancellation crosses the passthrough asynchronously.
+    await new Promise((r) => setTimeout(r, 10));
+    expect(upstream.cancelled()).toBe(true);
+  });
 });
 
 describe('downloadFilename', () => {

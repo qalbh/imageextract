@@ -367,6 +367,25 @@ Cancel midway: NO partial file in Downloads, UI back to idle. (5) Desktop
 Chromium once: the save-picker flow end-to-end (choose location, cancel
 one mid-write, confirm no partial file).
 
+**Dimension probing shipped 2026-08-10** (`image-dimensions.ts` parsers +
+the unified `probeMeta`; proxy gained Range forwarding, Content-Range
+exposure, and true 206 passthrough — fixing the pre-existing 200-over-206
+mislabelling): ONE prefix Range (4 KB uniform) answers dimensions AND byte
+size, so the client's HEAD probe retired (server variant stays). Sorts are
+one row per key (Document/Image size/Width/Height/Name/Type) + a direction
+text-toggle for the metric sorts; unknowns-last regardless of direction.
+"Measure dimensions (N)" is the explicit bulk action (sort clicks cost 0
+probes — gate-asserted), with the hourly-allowance note past
+MEASURE_WARN_AT (200); a settled Measure batch triggers ONE re-sort —
+outside the frozen-sort rule's scope (that rule stops TRICKLE reordering
+nobody asked for; an explicit batch asks for exactly this ordering), not
+an exception to it. Probed dims land in the existing measured map: chips
+flip to measured weight, "n of m" counts update, naturalWidth-on-scroll
+keeps shrinking the Measure count free. Gate: dims arrived free with size
+probes (29/30 chips measured, no Measure button needed afterwards); a
+range-ignoring 30 MB origin was stopped at 16,384 bytes sent
+(server-counted).
+
 **Probing shipped 2026-08-10** (`fetch-queue.ts` — the bounded queue step 4
 reuses (count cap + bytes-in-flight budget with an always-admit-one rule);
 `probeSize`/`dataUriBytes`/`formatBytes`/`sizeSummary` in `results-model.ts`):

@@ -121,6 +121,13 @@ export interface ProxyOptions {
   selfOrigin: string;
   method?: 'GET' | 'HEAD';
   download?: boolean;
+  /**
+   * Client Range header, forwarded verbatim upstream (the one client header
+   * that passes through). Powers dimension/size probing: a prefix Range
+   * yields the image header for dimensions AND, via Content-Range's total,
+   * the full byte size — one subrequest for both.
+   */
+  range?: string | null;
   timeoutMs?: number;
   dohCheck?: boolean;
   fetchImpl?: typeof fetch;
@@ -130,12 +137,17 @@ export interface ProxyOptions {
 /** Returns the finished proxied Response, or throws a typed error. */
 export async function proxyImage(rawUrl: string, options: ProxyOptions): Promise<Response> {
   const method = options.method ?? 'GET';
+  const upstreamHeaders: Record<string, string> = {
+    'user-agent': USER_AGENT,
+    accept: 'image/*,*/*;q=0.5',
+  };
+  if (options.range != null && options.range !== '') upstreamHeaders.range = options.range;
   const upstream = await safeFetch(rawUrl, {
     timeoutMs: options.timeoutMs ?? PROXY_TIMEOUT_MS,
     dohCheck: options.dohCheck,
     fetchImpl: options.fetchImpl,
     dohFetchImpl: options.dohFetchImpl,
-    init: { method, headers: { 'user-agent': USER_AGENT, accept: 'image/*,*/*;q=0.5' } },
+    init: { method, headers: upstreamHeaders },
   });
 
   if (!upstream.ok) {
@@ -175,6 +187,17 @@ export async function proxyImage(rawUrl: string, options: ProxyOptions): Promise
     'cache-control': 'private, max-age=3600',
   });
   if (announced !== null) headers.set('content-length', String(announced));
+  // Partial responses pass through AS partial responses. The status was
+  // previously hard-coded 200, which mislabelled an upstream 206 as a
+  // complete resource over a partial body — a lie to any Range caller,
+  // independent of who sends the Range. Content-Range is exposed because its
+  // total-after-the-slash is the full byte size, which is what lets one
+  // prefix probe answer both the dimension and the size question.
+  const contentRange = upstream.headers.get('content-range');
+  if (upstream.status === 206 && contentRange !== null) {
+    headers.set('content-range', contentRange);
+  }
+  const status = upstream.status === 206 ? 206 : 200;
   if (options.download === true) {
     const finalUrl = upstream.url !== '' ? upstream.url : rawUrl;
     headers.set('content-disposition', attachmentDisposition(downloadFilename(finalUrl, contentType)));
@@ -182,12 +205,12 @@ export async function proxyImage(rawUrl: string, options: ProxyOptions): Promise
 
   if (method === 'HEAD') {
     await upstream.body?.cancel();
-    return new Response(null, { status: 200, headers });
+    return new Response(null, { status, headers });
   }
 
   const body =
     upstream.body === null
       ? null
       : cappedPassthrough(upstream.body, announced ?? MAX_STREAMED_IMAGE_BYTES);
-  return new Response(body, { status: 200, headers });
+  return new Response(body, { status, headers });
 }

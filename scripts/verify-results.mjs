@@ -34,7 +34,16 @@ const FB_SVG_BODY = '<svg xmlns="http://www.w3.org/2000/svg" width="80" height="
 // <bytes>; "nolen" answers 200 without a length; "err" answers 502; "slow"
 // delays long enough to be canceled mid-flight. Peak concurrency is tracked
 // server-side to assert the queue's cap.
-const probeStats = { counts: new Map(), active: 0, peak: 0 };
+const probeStats = { counts: new Map(), active: 0, peak: 0, bigbodySent: 0 };
+// A real PNG header (signature + IHDR) declaring 800×450 — probes parse
+// actual bytes now, so the emulation must serve actual bytes.
+const PROBE_PNG = (() => {
+  const b = Buffer.alloc(24);
+  b.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52]);
+  b.writeUInt32BE(800, 16);
+  b.writeUInt32BE(450, 20);
+  return b;
+})();
 // Inline-GET arrivals per proxy target (ZIP member fetches) — lets the gate
 // assert that a dismissed picker costs ZERO subrequests.
 const getCounts = new Map();
@@ -80,7 +89,15 @@ function serve() {
           const q = new URL(req.url, 'http://x').searchParams;
           const target = q.get('url') ?? '';
           const name = target.split('/').filter(Boolean).pop() ?? 'image';
-          if (req.method === 'HEAD') {
+          // The client's probes are now Range GETs (the HEAD variant stays
+          // for external callers but nothing here sends it). Behaviour is
+          // name-encoded: sz-<i>-<bytes> → 206 with a real PNG prefix and
+          // Content-Range total <bytes>; "nolen" → range-ignored 200 with no
+          // Content-Length; "err" → 502; "slow" → stalls; "bigbody" →
+          // range-ignored 200 that streams until the client cancels
+          // (transfer-stop assertion).
+          const rangeHeader = req.headers.range;
+          if (req.method === 'GET' && rangeHeader !== undefined) {
             probeStats.counts.set(target, (probeStats.counts.get(target) ?? 0) + 1);
             probeStats.active += 1;
             probeStats.peak = Math.max(probeStats.peak, probeStats.active);
@@ -88,13 +105,44 @@ function serve() {
             probeStats.active -= 1;
             if (name.includes('err')) {
               res.statusCode = 502;
-            } else {
-              res.setHeader('content-type', 'image/png');
-              const m = name.match(/sz-\d+-(\d+)/);
-              // "nolen" (and anything unmatched) sends no Content-Length —
-              // the 'unknown-length' case. Node adds none for HEAD unless set.
-              if (m && !name.includes('nolen')) res.setHeader('content-length', m[1]);
+              res.end('upstream error');
+              return;
             }
+            res.setHeader('content-type', 'image/png');
+            if (name.includes('bigbody')) {
+              // Range ignored, huge body: stream until the client cancels.
+              res.statusCode = 200;
+              res.setHeader('content-length', String(30_000_000));
+              probeStats.bigbodySent = 0;
+              const chunk = Buffer.alloc(16384, 7);
+              const timer = setInterval(() => {
+                if (res.destroyed || probeStats.bigbodySent >= 30_000_000) {
+                  clearInterval(timer);
+                  return;
+                }
+                res.write(chunk);
+                probeStats.bigbodySent += chunk.length;
+              }, 15);
+              res.on('close', () => clearInterval(timer));
+              return;
+            }
+            if (name.includes('nolen')) {
+              // Range ignored, no Content-Length → 'unknown-length'.
+              res.statusCode = 200;
+              res.write(PROBE_PNG);
+              res.end();
+              return;
+            }
+            const m = name.match(/sz-\d+-(\d+)/);
+            const total = m ? Number(m[1]) : 4096;
+            res.statusCode = 206;
+            res.setHeader('content-range', `bytes 0-4095/${total}`);
+            res.setHeader('content-length', String(PROBE_PNG.length));
+            res.end(PROBE_PNG);
+            return;
+          }
+          if (req.method === 'HEAD') {
+            res.setHeader('content-type', 'image/png');
             res.end();
             return;
           }
@@ -334,7 +382,7 @@ async function main() {
 
     // -----------------------------------------------------------------------
     // Byte-size probing — lazy, individually user-initiated, capped queue.
-    // HEADs travel real HTTP (the server above), which also tracks peak
+    // Range probes travel real HTTP (the server above), which also tracks peak
     // concurrency; thumbnails are aborted (their fallbacks too — irrelevant
     // here, only method HEAD is counted).
     // -----------------------------------------------------------------------
@@ -367,36 +415,36 @@ async function main() {
     await pr.goto(`${base}/results?url=${encodeURIComponent(prFixture.pageUrl)}`, { waitUntil: 'load' });
     await pr.waitForSelector('li.result-tile', { timeout: 15000 });
     await pr.waitForTimeout(700);
-    const headTotal = () => [...probeStats.counts.values()].reduce((a, b) => a + b, 0);
-    ok('probing: zero HEADs on load and render', headTotal() === 0, `${headTotal()} HEADs`);
+    const probeTotal = () => [...probeStats.counts.values()].reduce((a, b) => a + b, 0);
+    ok('probing: zero probes on load and render', probeTotal() === 0, `${probeTotal()} probes`);
 
     // Single selection probes exactly that image; the cache survives
     // deselect + reselect.
     const przTile = (i) => pr.locator('li', { hasText: `sz-${i}-` }).first();
     await przTile(0).click();
     await pr.waitForTimeout(600);
-    ok('probing: selecting one tile sends exactly one HEAD', headTotal() === 1, `${headTotal()} HEADs`);
+    ok('probing: selecting one tile sends exactly one Range probe', probeTotal() === 1, `${probeTotal()} probes`);
     const bar1 = (await pr.locator('text=/1 selected/').first().textContent()) ?? '';
     ok('probing: bar shows the probed size', bar1.includes('100 KB'), bar1.trim().slice(0, 60));
     await przTile(0).click(); // deselect
     await przTile(0).click(); // reselect
     await pr.waitForTimeout(500);
-    ok('probing: deselect + reselect re-probes nothing (cache)', headTotal() === 1, `${headTotal()} HEADs`);
+    ok('probing: deselect + reselect re-probes nothing (cache)', probeTotal() === 1, `${probeTotal()} probes`);
 
     // Shift-range at or under the threshold auto-probes; a range above it
     // probes nothing and falls to Calculate size.
     await przTile(2).click();
     await przTile(6).click({ modifiers: ['Shift'] }); // span 5 ≤ 24
     await pr.waitForTimeout(900);
-    ok('probing: small shift-range auto-probes its span', headTotal() === 6, `${headTotal()} HEADs (1 + 5)`);
+    ok('probing: small shift-range auto-probes its span', probeTotal() === 6, `${probeTotal()} probes (1 + 5)`);
     await przTile(0).click(); // toggles sz0 OFF, sets the anchor
     await przTile(29).click({ modifiers: ['Shift'] }); // span 30 > 24
     await pr.waitForTimeout(600);
     const calcButton = pr.getByRole('button', { name: /Calculate size/ });
     ok(
       'probing: oversized shift-range probes nothing and offers Calculate size',
-      headTotal() === 6 && (await calcButton.count()) === 1,
-      `${headTotal()} HEADs, button "${(await calcButton.textContent())?.trim()}"`,
+      probeTotal() === 6 && (await calcButton.count()) === 1,
+      `${probeTotal()} probes, button "${(await calcButton.textContent())?.trim()}"`,
     );
 
     // Calculate size probes the rest through the capped queue; the bar names
@@ -419,7 +467,7 @@ async function main() {
     // data: URI sizes are computed locally — no HEAD.
     await pr.locator('li', { hasText: 'inline-2.svg' }).first().click();
     await pr.waitForTimeout(300);
-    ok('probing: data: URI sizes locally with zero HEADs', headTotal() === PR_N, `${headTotal()} HEADs`);
+    ok('probing: data: URI resolves locally with zero probes', probeTotal() === PR_N, `${probeTotal()} probes`);
     await pr.close();
 
     // Cancel: slow probes, cancel mid-flight, counts freeze and the action
@@ -449,19 +497,124 @@ async function main() {
     await sl.waitForSelector('li.result-tile', { timeout: 15000 });
     await sl.getByRole('button', { name: /Select all/ }).click();
     await sl.waitForTimeout(400);
-    ok('probing: select-all probes nothing', headTotal() === 0, `${headTotal()} HEADs`);
+    ok('probing: select-all probes nothing', probeTotal() === 0, `${probeTotal()} probes`);
     await sl.getByRole('button', { name: /Calculate size/ }).click();
     await sl.waitForSelector('text=/sizing \\d+/', { timeout: 5000 });
     await sl.getByRole('button', { name: 'Cancel' }).click();
     await sl.waitForTimeout(400);
-    const frozen = headTotal();
+    const frozen = probeTotal();
     await sl.waitForTimeout(1500);
     ok(
       'probing: Cancel freezes the burst — only the admitted batch reached the server',
-      headTotal() === frozen && frozen <= 6 && frozen < SLOW_N && (await sl.getByRole('button', { name: /Calculate size/ }).count()) === 1,
-      `${frozen} of ${SLOW_N} HEADs arrived, none after cancel`,
+      probeTotal() === frozen && frozen <= 6 && frozen < SLOW_N && (await sl.getByRole('button', { name: /Calculate size/ }).count()) === 1,
+      `${frozen} of ${SLOW_N} probes arrived, none after cancel`,
     );
     await sl.close();
+
+    // -----------------------------------------------------------------------
+    // Dimension measurement — the unified probe's payoff and its affordance.
+    // -----------------------------------------------------------------------
+    // (a) On the probe page above, Calculate size already ran Range probes:
+    // dimensions arrived FREE with the sizes. Re-open that state cheaply by
+    // reusing a fresh page with the same fixture and running Calculate once.
+    const dm = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    await dm.route('**/*', (route) =>
+      route.request().resourceType() === 'image' ? route.abort() : route.continue(),
+    );
+    await dm.route('**/api/scan*', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(prFixture) }),
+    );
+    await dm.goto(`${base}/results?url=${encodeURIComponent(prFixture.pageUrl)}`, { waitUntil: 'load' });
+    await dm.waitForSelector('li.result-tile', { timeout: 15000 });
+    probeStats.counts.clear();
+    await dm.getByRole('button', { name: /Select all/ }).click();
+    await dm.getByRole('button', { name: /Calculate size/ }).click();
+    await dm.waitForTimeout(2500);
+    const probesAfterCalc = probeTotal();
+    const chips = await dm.locator('text=800×450').count();
+    ok(
+      'dimensions: size probes measured dimensions FOR FREE (chips flip to measured)',
+      chips > 0,
+      `${chips} tiles showing 800×450 from ${probesAfterCalc} probes`,
+    );
+    await dm.locator('aside label', { hasText: 'Image size' }).locator('input').check();
+    await dm.waitForTimeout(400);
+    ok(
+      'dimensions: after unified probes, the Image-size sort needs NO measure action',
+      probeTotal() === probesAfterCalc &&
+        (await dm.getByRole('button', { name: /Measure dimensions/ }).count()) === 0,
+      `${probeTotal()} probes, no button`,
+    );
+    // Direction toggle present for metric sorts.
+    ok(
+      'dimensions: direction is one toggle, not doubled sort rows',
+      (await dm.getByRole('button', { name: /Largest first/ }).count()) === 1,
+    );
+    await dm.close();
+
+    // (b) A big unmeasured manifest: choosing a metric sort costs ZERO
+    // probes, offers Measure dimensions (N), and past MEASURE_WARN_AT the
+    // count carries the allowance note.
+    const WARN_N = 210;
+    const warnFixture = {
+      pageUrl: 'https://example.com/warn',
+      images: Array.from({ length: WARN_N }, (_, i) => ({
+        id: `wn${i}`,
+        url: `https://probe.test/wn-${i}.png`,
+        filename: `wn-${i}.png`,
+        ext: 'png',
+        source: 'img',
+      })),
+    };
+    probeStats.counts.clear();
+    const wn = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    await wn.route('**/*', (route) =>
+      route.request().resourceType() === 'image' ? route.abort() : route.continue(),
+    );
+    await wn.route('**/api/scan*', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(warnFixture) }),
+    );
+    await wn.goto(`${base}/results?url=${encodeURIComponent(warnFixture.pageUrl)}`, { waitUntil: 'load' });
+    await wn.waitForSelector('li.result-tile', { timeout: 15000 });
+    await wn.locator('aside label', { hasText: 'Image size' }).locator('input').check();
+    await wn.waitForTimeout(500);
+    ok(
+      'dimensions: metric sort click costs zero probes; Measure names count AND the allowance',
+      probeTotal() === 0 &&
+        (await wn.getByRole('button', { name: `Measure dimensions (${WARN_N})` }).count()) === 1 &&
+        (await wn.locator('text=/large share of the hourly request allowance/i').count()) === 1,
+      `${probeTotal()} probes, Measure dimensions (${WARN_N}) + note`,
+    );
+    await wn.close();
+
+    // (c) Range-ignored origin with a huge body: the probe must stop the
+    // transfer after the prefix — the difference between a 4 KB probe and a
+    // 30 MB one, asserted by counting bytes the server actually sent.
+    const bigFixture = {
+      pageUrl: 'https://example.com/big',
+      images: [
+        { id: 'big', url: 'https://probe.test/bigbody.png', filename: 'bigbody.png', ext: 'png', source: 'img' },
+      ],
+    };
+    probeStats.counts.clear();
+    const bg = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    await bg.route('**/*', (route) =>
+      route.request().resourceType() === 'image' ? route.abort() : route.continue(),
+    );
+    await bg.route('**/api/scan*', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(bigFixture) }),
+    );
+    await bg.goto(`${base}/results?url=${encodeURIComponent(bigFixture.pageUrl)}`, { waitUntil: 'load' });
+    await bg.waitForSelector('li.result-tile', { timeout: 15000 });
+    await bg.locator('li.result-tile').first().click(); // single select → auto-probe
+    await bg.waitForTimeout(2500);
+    const barBig = (await bg.locator('text=/1 selected/').first().textContent()) ?? '';
+    ok(
+      'dimensions: range-ignored 30 MB origin — size learned, transfer STOPPED after the prefix',
+      barBig.includes('30 MB') && probeStats.bigbodySent > 0 && probeStats.bigbodySent < 1_000_000,
+      `bar "${barBig.trim().slice(0, 40)}", server sent ${probeStats.bigbodySent}B of 30MB`,
+    );
+    await bg.close();
 
     // -----------------------------------------------------------------------
     // ZIP assembly — real downloads parsed from disk. Headless has no

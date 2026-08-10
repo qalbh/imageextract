@@ -174,25 +174,48 @@ export function groupCounts(
 // declared) or undefined. Callers freeze the sort by recomputing only when the
 // key or filtered set changes, not as measurements trickle in.
 // ---------------------------------------------------------------------------
-export type SortKey = 'document' | 'width' | 'name' | 'type';
+// One row per key plus a direction toggle for the metric sorts — not
+// Largest/Smallest as separate rows (fewer controls, applied uniformly).
+// 'imagesize' is AREA (w×h): "Image size" means dimensions here; FILE size
+// (bytes) lives only in the selection bar — "sort by size" is ambiguous and
+// the two are deliberately named apart.
+export type SortKey = 'document' | 'imagesize' | 'width' | 'height' | 'name' | 'type';
+export type SortDirection = 'largest' | 'smallest';
+export const METRIC_SORTS: ReadonlySet<SortKey> = new Set(['imagesize', 'width', 'height']);
 
 export const SORT_OPTIONS: ReadonlyArray<{ key: SortKey; label: string }> = [
   { key: 'document', label: 'Document order' },
+  { key: 'imagesize', label: 'Image size' },
   { key: 'width', label: 'Width' },
+  { key: 'height', label: 'Height' },
   { key: 'name', label: 'Name' },
   { key: 'type', label: 'Type' },
 ];
 
+export interface KnownDims {
+  w?: number;
+  h?: number;
+}
+
+function metricOf(key: SortKey, dims: KnownDims): number | undefined {
+  if (key === 'width') return dims.w;
+  if (key === 'height') return dims.h;
+  if (key === 'imagesize') return dims.w !== undefined && dims.h !== undefined ? dims.w * dims.h : undefined;
+  return undefined;
+}
+
 export function sortImages(
   images: readonly ScanImage[],
   key: SortKey,
-  widthOf: (img: ScanImage) => number | undefined,
+  direction: SortDirection,
+  dimsOf: (img: ScanImage) => KnownDims,
 ): ScanImage[] {
   const arr = images.slice();
   switch (key) {
     case 'document':
       // Input arrives in document order (extractor order, preserved by
-      // applyFilters), so identity is the document sort.
+      // applyFilters), so identity is the document sort. Direction does not
+      // apply to non-metric sorts.
       return arr;
     case 'name':
       return arr.sort((a, b) => a.filename.toLowerCase().localeCompare(b.filename.toLowerCase()));
@@ -202,25 +225,38 @@ export function sortImages(
           a.ext.localeCompare(b.ext) ||
           a.filename.toLowerCase().localeCompare(b.filename.toLowerCase()),
       );
+    case 'imagesize':
     case 'width':
+    case 'height':
       return arr.sort((a, b) => {
-        const wa = widthOf(a);
-        const wb = widthOf(b);
-        if (wa === undefined && wb === undefined) return 0; // stable: keep document order
-        if (wa === undefined) return 1; // unknowns last
-        if (wb === undefined) return -1;
-        return wb - wa; // largest first
+        const va = metricOf(key, dimsOf(a));
+        const vb = metricOf(key, dimsOf(b));
+        // Unknowns sort LAST regardless of direction — flipping to
+        // smallest-first must not surface the unmeasured pile.
+        if (va === undefined && vb === undefined) return 0; // stable: document order
+        if (va === undefined) return 1;
+        if (vb === undefined) return -1;
+        return direction === 'largest' ? vb - va : va - vb;
       });
   }
 }
 
-export function knownWidthCount(
+// Known-metric counts for the three dimension sorts' "n of m" sub-labels,
+// one pass.
+export function dimsKnownCounts(
   images: readonly ScanImage[],
-  widthOf: (img: ScanImage) => number | undefined,
-): number {
-  let n = 0;
-  for (const img of images) if (widthOf(img) !== undefined) n += 1;
-  return n;
+  dimsOf: (img: ScanImage) => KnownDims,
+): { width: number; height: number; imagesize: number } {
+  let width = 0;
+  let height = 0;
+  let imagesize = 0;
+  for (const img of images) {
+    const d = dimsOf(img);
+    if (d.w !== undefined) width += 1;
+    if (d.h !== undefined) height += 1;
+    if (d.w !== undefined && d.h !== undefined) imagesize += 1;
+  }
+  return { width, height, imagesize };
 }
 
 // ---------------------------------------------------------------------------
@@ -312,37 +348,18 @@ export const PROBE_AUTO_LIMIT = 24;
 // would not learn more); 'failed' is any error, timeout included.
 export type SizeEntry = number | 'unknown-length' | 'failed';
 
-/**
- * One HEAD through the proxy. Returns 'canceled' only for the caller's own
- * abort (deselection); a timeout is a 'failed' result, not a cancellation —
- * it frees the queue slot and renders as unknown.
- */
-export async function probeSize(
-  url: string,
-  options: { signal: AbortSignal; timeoutMs?: number; fetchImpl?: typeof fetch },
-): Promise<SizeEntry | 'canceled'> {
-  const fetchImpl = options.fetchImpl ?? fetch;
-  const timeout = new AbortController();
-  const timer = setTimeout(() => timeout.abort(), options.timeoutMs ?? PROBE_TIMEOUT_MS);
-  // Manual signal combine — AbortSignal.any is newer than some targets.
-  const combined = new AbortController();
-  const forward = () => combined.abort();
-  options.signal.addEventListener('abort', forward);
-  timeout.signal.addEventListener('abort', forward);
-  try {
-    const response = await fetchImpl(proxyUrl(url), { method: 'HEAD', signal: combined.signal });
-    if (!response.ok) return 'failed';
-    const length = response.headers.get('content-length');
-    if (length === null) return 'unknown-length';
-    const bytes = Number(length);
-    return Number.isFinite(bytes) && bytes >= 0 ? bytes : 'unknown-length';
-  } catch {
-    return options.signal.aborted ? 'canceled' : 'failed';
-  } finally {
-    clearTimeout(timer);
-    options.signal.removeEventListener('abort', forward);
-  }
-}
+// The HEAD-based probeSize was RETIRED from the client (2026-08-10): the
+// unified Range probe (probeMeta in image-dimensions.ts) answers size AND
+// dimensions from the same single subrequest — Content-Range's total after
+// the slash is the full byte size. The server's HEAD variant stays for
+// external callers; our client just no longer uses it.
+
+// A dimension-measure batch above this count gets an explicit note under the
+// button: past ~40% of the planned 500/hr per-IP proxy allowance (Phase 4),
+// the bare count alone is no longer informed consent — a full measure plus a
+// max ZIP (250) would exceed the hour. Moves with the Phase 4 allowance,
+// like MAX_ZIP_IMAGES.
+export const MEASURE_WARN_AT = 200;
 
 // Exact decoded byte size of a data: URI — free, synchronous, no probe needed.
 export function dataUriBytes(url: string): number {

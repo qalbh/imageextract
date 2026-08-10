@@ -14,9 +14,8 @@ import {
   formatLabel,
   groupCounts,
   invertWithin,
-  knownWidthCount,
+  dimsKnownCounts,
   matchesQuery,
-  probeSize,
   proxyUrl,
   selectAll,
   selectRange,
@@ -254,11 +253,12 @@ describe('formatLabel', () => {
 });
 
 describe('sortImages', () => {
-  const declaredWidth = (i: ScanImage) => i.width;
+  const declared = (i: ScanImage) => ({ w: i.width, h: i.height });
 
-  it('document order is identity', () => {
+  it('document order is identity, unaffected by direction', () => {
     const set = [img({ source: 'img', ext: 'png', filename: 'z' }), img({ source: 'img', ext: 'png', filename: 'a' })];
-    expect(sortImages(set, 'document', declaredWidth).map((i) => i.filename)).toEqual(['z', 'a']);
+    expect(sortImages(set, 'document', 'largest', declared).map((i) => i.filename)).toEqual(['z', 'a']);
+    expect(sortImages(set, 'document', 'smallest', declared).map((i) => i.filename)).toEqual(['z', 'a']);
   });
 
   it('name sorts case-insensitively', () => {
@@ -267,7 +267,7 @@ describe('sortImages', () => {
       img({ source: 'img', ext: 'png', filename: 'apple' }),
       img({ source: 'img', ext: 'png', filename: 'Cherry' }),
     ];
-    expect(sortImages(set, 'name', declaredWidth).map((i) => i.filename)).toEqual(['apple', 'Banana', 'Cherry']);
+    expect(sortImages(set, 'name', 'largest', declared).map((i) => i.filename)).toEqual(['apple', 'Banana', 'Cherry']);
   });
 
   it('type sorts by ext then filename', () => {
@@ -276,7 +276,7 @@ describe('sortImages', () => {
       img({ source: 'img', ext: 'png', filename: 'b' }),
       img({ source: 'img', ext: 'png', filename: 'a' }),
     ];
-    expect(sortImages(set, 'type', declaredWidth).map((i) => `${i.ext}/${i.filename}`)).toEqual([
+    expect(sortImages(set, 'type', 'largest', declared).map((i) => `${i.ext}/${i.filename}`)).toEqual([
       'png/a',
       'png/b',
       'webp/a',
@@ -290,26 +290,60 @@ describe('sortImages', () => {
       img({ source: 'img', ext: 'png', filename: 'u2' }), // unknown
       img({ source: 'img', ext: 'png', filename: 'w1600', width: 1600 }),
     ];
-    expect(sortImages(set, 'width', declaredWidth).map((i) => i.filename)).toEqual(['w1600', 'w800', 'u1', 'u2']);
+    expect(sortImages(set, 'width', 'largest', declared).map((i) => i.filename)).toEqual(['w1600', 'w800', 'u1', 'u2']);
   });
 
-  it('width prefers measured over declared via widthOf', () => {
-    const a = img({ source: 'img', ext: 'png', filename: 'a', width: 100 });
-    const b = img({ source: 'img', ext: 'png', filename: 'b', width: 200 });
-    const measured = new Map([[a.id, 5000]]); // a measured huge, beats b's declared 200
-    const widthOf = (i: ScanImage) => measured.get(i.id) ?? i.width;
-    expect(sortImages([a, b], 'width', widthOf).map((i) => i.filename)).toEqual(['a', 'b']);
+  it('smallest-first flips knowns but unknowns STAY last', () => {
+    const set = [
+      img({ source: 'img', ext: 'png', filename: 'u1' }),
+      img({ source: 'img', ext: 'png', filename: 'w800', width: 800 }),
+      img({ source: 'img', ext: 'png', filename: 'w1600', width: 1600 }),
+    ];
+    expect(sortImages(set, 'width', 'smallest', declared).map((i) => i.filename)).toEqual(['w800', 'w1600', 'u1']);
+  });
+
+  it('imagesize sorts by area and needs BOTH dimensions', () => {
+    const set = [
+      img({ source: 'img', ext: 'png', filename: 'tall', width: 100, height: 1000 }), // 100k
+      img({ source: 'img', ext: 'png', filename: 'wide', width: 900, height: 200 }), // 180k
+      img({ source: 'img', ext: 'png', filename: 'widthonly', width: 5000 }), // no area
+    ];
+    expect(sortImages(set, 'imagesize', 'largest', declared).map((i) => i.filename)).toEqual([
+      'wide',
+      'tall',
+      'widthonly',
+    ]);
+  });
+
+  it('height sorts on the height metric', () => {
+    const set = [
+      img({ source: 'img', ext: 'png', filename: 'short', width: 10, height: 100 }),
+      img({ source: 'img', ext: 'png', filename: 'tall', width: 10, height: 900 }),
+    ];
+    expect(sortImages(set, 'height', 'largest', declared).map((i) => i.filename)).toEqual(['tall', 'short']);
+  });
+
+  it('measured dims win over declared via dimsOf', () => {
+    const a = img({ source: 'img', ext: 'png', filename: 'a', width: 100, height: 100 });
+    const b = img({ source: 'img', ext: 'png', filename: 'b', width: 200, height: 200 });
+    const measured = new Map([[a.id, { w: 5000, h: 5000 }]]);
+    const dimsOf = (i: ScanImage) => measured.get(i.id) ?? { w: i.width, h: i.height };
+    expect(sortImages([a, b], 'imagesize', 'largest', dimsOf).map((i) => i.filename)).toEqual(['a', 'b']);
   });
 });
 
-describe('knownWidthCount', () => {
-  it('counts entries with a known width', () => {
+describe('dimsKnownCounts', () => {
+  it('counts width, height, and both-dims in one pass', () => {
     const set = [
-      img({ source: 'img', ext: 'png', width: 100 }),
+      img({ source: 'img', ext: 'png', width: 100, height: 50 }),
       img({ source: 'srcset', ext: 'png', width: 200 }),
       img({ source: 'inline-svg', ext: 'svg' }),
     ];
-    expect(knownWidthCount(set, (i) => i.width)).toBe(2);
+    expect(dimsKnownCounts(set, (i) => ({ w: i.width, h: i.height }))).toEqual({
+      width: 2,
+      height: 1,
+      imagesize: 1,
+    });
   });
 });
 
@@ -356,74 +390,6 @@ describe('selection', () => {
   it('selectedUrls returns document-order URLs of the selection', () => {
     const sel = new Set(['C', 'A']);
     expect(selectedUrls(set, sel)).toEqual([set[0]!.url, set[2]!.url]);
-  });
-});
-
-describe('probeSize', () => {
-  const okResponse = (headers: Record<string, string>) =>
-    new Response(null, { status: 200, headers });
-
-  it('returns bytes from Content-Length', async () => {
-    const result = await probeSize('https://cdn.test/a.png', {
-      signal: new AbortController().signal,
-      fetchImpl: async () => okResponse({ 'content-length': '123456' }),
-    });
-    expect(result).toBe(123456);
-  });
-
-  it('sends HEAD to the proxy URL', async () => {
-    let saw = { url: '', method: '' };
-    await probeSize('https://cdn.test/a.png', {
-      signal: new AbortController().signal,
-      fetchImpl: async (input, init) => {
-        saw = { url: String(input), method: init?.method ?? '' };
-        return okResponse({ 'content-length': '1' });
-      },
-    });
-    expect(saw.method).toBe('HEAD');
-    expect(saw.url).toBe('/api/proxy?url=https%3A%2F%2Fcdn.test%2Fa.png');
-  });
-
-  it('returns unknown-length for a 2xx without Content-Length', async () => {
-    const result = await probeSize('https://cdn.test/a.png', {
-      signal: new AbortController().signal,
-      fetchImpl: async () => okResponse({}),
-    });
-    expect(result).toBe('unknown-length');
-  });
-
-  it('returns failed for non-2xx', async () => {
-    const result = await probeSize('https://cdn.test/a.png', {
-      signal: new AbortController().signal,
-      fetchImpl: async () => new Response('nope', { status: 403 }),
-    });
-    expect(result).toBe('failed');
-  });
-
-  it('times out to failed — a hung probe frees its slot as a result, not a cancellation', async () => {
-    const result = await probeSize('https://cdn.test/hang.png', {
-      signal: new AbortController().signal,
-      timeoutMs: 30,
-      fetchImpl: (_input, init) =>
-        new Promise((_res, rej) => {
-          init?.signal?.addEventListener('abort', () => rej(new Error('aborted')));
-        }),
-    });
-    expect(result).toBe('failed');
-  });
-
-  it('returns canceled only for the caller-owned abort (deselection)', async () => {
-    const controller = new AbortController();
-    const pending = probeSize('https://cdn.test/slow.png', {
-      signal: controller.signal,
-      timeoutMs: 5000,
-      fetchImpl: (_input, init) =>
-        new Promise((_res, rej) => {
-          init?.signal?.addEventListener('abort', () => rej(new Error('aborted')));
-        }),
-    });
-    controller.abort();
-    expect(await pending).toBe('canceled');
   });
 });
 

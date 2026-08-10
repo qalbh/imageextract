@@ -208,6 +208,31 @@ tiles fail the same way.
 **Revisit if:** never on the impersonation point. The recovery-class list
 can be re-derived if real scan data surfaces new splits.
 
+## Dimensions are probed on demand, not loaded upfront
+
+Sorting by image size, width, or height needs real dimensions, and declared
+manifest data covers only 19% of entries. Competitors have this data with no
+probe step because they run a headless browser: every image is fully loaded
+during the scan, for every scan, for every visitor — they pay upfront
+whether or not anyone sorts. We probe on demand: one prefix Range request
+through the proxy reads the file header (PNG in 24 bytes, JPEG's SOF within
+4 KB) and returns exact dimensions AND, via Content-Range's total, the full
+byte size — one subrequest answers both questions, which is why it replaced
+the client's HEAD probe outright. The user pays for what they ask about:
+scrolled thumbnails measure themselves free via naturalWidth, declared data
+covers what pages state, and the explicit "Measure dimensions (N)" action
+covers the rest with its count as the consent.
+
+This is the same upfront-vs-on-demand tradeoff recorded above for static
+parsing itself, and it will come up again: any future "why don't we just
+know X about every image" has the same answer — knowing upfront costs a
+headless browser per scan.
+
+**Cost:** dimension-complete sorting is one explicit click and one
+subrequest per unmeasured image, not automatic.
+**Revisit if:** the static-parse decision itself is revisited (Phase 8
+coverage data) — the two stand or fall together.
+
 ## Open questions
 
 | Question | Trigger |

@@ -176,7 +176,7 @@ contents untouched).
 | Dimension badge | Declared dims from the manifest at first paint (free — read from bytes we already streamed), upgraded to measured `naturalWidth`/`naturalHeight` on load | Zero |
 | Filters (format, source), sort, select | Client state | Zero |
 | Copy URLs | Clipboard | Zero |
-| Byte-size badge | `HEAD` via proxy — **lazy only** | 1 subrequest (+ amortized DoH pair per hostname) |
+| Byte-size + dimension probe | one prefix `Range` GET via proxy — **lazy only**; Content-Range's total gives bytes, the file header gives exact dimensions | 1 subrequest for BOTH (+ amortized DoH pair per hostname) |
 | Download / ZIP | Proxy | 1 subrequest per image (+ amortized DoH pair per hostname) + bandwidth |
 
 Two client-side mechanisms change what "zero cost" means at scale, on both
@@ -189,18 +189,25 @@ contain at natural size; everything else covers the 262:180 well) is a display
 rule with no network cost, recorded here because it is why tiny rasters don't
 get upscaled.
 
-Byte-size probing is lazy and **individually user-initiated** (decided
-2026-08-10): single toggles and shift-ranges spanning ≤ `PROBE_AUTO_LIMIT`
-(24 — a generous screenful; larger ranges are the same burst class as
-select-all) probe through a capped, abortable queue (`PROBE_CONCURRENCY` 6,
-client timeout `PROBE_TIMEOUT_MS` 10s so a hung HEAD can't hold a slot for
-the server's full 30s). **Select-all and invert probe nothing** — the total
-renders an em dash with an explicit "Calculate size (N)" action, because a
-bulk click would otherwise be an N-HEAD burst, and a concurrency cap only
-spreads a burst out rather than preventing it. data: URIs never probe —
-their exact size is computed locally. There is no size sort (cut by the
-dimension-coverage data) and no other probing trigger; selection is the
-affordance. Probing every image upfront on an
+Probing is lazy and **individually user-initiated** (decided 2026-08-10)
+and UNIFIED (also 2026-08-10): one prefix Range GET answers byte size AND
+exact dimensions — a size probe measures dimensions for free and vice
+versa, which is why the client's HEAD probe was retired (the server HEAD
+variant stays for external callers). Single toggles and shift-ranges
+spanning ≤ `PROBE_AUTO_LIMIT` (24 — a generous screenful; larger ranges
+are the same burst class as select-all) probe through a capped, abortable
+queue (`PROBE_CONCURRENCY` 6, client timeout `PROBE_TIMEOUT_MS` 10s).
+**Select-all and invert probe nothing** — the total renders an em dash
+with an explicit "Calculate size (N)" action, and the dimension sorts
+(Image size / Width / Height) offer "Measure dimensions (N)" the same way;
+past `MEASURE_WARN_AT` (200) the count carries an hourly-allowance note,
+because past ~40% of the planned budget the bare count is no longer
+informed consent. A bulk click would otherwise be an N-request burst, and
+a concurrency cap only spreads a burst out rather than preventing it.
+data: URIs never probe — size and dimensions are computed locally. A
+range-ignoring origin gets its stream cancelled after the prefix (gate
+asserts the transfer stops at kilobytes). Selection and the explicit
+actions are the only triggers. Probing every image upfront on an
 800-image page is the difference between a free tool and a bill.
 
 Hotlink-protected origins will 403 the direct preview. Detect `onerror` and

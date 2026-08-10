@@ -27,6 +27,7 @@ export default function ImageCard({
   selected,
   invert,
   fallback,
+  probedDims,
   onToggle,
   onMeasured,
   onImageError,
@@ -35,6 +36,9 @@ export default function ImageCard({
   selected: boolean;
   invert: boolean;
   fallback: 'proxy' | 'dead' | undefined;
+  /** Parent-known measured dims (naturalWidth or header probe) — chip shows
+   *  these at full measured weight when the local load hasn't fired. */
+  probedDims: { w: number; h: number } | undefined;
   onToggle: (id: string, shift: boolean) => void;
   onMeasured: (id: string, width: number, height: number) => void;
   onImageError: (image: ScanImage) => void;
@@ -50,8 +54,9 @@ export default function ImageCard({
   // once naturalWidth resolves on load.
   let chip: string | null = null;
   let chipMeasured = false;
-  if (measured) {
-    chip = `${measured.w}×${measured.h}`;
+  const known = measured ?? probedDims;
+  if (known) {
+    chip = `${known.w}×${known.h}`;
     chipMeasured = true;
   } else if (image.width !== undefined && image.height !== undefined) {
     chip = `${image.width}×${image.height}`;

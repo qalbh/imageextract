@@ -8,7 +8,7 @@ export const prerender = false;
 const querySchema = z.object({ url: z.string().min(1).max(4096) });
 
 function handler(method: 'GET' | 'HEAD'): APIRoute {
-  return async ({ url }) => {
+  return async ({ url, request }) => {
     const parsed = querySchema.safeParse({ url: url.searchParams.get('url') ?? '' });
     if (!parsed.success) {
       return json(400, { error: 'invalid-request', message: 'Provide a url query parameter.' });
@@ -17,6 +17,7 @@ function handler(method: 'GET' | 'HEAD'): APIRoute {
       return await proxyImage(parsed.data.url, {
         method,
         download: url.searchParams.get('download') === '1',
+        range: request?.headers.get('range') ?? null,
         selfOrigin: url.origin,
       });
     } catch (err) {
