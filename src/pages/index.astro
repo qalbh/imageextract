@@ -174,6 +174,11 @@ const steps = [
 							way. Static parsing is cheap to run, which is why it doesn't need the sign-ups and
 							ads that headless-browser tools do.
 						</p>
+						{/* id="api" is KEPT as a stable external anchor even though no nav
+						    item points here any more (the API nav entry was removed
+						    2026-08-10) — which means verify-landing's nav-anchor check no
+						    longer guards it. Deliberately unguarded: it costs nothing and
+						    /#api is the kind of link a support reply cites. */}
 						<h3 id="api" class="mt-lg text-body font-semibold text-text">Is there an API?</h3>
 						<p class="mt-xs text-small text-muted">
 							<strong>Not yet.</strong> The endpoints behind the tool are rate-limited for
@@ -231,13 +236,15 @@ const steps = [
 </Layout>
 
 <style>
-	/* Dot grid: 1px dots on the token gutter pitch, fading out by 60% of the
-	   section height (per the design brief). All values are tokens or the
-	   brief's own numbers — no ad-hoc design values. */
+	/* Dot grid: 1px dots on the token gutter pitch. Raised 2026-08-10 by
+	   DARKENING (border → light-muted) and extending the fade (60% → 75%),
+	   not by enlarging the dots — larger dots read as a pattern rather than
+	   texture. --color-light-muted is documented decoration-only, which a
+	   background texture is the canonical case of. */
 	.dot-grid {
-		background-image: radial-gradient(var(--color-border) 1px, transparent 1px);
+		background-image: radial-gradient(var(--color-light-muted) 1px, transparent 1px);
 		background-size: var(--spacing-md) var(--spacing-md);
-		mask-image: linear-gradient(to bottom, black, transparent 60%);
+		mask-image: linear-gradient(to bottom, black, transparent 75%);
 	}
 
 	/* Two lines on desktop without a hard <br>. The centered content
