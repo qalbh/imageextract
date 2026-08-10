@@ -28,6 +28,15 @@ export interface FetchQueue {
    * during flight; rejects only if run() rejects for a non-abort reason.
    */
   enqueue<T>(key: string, weightBytes: number, run: (signal: AbortSignal) => Promise<T>): Promise<T | 'canceled'>;
+  /**
+   * Correct an ACTIVE task's weight once its true size is known (e.g. a ZIP
+   * member admitted at the blind default learns its Content-Length from the
+   * response headers). Adjusts the in-flight byte accounting in both
+   * directions — downward frees budget for waiting tasks immediately; upward
+   * blocks further admissions, capping a blind-admission overshoot to one
+   * scheduling round. No effect on pending or settled keys.
+   */
+  setWeight(key: string, weightBytes: number): void;
   cancel(key: string): void;
   cancelAll(): void;
   inFlight(): number;
@@ -103,6 +112,13 @@ export function createFetchQueue(options: {
       // The internal store is untyped (Task holds unknown); the public
       // signature narrows it back to the caller's T.
       return promise as Promise<never>;
+    },
+    setWeight(key, weightBytes) {
+      const task = active.get(key);
+      if (!task) return;
+      activeBytes += weightBytes - task.weight;
+      task.weight = weightBytes;
+      admit(); // a downward correction may unblock waiting tasks
     },
     cancel(key) {
       const task = byKey.get(key);

@@ -128,6 +128,38 @@ describe('createFetchQueue', () => {
     expect(b.started()).toBe(0);
   });
 
+  it('setWeight frees budget downward so waiting tasks admit', async () => {
+    const q = createFetchQueue({ maxConcurrent: 4, maxBytesInFlight: 100 });
+    const a = makeTask();
+    const b = makeTask();
+    q.enqueue('a', 90, a.run); // admitted at the blind default
+    q.enqueue('b', 40, b.run); // 90+40 > 100 → waits
+    await tick();
+    expect(b.started()).toBe(0);
+    q.setWeight('a', 10); // headers arrived: actual size is small
+    await tick();
+    expect(b.started()).toBe(1); // 10+40 ≤ 100
+    a.release();
+    b.release();
+  });
+
+  it('setWeight blocks admissions upward — overshoot capped to one round', async () => {
+    const q = createFetchQueue({ maxConcurrent: 4, maxBytesInFlight: 100 });
+    const a = makeTask();
+    const b = makeTask();
+    q.enqueue('a', 10, a.run);
+    await tick();
+    q.setWeight('a', 95); // headers: a surprise monster
+    const p = q.enqueue('b', 40, b.run);
+    await tick();
+    expect(b.started()).toBe(0); // 95+40 > 100 → held back
+    a.release();
+    await tick();
+    expect(b.started()).toBe(1);
+    b.release();
+    await p;
+  });
+
   it('a non-abort rejection propagates to the caller', async () => {
     const q = createFetchQueue({ maxConcurrent: 1 });
     const p = q.enqueue('boom', 0, async () => {

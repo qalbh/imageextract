@@ -26,6 +26,7 @@ import {
   type SourceGroupId,
 } from '../lib/results-model';
 import { createFetchQueue } from '../lib/fetch-queue';
+import { ZIP_UNKNOWN_WEIGHT, assembleZip } from '../lib/zip';
 import ImageCard from './ImageCard';
 import ResultsSidebar from './ResultsSidebar';
 import SelectionBar from './SelectionBar';
@@ -151,6 +152,21 @@ export default function ResultsGrid() {
     probeQueueRef.current = createFetchQueue({ maxConcurrent: PROBE_CONCURRENCY });
   }
   const probeQueue = probeQueueRef.current;
+  // ZIP assembly state. One archive at a time; one object URL alive at most
+  // (Blob path), revoked on the next tick after the click, on a new ZIP, and
+  // on unmount — the AGENTS createObjectURL/revokeObjectURL pairing rule.
+  const [zip, setZip] = useState<
+    null | { phase: 'assembling' | 'done'; done: number; failed: number; total: number; skipped: number }
+  >(null);
+  const zipAbortRef = useRef<AbortController | null>(null);
+  const zipUrlRef = useRef<string | null>(null);
+  useEffect(
+    () => () => {
+      zipAbortRef.current?.abort();
+      if (zipUrlRef.current !== null) URL.revokeObjectURL(zipUrlRef.current);
+    },
+    [],
+  );
   const [revealCap, setRevealCap] = useState(TILE_REVEAL_CAP);
   const [invert, setInvert] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -347,6 +363,105 @@ export default function ResultsGrid() {
     for (const id of selected) resolveSize(imageById.get(id));
   };
   const handleCancelSizing = () => probeQueue.cancelAll();
+
+  // ZIP assembly. Members in document order over the FULL selection (which
+  // survives filters, so hidden-selected images are included). Admission
+  // weight: probed/local size when known, the blind default otherwise —
+  // corrected inside assembleZip once response headers arrive.
+  const handleDownloadZip = async () => {
+    const members = images.filter((img) => selected.has(img.id));
+    if (members.length === 0 || zip?.phase === 'assembling') return;
+    const controller = new AbortController();
+    zipAbortRef.current = controller;
+    setZip({ phase: 'assembling', done: 0, failed: 0, total: members.length, skipped: 0 });
+
+    // Picker FIRST (needs user activation, and a dismissed picker must cost
+    // zero subrequests — assembly hasn't started yet). Desktop Chromium only;
+    // everywhere else (all of Android) takes the Blob path.
+    let writable: FileSystemWritableFileStream | null = null;
+    const hostname = (() => {
+      try {
+        return new URL(state.kind === 'results' ? state.result.pageUrl : '').hostname.replace(/^www\./, '');
+      } catch {
+        return 'images';
+      }
+    })();
+    const zipName = `${hostname || 'images'}.zip`;
+    try {
+      if ('showSaveFilePicker' in window) {
+        const picker = (
+          window as unknown as {
+            showSaveFilePicker: (options: object) => Promise<{ createWritable(): Promise<FileSystemWritableFileStream> }>;
+          }
+        ).showSaveFilePicker;
+        const handle = await picker({
+          suggestedName: zipName,
+          types: [{ description: 'ZIP archive', accept: { 'application/zip': ['.zip'] } }],
+        });
+        writable = await handle.createWritable();
+      }
+    } catch {
+      // Picker dismissed — nothing fetched, nothing to clean up.
+      setZip(null);
+      return;
+    }
+
+    const { response, stats } = assembleZip(members, {
+      weightOf: (img) => {
+        const known = sizesRef.current.get(img.id);
+        if (typeof known === 'number') return known;
+        if (!canProxyFallback(img)) return dataUriBytes(img.url);
+        return ZIP_UNKNOWN_WEIGHT;
+      },
+      signal: controller.signal,
+      onProgress: (done, failed, total) =>
+        setZip({ phase: 'assembling', done, failed, total, skipped: failed }),
+    });
+
+    try {
+      if (writable !== null) {
+        // Streams to disk; per the FileSystemWritableFileStream contract
+        // (verified against OPFS) nothing is observable until close() and an
+        // abort discards — cancel leaves no partial file.
+        await response.body?.pipeTo(writable, { signal: controller.signal });
+      } else {
+        const blob = await response.blob();
+        if (controller.signal.aborted) {
+          setZip(null);
+          return;
+        }
+        if (zipUrlRef.current !== null) URL.revokeObjectURL(zipUrlRef.current);
+        const url = URL.createObjectURL(blob);
+        zipUrlRef.current = url;
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = zipName;
+        anchor.click();
+        window.setTimeout(() => {
+          if (zipUrlRef.current === url) {
+            URL.revokeObjectURL(url);
+            zipUrlRef.current = null;
+          }
+        }, 1000);
+      }
+      const s = await stats;
+      setZip(
+        s.canceled
+          ? null
+          : { phase: 'done', done: s.written, failed: s.skipped.length, total: s.requested, skipped: s.skipped.length },
+      );
+    } catch {
+      // Canceled mid-pipe (FS path) or stream failure — discard per contract.
+      controller.abort();
+      setZip(null);
+    }
+  };
+  const handleCancelZip = () => zipAbortRef.current?.abort();
+  // A completed summary clears when the selection changes; an active assembly
+  // is never cleared from here (Cancel owns that).
+  useEffect(() => {
+    setZip((current) => (current?.phase === 'done' ? null : current));
+  }, [selected]);
   const summary = useMemo(
     () => sizeSummary(selected, sizes, pendingSizes),
     [selected, sizes, pendingSizes],
@@ -519,6 +634,7 @@ export default function ResultsGrid() {
               activeFilterCount={activeFilterCount}
               filtersOpen={sheetOpen}
               summary={summary}
+              zip={zip}
               onOpenFilters={() => setSheetOpen(true)}
               onSelectAll={handleSelectAll}
               onClear={handleClear}
@@ -526,6 +642,8 @@ export default function ResultsGrid() {
               onCopy={handleCopy}
               onCalculateSize={handleCalculateSize}
               onCancelSizing={handleCancelSizing}
+              onDownloadZip={() => void handleDownloadZip()}
+              onCancelZip={handleCancelZip}
             />
           </div>
 

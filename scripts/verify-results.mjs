@@ -95,6 +95,14 @@ function serve() {
             res.end();
             return;
           }
+          // GET path: "err" targets 502 (ZIP failure-skip); "slow" targets
+          // stall long enough to cancel mid-assembly.
+          if (name.includes('err')) {
+            res.statusCode = 502;
+            res.end('upstream error');
+            return;
+          }
+          if (name.includes('slow')) await sleep(4000);
           res.setHeader('content-type', 'image/svg+xml');
           res.setHeader('cache-control', 'private, max-age=3600');
           if (q.get('download') === '1') {
@@ -450,6 +458,130 @@ async function main() {
       `${frozen} of ${SLOW_N} HEADs arrived, none after cancel`,
     );
     await sl.close();
+
+    // -----------------------------------------------------------------------
+    // ZIP assembly — real downloads parsed from disk. Headless has no
+    // showSaveFilePicker, so this exercises the Blob + object-URL path (the
+    // path every phone takes). Object-URL hygiene is instrumented.
+    // -----------------------------------------------------------------------
+    const eocdCount = (buf) => {
+      for (let i = buf.length - 22; i >= 0; i -= 1) {
+        if (buf[i] === 0x50 && buf[i + 1] === 0x4b && buf[i + 2] === 0x05 && buf[i + 3] === 0x06) {
+          return buf.readUInt16LE(i + 10);
+        }
+      }
+      return -1;
+    };
+    const zipFixture = (n, mutate = (x) => x) => ({
+      pageUrl: 'https://example.com/zip',
+      images: Array.from({ length: n }, (_, i) =>
+        mutate({
+          id: `zf${i}`,
+          url: `https://probe.test/zf-${i}.png`,
+          filename: `zf-${i}.png`,
+          ext: 'png',
+          source: 'img',
+        }, i),
+      ),
+    });
+
+    async function zipPage(fixture) {
+      const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+      await page.addInitScript(() => {
+        // Headless desktop Chromium HAS showSaveFilePicker but rejects it
+        // (no real picker) — which the app correctly treats as a dismissed
+        // picker and stops. Remove it so the gate exercises the Blob path,
+        // i.e. what every phone and Firefox run.
+        delete window.showSaveFilePicker;
+        window.__urls = { created: 0, revoked: 0 };
+        const c = URL.createObjectURL.bind(URL);
+        const r = URL.revokeObjectURL.bind(URL);
+        URL.createObjectURL = (o) => {
+          window.__urls.created += 1;
+          return c(o);
+        };
+        URL.revokeObjectURL = (u) => {
+          window.__urls.revoked += 1;
+          return r(u);
+        };
+      });
+      await page.route('**/*', (route) =>
+        route.request().resourceType() === 'image' ? route.abort() : route.continue(),
+      );
+      await page.route('**/api/scan*', (route) =>
+        route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(fixture) }),
+      );
+      await page.goto(`${base}/results?url=${encodeURIComponent(fixture.pageUrl)}`, { waitUntil: 'load' });
+      await page.waitForSelector('li.result-tile', { timeout: 15000 });
+      return page;
+    }
+
+    // Happy-with-failures path: 8 members, 2 dead upstream.
+    const zp = await zipPage(
+      zipFixture(8, (img, i) =>
+        i >= 6 ? { ...img, url: `https://probe.test/zf-${i}-err.png`, filename: `zf-${i}-err.png` } : img,
+      ),
+    );
+    await zp.getByRole('button', { name: /Select all/ }).click();
+    const [zdl] = await Promise.all([
+      zp.waitForEvent('download'),
+      zp.getByRole('button', { name: 'Download ZIP' }).first().click(),
+    ]);
+    const zipBuf = await readFile(await zdl.path());
+    ok(
+      'zip: real archive lands — 6 members + SKIPPED.txt, failures named inside',
+      zdl.suggestedFilename() === 'example.com.zip' &&
+        eocdCount(zipBuf) === 7 &&
+        zipBuf.includes('SKIPPED.txt') &&
+        zipBuf.includes('zf-6-err.png\thttp-502'),
+      `${zdl.suggestedFilename()}, ${eocdCount(zipBuf)} entries, ${zipBuf.length}B`,
+    );
+    await zp.waitForTimeout(1500);
+    const zipBar = (await zp.locator('text=/ZIP saved/').first().textContent().catch(() => '')) ?? '';
+    const urls = await zp.evaluate(() => window.__urls);
+    ok(
+      'zip: completion line reports skips; object URLs revoked 1:1',
+      zipBar.includes('6 of 8') && zipBar.includes('(2 skipped)') && urls.created === urls.revoked && urls.created > 0,
+      `"${zipBar.trim()}", urls ${urls.created}/${urls.revoked}`,
+    );
+    await zp.close();
+
+    // Cancel mid-assembly: slow members, cancel, no download ever starts.
+    const zc = await zipPage(
+      zipFixture(6, (img, i) => ({ ...img, url: `https://probe.test/zf-${i}-slow.png`, filename: `zf-${i}-slow.png` })),
+    );
+    let zcDownloads = 0;
+    zc.on('download', () => {
+      zcDownloads += 1;
+    });
+    await zc.getByRole('button', { name: /Select all/ }).click();
+    await zc.getByRole('button', { name: 'Download ZIP' }).first().click();
+    await zc.waitForSelector('text=/Zipping/', { timeout: 5000 });
+    const cancelZip = zc.getByRole('button', { name: 'Cancel (discards ZIP)' });
+    ok('zip: the cancel control names its consequence BEFORE the click', (await cancelZip.count()) === 1);
+    await cancelZip.click();
+    await zc.waitForTimeout(1500);
+    ok(
+      'zip: cancel mid-assembly → no download event, UI back to idle',
+      zcDownloads === 0 &&
+        (await zc.locator('text=/Zipping/').count()) === 0 &&
+        (await zc.getByRole('button', { name: 'Download ZIP' }).first().isEnabled()),
+      `${zcDownloads} downloads after cancel`,
+    );
+    await zc.close();
+
+    // Cap boundary: 251 selected → blocked with the stated reason, never
+    // truncated.
+    const zx = await zipPage(zipFixture(251));
+    await zx.getByRole('button', { name: /Select all/ }).click();
+    await zx.waitForTimeout(400);
+    ok(
+      'zip: over the cap → Download ZIP blocked with the reason stated',
+      !(await zx.getByRole('button', { name: 'Download ZIP' }).first().isEnabled()) &&
+        (await zx.locator('text=/ZIP capped at 250 images/').count()) > 0,
+      '251 selected',
+    );
+    await zx.close();
   } finally {
     await browser.close();
     server.close();

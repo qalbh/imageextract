@@ -325,6 +325,32 @@ Done when:
       exactly 6; Cancel froze a slow burst at 6 of 8 HEADs with zero arrivals
       after, and the Calculate action returned
 
+**ZIP assembly shipped 2026-08-10** (`src/lib/zip.ts`, client-zip MIT 2.5.0):
+members prefetch through the shared queue with slots held until WRITTEN
+(byte budget covers blob residency); constants MAX_ZIP_IMAGES 250
+(rate-budget coherence — half the hourly proxy allowance so a retry plus
+preceding probes fit), MAX_ZIP_BYTES_IN_FLIGHT 64 MB (working in the
+constant comment; ASSUMES disk-backed Blob storage — the device pass tests
+exactly that), ZIP_UNKNOWN_WEIGHT 16 MB corrected on headers. Over-cap is
+blocked with the stated bar line, never truncated. Failures: live counts +
+"ZIP saved · N of M (k skipped)" + SKIPPED.txt inside the archive. Cancel
+is labelled "Cancel (discards ZIP)" — consequence before the click; Blob
+path never starts the download, FS-Access abort discards (OPFS-verified:
+fresh file 0 bytes, prior contents untouched). Numeric-prefix filenames
+deferred (polish).
+
+**Device pass (owed, retires the step-7 box below): run on a mid-range
+Android** — `npx astro dev --host` on the Mac, open
+`http://<mac-ip>:4321/results?url=<large page>` on the phone. (1) Scroll
+the full grid first — jank here is the step-7 signal. (2) Select all
+(300+ if the page allows), Download ZIP; watch for tab reload/crash during
+assembly (the OOM symptom — this is the disk-backed-Blob assumption under
+test), progress advancing while the page stays scrollable. (3) Completed
+ZIP in Downloads: opens, member count = N − skipped. (4) Second run,
+Cancel midway: NO partial file in Downloads, UI back to idle. (5) Desktop
+Chromium once: the save-picker flow end-to-end (choose location, cancel
+one mid-write, confirm no partial file).
+
 **Probing shipped 2026-08-10** (`fetch-queue.ts` — the bounded queue step 4
 reuses (count cap + bytes-in-flight budget with an always-admit-one rule);
 `probeSize`/`dataUriBytes`/`formatBytes`/`sizeSummary` in `results-model.ts`):

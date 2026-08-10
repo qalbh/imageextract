@@ -36,6 +36,10 @@ const exportedNames = new Set(
  * Each entry states WHY it is tolerated. Planned entries are self-retiring:
  * once the symbol exists in source, the test fails until the entry is removed —
  * shipping the symbol without deleting its allowlist line is itself drift.
+ * NOTE the scope: ONLY 'planned' entries self-retire. 'external' and
+ * 'historical' entries never trip anything — when an external dependency gets
+ * installed and imported (its name then appears in lib source), its entry
+ * becomes dead weight that must be deleted by hand, as client-zip's was.
  */
 type Allow =
   | { token: string; kind: 'planned'; retiresAt: string }
@@ -48,7 +52,6 @@ const ALLOWLIST: Allow[] = [
     kind: 'historical',
     note: 'wrong example; corrected in the DECISIONS.md entry that follows it, retained per the append-only log rule',
   },
-  { token: 'client-zip', kind: 'external', note: 'planned npm dependency (MIT), not yet installed; named in the stack' },
   {
     token: 'no-referrer',
     kind: 'external',

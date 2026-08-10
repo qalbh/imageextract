@@ -90,7 +90,7 @@ A free web tool that takes a public webpage URL and lists every image on it, so 
 
 ## Stack
 
-**Status: `client-zip` not yet installed (arrives with Phase 3 ZIP work). playwright-core is installed and drives the verify gates.**
+**Status: `client-zip` installed (MIT, 2.5.0). playwright-core is installed and drives the verify gates.**
 
 - Astro 7, TypeScript strict, Tailwind
 - Preact via `@astrojs/preact` with compat — the island is written as React-flavoured JSX but ships Preact's runtime (see DECISIONS.md); one island only, the interactive results grid
@@ -145,17 +145,26 @@ type ScanResult = {
 
 ### Why ZIP assembly is client-side
 
-**Status: not built.**
+**Status: built (`src/lib/zip.ts`); mid-range-device verification pending.**
 
 The browser fetches each selected image through `/api/proxy` and assembles the ZIP locally. This keeps each Worker invocation to a single subrequest, so Cloudflare's per-invocation subrequest and CPU limits never become a constraint, and a 400-image download cannot time out a Worker. Do not build ZIPs server-side.
 
-Phase 3 design constraint, flagged early: the download concurrency cap and
-the per-file size cap interact. Six concurrent fetches against the 50 MB
-announced cap is 300 MB potentially in flight, which will not survive a
-mid-range phone. The ZIP assembler must bound *bytes* in flight, not just
-request count — e.g. by streaming each file into the archive as it arrives
-rather than buffering, or by scaling concurrency down as announced sizes go
-up. Not solved yet; do not design the ZIP path without addressing it.
+The bytes-in-flight constraint flagged early (six concurrent fetches × the
+50 MB announced cap = 300 MB in the air) is solved by the shared queue's
+byte budget: members admit against `MAX_ZIP_BYTES_IN_FLIGHT` (64 MB — the
+working is in the constant's comment), unknown-size members at
+`ZIP_UNKNOWN_WEIGHT` (16 MB) corrected via setWeight the moment response
+headers arrive, and a queue slot is held until the member is WRITTEN into
+the archive so the accounting covers blob residency, not just open streams.
+Per-ZIP member cap `MAX_ZIP_IMAGES` (250) is rate-budget coherence, not
+memory — see its comment. The load-bearing ASSUMPTION, tested by the device
+pass: the accumulating Blob archive is disk-backed on target browsers; if a
+browser holds it in memory, that — not transport — is the OOM path.
+Failures are skipped and reported twice (live counts in the bar; a
+SKIPPED.txt member inside the archive). Cancel discards: the Blob path never
+started a download, and the FS-Access writable's abort discards per the
+contract (verified empirically against OPFS: 0 bytes on a fresh file, prior
+contents untouched).
 
 ## Cost model — memorize this
 
@@ -254,7 +263,8 @@ Those are the mechanisms that would actually give this Worker reach into
 private networks.
 
 Other limits: 100 KB cap on `robots.txt`, 5 MB cap on the fetched HTML,
-cap on images per ZIP, 1,000 images per scan with a `truncated` reason.
+`MAX_ZIP_IMAGES` (250) per ZIP, 1,000 images per scan with a `truncated`
+reason.
 
 Per-image size caps — two constants, deliberately asymmetric (mirrors
 `MAX_ANNOUNCED_IMAGE_BYTES` / `MAX_STREAMED_IMAGE_BYTES` in
