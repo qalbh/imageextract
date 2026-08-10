@@ -179,6 +179,62 @@ async function browserChecks(base) {
     // /results renders with the shared scan form.
     await page.goto(base + '/results', { waitUntil: 'load' });
     ok('/results renders the shared form (#scan-url)', (await page.locator('#scan-url').count()) === 1);
+
+    // Demo intro on a cold desktop load: scrolling the band to ≥40% must
+    // start the scripted intro (armed) and nothing incidental may abort it.
+    // Diagnosed 2026-08-10: the machinery was fine; the phenotype "never
+    // plays on desktop" traces to reduced-motion or played-unattended, and
+    // pointerover (a boundary event that headed Chrome fires on scroll under
+    // a resting pointer) was removed from the abort triggers. These checks
+    // pin the verified behaviour.
+    await page.goto(base + '/', { waitUntil: 'load' });
+    await page.evaluate(() => {
+      const demo = document.getElementById('demo');
+      if (demo) scrollTo(0, demo.offsetTop - innerHeight * 0.25);
+    });
+    await page.waitForTimeout(1400);
+    const intro = await page.evaluate(() => ({
+      armed: document.querySelector('[data-grid]')?.classList.contains('armed') ?? false,
+      replayHidden: document.querySelector('[data-replay]')?.hidden ?? null,
+    }));
+    ok('demo intro starts on a cold desktop load and is not aborted', intro.armed && intro.replayHidden === true, JSON.stringify(intro));
+
+    // Reduced motion: the interactive end state, never the animation.
+    const rmCtx = await browser.newContext({ reducedMotion: 'reduce' });
+    const rm = await rmCtx.newPage();
+    await rm.goto(base + '/', { waitUntil: 'load' });
+    await rm.waitForTimeout(400);
+    const rmState = await rm.evaluate(() => ({
+      armed: document.querySelector('[data-grid]')?.classList.contains('armed') ?? false,
+      jpegPressed: [...document.querySelectorAll('[data-chip]')]
+        .find((c) => c.dataset.chip === 'jpeg')
+        ?.getAttribute('aria-pressed'),
+      replayVisible: document.querySelector('[data-replay]')?.hidden === false,
+    }));
+    // Interactivity of the end state: clicking All must reflow the chips.
+    await rm.locator('[data-chip="all"]').click();
+    const rmInteractive = (await rm.locator('[data-chip="all"]').getAttribute('aria-pressed')) === 'true';
+    ok(
+      'reduced motion: end state (filtered, replay offered) and still interactive',
+      !rmState.armed && rmState.jpegPressed === 'true' && rmState.replayVisible && rmInteractive,
+      JSON.stringify(rmState),
+    );
+    await rmCtx.close();
+
+    // Narrow (phone-shaped) viewport still plays the intro.
+    const mCtx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    const m = await mCtx.newPage();
+    await m.goto(base + '/', { waitUntil: 'load' });
+    await m.evaluate(() => {
+      const demo = document.getElementById('demo');
+      if (demo) scrollTo(0, demo.offsetTop - innerHeight * 0.25);
+    });
+    await m.waitForTimeout(1400);
+    const mobileArmed = await m.evaluate(
+      () => document.querySelector('[data-grid]')?.classList.contains('armed') ?? false,
+    );
+    ok('demo intro still plays at phone widths', mobileArmed);
+    await mCtx.close();
   } finally {
     await browser.close();
   }

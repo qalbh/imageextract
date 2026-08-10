@@ -58,7 +58,7 @@ const sourceHost = new URL(demoScan.pageUrl).host + new URL(demoScan.pageUrl).pa
 		<button type="button" data-sort aria-label="Sort order" class="ctrl">Sort: <span data-sortlabel>Name</span></button>
 		<button type="button" data-view aria-pressed="false" aria-label="Toggle list view" class="ctrl">Grid</button>
 		<button type="button" data-invert aria-pressed="false" aria-label="Invert tile background" class="ctrl">Invert BG</button>
-		<button type="button" data-replay hidden class="ctrl">↻ Replay</button>
+		<button type="button" data-replay hidden class="ctrl">↻ Replay demo</button>
 	</div>
 
 	{/* Masonry grid */}
@@ -218,6 +218,14 @@ const sourceHost = new URL(demoScan.pageUrl).host + new URL(demoScan.pageUrl).pa
 		background: var(--color-accent);
 		border-color: var(--color-accent);
 		color: var(--color-surface);
+	}
+	/* Replay is the one control whose job is to be FOUND — a viewer who
+	   arrived after the intro (played unattended, aborted, or reduced-motion
+	   end state) should see an action, not chrome. Accent is sanctioned for
+	   active controls. */
+	#demo [data-replay] {
+		color: var(--color-accent);
+		border-color: var(--color-accent);
 	}
 
 	/* Sticky dark selection bar */
@@ -426,7 +434,12 @@ const sourceHost = new URL(demoScan.pageUrl).host + new URL(demoScan.pageUrl).pa
 			tiles.forEach((t) => t.classList.add('in'));
 			replayBtn.hidden = false;
 		}
-		['pointerdown', 'keydown', 'pointerover'].forEach((ev) =>
+		// pointermove, NOT pointerover: boundary events can fire without any
+		// user intent — headed Chrome re-evaluates hover after scroll, so a
+		// wheel user centring the band with a resting pointer would kill the
+		// intro. A real approach toward a control always produces pointermove,
+		// so the hover handoff is preserved; a resting pointer produces nothing.
+		['pointerdown', 'keydown', 'pointermove'].forEach((ev) =>
 			root.addEventListener(ev, (e) => {
 				if ((e.target as HTMLElement).closest('[data-cursor]')) return;
 				abort();
