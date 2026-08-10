@@ -156,7 +156,18 @@ export default function ResultsGrid() {
   // (Blob path), revoked on the next tick after the click, on a new ZIP, and
   // on unmount — the AGENTS createObjectURL/revokeObjectURL pairing rule.
   const [zip, setZip] = useState<
-    null | { phase: 'assembling' | 'done'; done: number; failed: number; total: number; skipped: number }
+    null | {
+      phase: 'assembling' | 'done';
+      done: number;
+      failed: number;
+      total: number;
+      skipped: number;
+      // Which write path produced the file — rendered in the completion line
+      // so a device/desktop pass can SEE what ran (a 120-member desktop run
+      // came back path-ambiguous once; a path nobody can observe is a path
+      // nobody verified).
+      via?: 'picker' | 'browser';
+    }
   >(null);
   const zipAbortRef = useRef<AbortController | null>(null);
   const zipUrlRef = useRef<string | null>(null);
@@ -448,7 +459,14 @@ export default function ResultsGrid() {
       setZip(
         s.canceled
           ? null
-          : { phase: 'done', done: s.written, failed: s.skipped.length, total: s.requested, skipped: s.skipped.length },
+          : {
+              phase: 'done',
+              done: s.written,
+              failed: s.skipped.length,
+              total: s.requested,
+              skipped: s.skipped.length,
+              via: writable !== null ? 'picker' : 'browser',
+            },
       );
     } catch {
       // Canceled mid-pipe (FS path) or stream failure — discard per contract.

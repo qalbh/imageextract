@@ -339,6 +339,22 @@ path never starts the download, FS-Access abort discards (OPFS-verified:
 fresh file 0 bytes, prior contents untouched). Numeric-prefix filenames
 deferred (polish).
 
+**Device pass, partial result (2026-08-10, desktop only):** a 120-member
+ZIP on desktop completed, saved to Downloads, opened, no tab crash — but
+NO PICKER appeared, which by the branch logic means
+`'showSaveFilePicker' in window` was FALSE in that browser and the BLOB
+path ran (a rejecting picker produces no file at all; a resolving one
+shows an OS dialog). Cause in that binary: it ships without the File
+System Access API — Brave disables it by default; flags/policy can too.
+So: the desktop run demonstrated the Blob path completing at 120 members
+on desktop, and the FS-ACCESS PICKER PATH REMAINS UNEXERCISED by any
+human — run the picker check in stock Chrome/Edge (confirm with
+`'showSaveFilePicker' in window` → true in DevTools first). The
+completion line now names its path ("ZIP saved · … · via picker/browser")
+so no future run is ambiguous. The mid-range ANDROID box below is NOT
+retired — desktop memory says nothing about the phone, where the
+disk-backed-Blob assumption is load-bearing.
+
 **Device pass (owed, retires the step-7 box below): run on a mid-range
 Android** — `npx astro dev --host` on the Mac, open
 `http://<mac-ip>:4321/results?url=<large page>` on the phone. (1) Scroll

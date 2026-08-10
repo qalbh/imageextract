@@ -35,6 +35,9 @@ const FB_SVG_BODY = '<svg xmlns="http://www.w3.org/2000/svg" width="80" height="
 // delays long enough to be canceled mid-flight. Peak concurrency is tracked
 // server-side to assert the queue's cap.
 const probeStats = { counts: new Map(), active: 0, peak: 0 };
+// Inline-GET arrivals per proxy target (ZIP member fetches) — lets the gate
+// assert that a dismissed picker costs ZERO subrequests.
+const getCounts = new Map();
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const results = [];
@@ -97,6 +100,7 @@ function serve() {
           }
           // GET path: "err" targets 502 (ZIP failure-skip); "slow" targets
           // stall long enough to cancel mid-assembly.
+          getCounts.set(target, (getCounts.get(target) ?? 0) + 1);
           if (name.includes('err')) {
             res.statusCode = 502;
             res.end('upstream error');
@@ -540,11 +544,48 @@ async function main() {
     const zipBar = (await zp.locator('text=/ZIP saved/').first().textContent().catch(() => '')) ?? '';
     const urls = await zp.evaluate(() => window.__urls);
     ok(
-      'zip: completion line reports skips; object URLs revoked 1:1',
-      zipBar.includes('6 of 8') && zipBar.includes('(2 skipped)') && urls.created === urls.revoked && urls.created > 0,
+      'zip: completion line reports skips AND names the write path; URLs revoked 1:1',
+      zipBar.includes('6 of 8') &&
+        zipBar.includes('(2 skipped)') &&
+        zipBar.includes('via browser') &&
+        urls.created === urls.revoked &&
+        urls.created > 0,
       `"${zipBar.trim()}", urls ${urls.created}/${urls.revoked}`,
     );
     await zp.close();
+
+    // Dismissed-picker branch — the headless quirk turned into coverage:
+    // headless desktop Chromium HAS showSaveFilePicker but rejects it, which
+    // is indistinguishable from a user dismissing the dialog. Leave the API
+    // in place: the click must produce no download, no assembly, and ZERO
+    // member subrequests (the picker runs before assembly for exactly this).
+    const zd = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    await zd.route('**/*', (route) =>
+      route.request().resourceType() === 'image' ? route.abort() : route.continue(),
+    );
+    const zdFixture = zipFixture(4);
+    await zd.route('**/api/scan*', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(zdFixture) }),
+    );
+    await zd.goto(`${base}/results?url=${encodeURIComponent(zdFixture.pageUrl)}`, { waitUntil: 'load' });
+    await zd.waitForSelector('li.result-tile', { timeout: 15000 });
+    getCounts.clear();
+    let zdDownloads = 0;
+    zd.on('download', () => {
+      zdDownloads += 1;
+    });
+    await zd.getByRole('button', { name: /Select all/ }).click();
+    await zd.getByRole('button', { name: 'Download ZIP' }).first().click();
+    await zd.waitForTimeout(800);
+    ok(
+      'zip: dismissed/rejected picker → no download, no assembly, zero member fetches',
+      zdDownloads === 0 &&
+        getCounts.size === 0 &&
+        (await zd.locator('text=/Zipping/').count()) === 0 &&
+        (await zd.getByRole('button', { name: 'Download ZIP' }).first().isEnabled()),
+      `${zdDownloads} downloads, ${getCounts.size} member GETs`,
+    );
+    await zd.close();
 
     // Cancel mid-assembly: slow members, cancel, no download ever starts.
     const zc = await zipPage(

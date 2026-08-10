@@ -32,6 +32,7 @@ export interface ZipView {
   failed: number;
   total: number;
   skipped: number;
+  via?: 'picker' | 'browser';
 }
 
 export default function SelectionBar({
@@ -94,6 +95,7 @@ export default function SelectionBar({
           <span>
             ZIP saved · {zip.done} of {zip.total}
             {zip.skipped > 0 ? ` (${zip.skipped} skipped)` : ''}
+            {zip.via !== undefined ? ` · via ${zip.via}` : ''}
           </span>
         )
       ) : hasSelection ? (
