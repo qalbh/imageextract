@@ -12,7 +12,9 @@ declare module "cloudflare:test" {
 	export const env: Record<string, unknown>;
 }
 
-// Injected by astro.config.mjs at build: /privacy's last-updated date,
-// derived from git so it cannot rot silently (the adapter prerenders in
-// workerd, so the git call must live in the Node-side config).
+// Injected by astro.config.mjs at build: the legal pages' last-updated
+// dates, derived from git so they cannot rot silently (the adapter
+// prerenders in workerd, so the git calls must live in the Node-side
+// config). Per-file: each date moves with its own page's copy.
 declare const __PRIVACY_LAST_UPDATED__: string;
+declare const __TERMS_LAST_UPDATED__: string;

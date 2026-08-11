@@ -1,0 +1,145 @@
+---
+import Layout from '../layouts/Layout.astro';
+import SiteHeader from '../components/SiteHeader.astro';
+
+// Copy accurately describes the product (claim-verified against source
+// 2026-08-10; the storage sentence was tightened during verification —
+// "Nothing you scan or download is stored", because the operator blocklist
+// IS stored and open-sourcing is on the deferred list) but is NOT legally
+// reviewed — the Phase 7 legal-review item covers it. The
+// automation-prohibition line is deliberately verbatim despite the FAQ's
+// softer "not yet" API framing: both define the service as
+// interactive-use-only, and the prohibition is what lets a limit-evader be
+// refused on policy rather than debated on mechanism. If an API ever
+// ships, this line and the FAQ change in the same commit (STATUS).
+const lastUpdated = __TERMS_LAST_UPDATED__;
+const dateHuman = new Date(`${lastUpdated}T00:00:00Z`).toLocaleDateString('en-GB', {
+  day: 'numeric',
+  month: 'long',
+  year: 'numeric',
+  timeZone: 'UTC',
+});
+---
+
+<Layout title="Terms of use — ImageExtract">
+	<meta
+		slot="head"
+		name="description"
+		content="ImageExtract's terms of use: what the tool does, your responsibility for what you download, prohibited uses, site opt-out, and takedown requests."
+	/>
+	<SiteHeader anchorPrefix="/" nav={false} />
+	<main class="mx-auto max-w-content px-md py-xl">
+		<article class="terms-article">
+			<h1 class="text-h1 font-semibold text-text">Terms of use</h1>
+			<p class="mt-md text-body text-muted">
+				ImageExtract is free to use, with no account. By using it you agree to these terms.
+			</p>
+
+			<h2 class="mt-xl text-h3 font-semibold text-text">What the tool does</h2>
+			<p class="mt-sm text-body text-muted">
+				You give it the address of a public web page. It reads that page's HTML, lists the images
+				referenced there, and lets you preview, filter, and download them.
+			</p>
+			<p class="mt-sm text-body text-muted">
+				It doesn't create images, own them, or grant you any rights to them. It finds addresses
+				that are already published on a page and fetches them on your behalf.
+			</p>
+
+			<h2 class="mt-xl text-h3 font-semibold text-text">
+				Your responsibility for what you download
+			</h2>
+			<p class="mt-sm text-body text-muted">
+				The images belong to whoever made them. Finding an image with this tool gives you no
+				right to use it.
+			</p>
+			<p class="mt-sm text-body text-muted">
+				Copyright, trademark, licensing, model releases, and every other restriction apply
+				exactly as they would if you had saved the image from your browser. Working out what
+				you're allowed to do with a file is your responsibility, not ours, and we have no way to
+				know.
+			</p>
+			<p class="mt-sm text-body text-muted">
+				If you're not sure whether you can use something, assume you can't.
+			</p>
+
+			<h2 class="mt-xl text-h3 font-semibold text-text">What you may not use it for</h2>
+			<ul class="mt-sm list-disc pl-lg text-body text-muted">
+				<li>Downloading material you have no right to download</li>
+				<li class="mt-xs">
+					Redistributing images in ways their rights holders haven't permitted
+				</li>
+				<li class="mt-xs">Getting at content behind a login, paywall, or other access control</li>
+				<li class="mt-xs">
+					Circumventing technical measures a site uses to restrict access
+				</li>
+				<li class="mt-xs">Automating the service, scripting it, or reselling access to it</li>
+				<li class="mt-xs">Anything illegal where you are</li>
+			</ul>
+			<p class="mt-sm text-body text-muted">
+				We enforce per-network request limits to keep the service usable. Don't work around
+				them.
+			</p>
+
+			<h2 class="mt-xl text-h3 font-semibold text-text">Sites can opt out</h2>
+			<p class="mt-sm text-body text-muted">
+				Site owners who don't want their pages scanned can write to
+				<strong class="text-text">abuse@imageextract.pics</strong> and have their domain
+				excluded. See <a href="/traffic" class="text-accent hover:underline">/traffic</a> for
+				what the tool's requests actually do.
+			</p>
+
+			<h2 class="mt-xl text-h3 font-semibold text-text">Takedown requests</h2>
+			<p class="mt-sm text-body text-muted">
+				If material accessible through this tool infringes your copyright, write to
+				<strong class="text-text">abuse@imageextract.pics</strong> with:
+			</p>
+			<ul class="mt-sm list-disc pl-lg text-body text-muted">
+				<li>What the work is</li>
+				<li class="mt-xs">The URL where it appears</li>
+				<li class="mt-xs">A statement that you own the rights or act for the owner</li>
+				<li class="mt-xs">Your contact details</li>
+			</ul>
+			<p class="mt-sm text-body text-muted">
+				We don't host images. Nothing you scan or download is stored on our servers, so there is
+				no copy for us to remove — but we can exclude a domain from the tool entirely, and we'll
+				do that where a claim is credible.
+			</p>
+			<p class="mt-sm text-body text-muted">
+				Where the material is on a site we don't control, the takedown belongs with that site or
+				its host. We can only stop our tool from reaching it.
+			</p>
+
+			<h2 class="mt-xl text-h3 font-semibold text-text">No warranty</h2>
+			<p class="mt-sm text-body text-muted">
+				The service is provided as it is. It may be unavailable, may fail to find images on a
+				page, may return images you didn't expect, and may change or stop at any time without
+				notice.
+			</p>
+			<p class="mt-sm text-body text-muted">
+				We don't guarantee that it works, that results are complete, or that it's fit for any
+				particular purpose.
+			</p>
+
+			<h2 class="mt-xl text-h3 font-semibold text-text">Limitation of liability</h2>
+			<p class="mt-sm text-body text-muted">
+				To the extent the law allows, we aren't liable for any loss arising from your use of the
+				service — including consequences of what you download or how you use it.
+			</p>
+
+			<h2 class="mt-xl text-h3 font-semibold text-text">Changes</h2>
+			<p class="mt-sm text-body text-muted">
+				If these terms change, the date below changes with them. Continuing to use the service
+				means accepting the version in effect.
+			</p>
+			<p class="mt-sm mb-xl text-caption text-muted">Last updated: {dateHuman}</p>
+		</article>
+	</main>
+</Layout>
+
+<style>
+	/* Reading measure: half the content width, derived from the container
+	   token rather than an invented value (the .hero-form precedent). */
+	.terms-article {
+		max-width: calc(var(--container-content) / 2);
+	}
+</style>

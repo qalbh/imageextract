@@ -252,8 +252,27 @@ Phase 5 (trust and legal) is underway: its hard blocker — the UA-explainer pag
       coexist). Last-updated derives from git at build — cannot rot
       silently. **NOT legally reviewed — a lawyer's read is owed before
       launch (Phase 7 item).**
-- [ ] Terms of use
-- [ ] DMCA / takedown contact
+- [x] Terms of use — `/terms` shipped 2026-08-10, same vouch-scope as
+      /privacy: **product claims verified against source, NOT legally
+      reviewed** (Phase 7 legal-review item names it). Verified during
+      the pre-write pass: rate limits real and per-network; the
+      /traffic cross-reference accurate; the storage sentence
+      TIGHTENED ("Nothing you scan or download is stored" — the
+      operator blocklist IS stored, and open-sourcing is on the
+      deferred list, so the absolute would read as sloppy the moment
+      someone finds the KV binding). The automation prohibition is
+      deliberately stricter in register than the FAQ's "not yet" API
+      answer — both define interactive-use-only, and the prohibition
+      lets a limit-evader be refused on policy rather than debated on
+      mechanism. **Coupling: if an API ever ships, the terms line and
+      the FAQ answer change in the same commit.** Git-derived
+      last-updated via the shared gitDateOf define.
+- [x] DMCA / takedown contact — the /terms takedown section: what to
+      send, to abuse@imageextract.pics, honest about the mechanism (no
+      hosted copies to remove; domain exclusion where a claim is
+      credible; off-site material belongs with its host). Same
+      vouch-scope caveat; deliverability of the exclusion promise is
+      gated on the Phase 7 KV hard blocker below.
 
 ### Phase 6 — SEO and content
 
@@ -281,8 +300,17 @@ Phase 5 (trust and legal) is underway: its hard blocker — the UA-explainer pag
 - [ ] Nameservers moved from Hostinger to Cloudflare
 - [ ] First deploy via Wrangler
 - [ ] Custom domain attached, SSL verified
-- [ ] Create the BLOCKLIST KV namespace; replace the placeholder id in
-      wrangler.jsonc (the blocklist fails open until this exists)
+- [ ] **HARD BLOCKER — create the BLOCKLIST KV namespace** and replace
+      the placeholder id in wrangler.jsonc. Elevated 2026-08-10 because
+      /terms now PROMISES domain exclusion ("write to abuse@ and have
+      your domain excluded") and the blocklist FAILS OPEN until the
+      namespace exists — a deploy without it publishes a promise whose
+      mechanism silently no-ops. This is the same failure the UA taught
+      us two days prior: a URL advertised for four phases before the
+      page existed. That is the reason the rule exists — **before a
+      page goes public, every mechanism it promises must already work**
+      (the rule is now standing, in AGENTS "Definition of done") — so
+      the next published promise gets checked against it automatically.
 - [ ] Legal review of /privacy and /terms — the copy is an accurate
       technical description, claim-verified against source; what it has
       never had is a lawyer's read. Owed before launch.

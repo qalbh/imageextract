@@ -8,27 +8,32 @@ import tailwindcss from '@tailwindcss/vite';
 
 import preact from '@astrojs/preact';
 
-// /privacy's "Last updated" derives from git so it cannot rot silently:
-// the date IS the file's last commit date, recomputed every build. This
-// lives here (not in the page frontmatter) because the Cloudflare adapter
+// Legal pages' "Last updated" derives from git so it cannot rot silently:
+// each date IS its file's last commit date, recomputed every build. This
+// lives here (not in page frontmatter) because the Cloudflare adapter
 // prerenders in workerd, where node:child_process does not exist; the
 // config runs in Node. Fallback is LOUD by request — a stale date on a
-// privacy policy misleads.
-let privacyLastUpdated = '';
-try {
-	privacyLastUpdated = execSync('git log -1 --format=%cs -- src/pages/privacy.astro', {
-		encoding: 'utf8',
-	}).trim();
-} catch {
-	// fall through to the warning below
+// legal page misleads. Per-file on purpose: each page's date moves with
+// its OWN copy, which is what "the date below changes with it" promises.
+/** @param {string} path */
+function gitDateOf(path) {
+	let date = '';
+	try {
+		date = execSync(`git log -1 --format=%cs -- ${path}`, { encoding: 'utf8' }).trim();
+	} catch {
+		// fall through to the warning below
+	}
+	if (date === '') {
+		console.warn(
+			`\n[legal-dates] WARNING: git date unavailable for ${path} (untracked file or no git ` +
+				'at build). "Last updated" is falling back to a literal and may be STALE in a deploy.\n',
+		);
+		date = '2026-08-10';
+	}
+	return date;
 }
-if (privacyLastUpdated === '') {
-	console.warn(
-		'\n[privacy] WARNING: git date unavailable (untracked file or no git at build). ' +
-			'"Last updated" on /privacy is falling back to a literal and may be STALE in a deploy.\n',
-	);
-	privacyLastUpdated = '2026-08-10';
-}
+const privacyLastUpdated = gitDateOf('src/pages/privacy.astro');
+const termsLastUpdated = gitDateOf('src/pages/terms.astro');
 
 // https://astro.build/config
 export default defineConfig({
@@ -45,7 +50,8 @@ export default defineConfig({
   vite: {
     plugins: [tailwindcss()],
     define: {
-      __PRIVACY_LAST_UPDATED__: JSON.stringify(privacyLastUpdated)
+      __PRIVACY_LAST_UPDATED__: JSON.stringify(privacyLastUpdated),
+      __TERMS_LAST_UPDATED__: JSON.stringify(termsLastUpdated)
     }
   },
 

@@ -447,6 +447,15 @@ mechanism; an affordance built by another mechanism reads as absent. The
 corrected the probe. A negative claim ("this has no X") needs eyes on the
 rendered thing, not just a property read.
 
+**A published promise needs its mechanism live.** Before a page goes
+public, every mechanism it promises must already work. Two instances,
+both caught late: the User-Agent advertised its explainer URL for four
+phases while the page 404'd, and /terms promised domain exclusion while
+the blocklist's KV namespace was a deferred deploy task the code fails
+OPEN without. Check every new public page's promises against running
+code before it ships — the check is part of writing the page, not a
+launch-day sweep.
+
 - [ ] SSRF guard unit-tested against every reserved range, including a redirect chain into one
 - [ ] Nothing written to KV, R2, D1, or cache
 - [ ] No URLs in logs
