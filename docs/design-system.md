@@ -105,9 +105,17 @@ centring the grid *within* the shell is a different, rejected decision
 surface it is; do not widen `--container-content` to help a grid or cap a
 grid to match prose.
 
+Where they are defined: `--container-*` are `@theme` tokens in `global.css`
+(they generate utilities, which Tailwind can only emit site-wide);
+`--layout-demo` is a `:root` constant in `global.css`; every other
+`--layout-*` below is a `:root` constant in **`src/styles/results.css`**,
+beside the rules that read it (see "Where CSS lives").
+
 Content max-width 1280px (`max-w-content`) · message column 34rem
 (`--container-message` → `max-w-message`, for centered state messages) ·
-sidebar 260px (`--layout-sidebar`) · grid gutter 24px (`--layout-gutter`) ·
+sidebar 260px (`--layout-sidebar`) · grid gutter 24px (`--layout-gutter` —
+recorded but unreferenced; `.results-grid`'s gap is `--spacing-md`, the
+same 24px) ·
 sticky bar 64px (`--layout-stickybar`) · landing demo-grid height 1040px
 (`--layout-demo` — derived from the demo grid's final content; changes if
 that section's contents change) · results tile floor 220px
@@ -188,7 +196,8 @@ badge** on the tile; source is a sidebar filter, which is where it does its work
   centred against the two lines — live since Phase 3 step 2 (`text-muted`,
   hover border/text to `--color-text` per the interaction rules; it stops
   propagation so it never toggles selection).
-- **Tile component constants** (from the tile design, defined in `global.css`):
+- **Tile component constants** (from the tile design, defined in
+  `src/styles/results.css`):
   checkbox `.tile-check` 20×20 · download `.tile-download` 28×28 · footer
   `.tile-footer` 56px · well `.tile-well` 262:180. The design's off-scale
   spacings map to tokens: 10px insets and 12px paddings/gaps → `--spacing-xs`;
@@ -280,6 +289,43 @@ Tiles on `/results` are **uniform** — every well is the same **262:180**
 ratio (`.tile-well`; see Results view). The 2026-08-08 uniformity decision
 stands; what changed (2026-08-09) is the shape: square wells letterboxed
 every non-square image. Masonry is used only in the landing-page demo grid.
+
+## Where CSS lives
+
+Three homes, in order of preference:
+
+| Home | What belongs there |
+|---|---|
+| A scoped `<style>` in the `.astro` component | Anything whose markup is in that file. Astro scopes it and ships it only where the component is used. `ScanForm`'s `.source-input` is the example. |
+| `src/styles/<view>.css`, imported by the page | Unscoped rules a **Preact island** applies. `src/styles/results.css` ← `results.astro`. |
+| `src/styles/global.css` | Tokens, `@font-face`, `body`, cross-document view transitions. Nothing else. |
+
+**What let it leak (2026-08-11).** Until that date, every rule in the second
+row was in `global.css`, so `/privacy`, `/terms`, `/about`, `/traffic` and
+`/404` all shipped the tile, grid, filter-sheet and selection-bar CSS —
+~1.6 KB of styles for a view they cannot render. The mechanism is worth
+understanding, because it will recur otherwise: **Preact islands cannot use
+Astro's scoped `<style>`** (scoping rewrites selectors against elements in
+the `.astro` template, and an island's DOM is created by its own JSX), so a
+class applied by a `.tsx` component *must* live in an unscoped sheet — and
+`global.css` was the only unscoped sheet in the project. Each rule landed
+there for a locally correct reason; the boundary eroded one rule at a time
+because there was nowhere else to put them. The fix is the missing home
+(`results.css`), not vigilance.
+
+Two things keep it fixed. `verify:landing` asserts that `/privacy` ships
+none of the results selectors *and* that `/results` still ships all of
+them — a leak and an over-eager move both fail. And the page-level import
+is deliberate: importing `results.css` from `ResultsGrid.tsx` would attach
+it to the island's JS chunk and flash unstyled tiles.
+
+Two limits, so nobody expects more from this than it gives. Tailwind emits
+every generated utility into **one** site-wide layer, so `max-w-message`
+and friends ship everywhere no matter which view uses them; only
+hand-written rules can be split. And Astro inlines a page stylesheet under
+4 KB rather than linking it — `results.css` is currently inlined into
+`/results`, which costs zero extra requests; past 4 KB it becomes a
+`<link>` and that is equally correct.
 
 ## Component class names
 

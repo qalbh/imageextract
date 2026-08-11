@@ -1,22 +1,25 @@
 // Landing-page gate. Every future landing change — the demo grid, the mobile
 // pass — must pass this. Exits non-zero on any failure so it can gate CI.
 //
-// Self-contained: serves the built `dist/client` over a plain static server
-// (no workerd), so it needs no dev server and leaves no orphaned processes.
-// Run `astro build` first (the `verify:landing` npm script chains it).
+// Self-contained: serves the built `dist/client` over the shared COMPRESSING
+// static server (scripts/static-server.mjs — no workerd), so it needs no dev
+// server and leaves no orphaned processes. Compression is not incidental: a
+// plain static server understates the product, which is how this project
+// carried a phantom 0.25s LCP regression for four days. The gate now asserts
+// it. Run `astro build` first (the `verify:landing` npm script chains it).
 //
 // Browser: uses playwright-core, which ships NO browser. Provide one via
 // CHROMIUM_PATH=/path/to/chromium, or have Google Chrome installed (the
 // script falls back to channel:"chrome"). In CI: `npx playwright install
 // chromium` and export CHROMIUM_PATH, or install Chrome.
 
-import { createServer } from 'node:http';
-import { readFile, readdir, stat } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { extname, join, dirname } from 'node:path';
+import { join, dirname } from 'node:path';
 import { gzipSync } from 'node:zlib';
 import { chromium } from 'playwright-core';
+import { createStaticServer } from './static-server.mjs';
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 
@@ -89,31 +92,50 @@ async function sourceChecks() {
 }
 
 // ---------------------------------------------------------------------------
-// Static file server over dist/client
+// Transport + CSS-boundary checks. Both guard against silent regressions that
+// a rendering check cannot see.
 // ---------------------------------------------------------------------------
-const MIME = {
-  '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript',
-  '.svg': 'image/svg+xml', '.woff2': 'font/woff2', '.ico': 'image/x-icon',
-  '.json': 'application/json', '.png': 'image/png',
-};
-function serve() {
-  return new Promise((resolve) => {
-    const server = createServer(async (req, res) => {
-      try {
-        let p = decodeURIComponent((req.url || '/').split('?')[0]);
-        let file = join(dist, p);
-        if (existsSync(file) && (await stat(file)).isDirectory()) file = join(file, 'index.html');
-        else if (!existsSync(file)) {
-          const asDir = join(dist, p, 'index.html');
-          file = existsSync(asDir) ? asDir : file;
-        }
-        if (!existsSync(file)) { res.statusCode = 404; res.end('not found'); return; }
-        res.setHeader('content-type', MIME[extname(file)] || 'application/octet-stream');
-        res.end(await readFile(file));
-      } catch { res.statusCode = 500; res.end('err'); }
-    });
-    server.listen(0, '127.0.0.1', () => resolve(server));
-  });
+
+// The harness must compress, because production does. Asserted rather than
+// assumed: serving `dist` uncompressed is exactly the mistake that produced
+// four days of phantom LCP figures (see scripts/static-server.mjs).
+async function transportChecks(base) {
+  for (const [label, path] of [['/', '/'], ['the shared stylesheet', null]]) {
+    const target = path ?? `/${(await (await fetch(base + '/')).text()).match(/_astro\/[A-Za-z0-9._-]+\.css/)[0]}`;
+    const res = await fetch(base + target, { headers: { 'accept-encoding': 'gzip' } });
+    const enc = res.headers.get('content-encoding');
+    const wire = Number(res.headers.get('content-length'));
+    const raw = (await res.arrayBuffer()).byteLength;
+    ok(
+      `${label} is served compressed`,
+      enc === 'gzip' && wire > 0 && wire < raw,
+      `content-encoding=${enc ?? 'none'}, ${wire}B on the wire vs ${raw}B raw`,
+    );
+  }
+}
+
+// The global sheet must carry nothing that only /results uses. It leaked once
+// (every static page shipped the tile/grid/sheet rules) because Preact islands
+// cannot use Astro's scoped <style>, so island CSS had no home but global.css.
+// src/styles/results.css is that home; this keeps it there.
+const RESULTS_ONLY = ['.results-grid', '.result-tile', '.filter-sheet', '.selection-bar', '.results-shell', '.skeleton-tile'];
+async function cssBoundaryChecks(base) {
+  const read = async (page) => {
+    const html = await (await fetch(base + page)).text();
+    const linked = [...html.matchAll(/href="(\/_astro\/[^"]+\.css)"/g)].map((m) => m[1]);
+    const sheets = await Promise.all(linked.map(async (h) => (await fetch(base + h)).text()));
+    const inline = [...html.matchAll(/<style>([\s\S]*?)<\/style>/g)].map((m) => m[1]);
+    return { linked: sheets.join('\n'), all: sheets.concat(inline).join('\n') };
+  };
+  // A static page: neither its linked sheets nor its inline styles may mention
+  // the results view. This is the assertion that would have caught the leak.
+  const priv = await read('/privacy');
+  const leaked = RESULTS_ONLY.filter((s) => priv.all.includes(s));
+  ok('/privacy ships no /results component CSS', leaked.length === 0, leaked.join(' ') || 'clean');
+  // …and the rules must still reach the page that needs them.
+  const results = await read('/results');
+  const missing = RESULTS_ONLY.filter((s) => !results.all.includes(s));
+  ok('/results still gets every results rule', missing.length === 0, missing.join(' ') || 'all present');
 }
 
 async function browserChecks(base) {
@@ -247,9 +269,11 @@ async function main() {
   }
   console.log('Landing verification');
   await sourceChecks();
-  const server = await serve();
+  const server = await createStaticServer(dist);
   const base = `http://127.0.0.1:${server.address().port}`;
   try {
+    await transportChecks(base);
+    await cssBoundaryChecks(base);
     await browserChecks(base);
   } finally {
     server.close();

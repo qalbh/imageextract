@@ -12,6 +12,7 @@
 		"astro": "astro",
 		"test": "vitest run",
 		"test:watch": "vitest",
+		"serve:dist": "node scripts/static-server.mjs",
 		"verify:landing": "astro build && node scripts/verify-landing.mjs",
 		"verify:results": "astro build && node scripts/verify-results.mjs",
 		"generate-types": "wrangler types",

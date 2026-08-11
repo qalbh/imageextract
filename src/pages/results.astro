@@ -3,6 +3,11 @@ import Layout from '../layouts/Layout.astro';
 import SiteHeader from '../components/SiteHeader.astro';
 import ScanForm from '../components/ScanForm.astro';
 import ResultsGrid from '../components/ResultsGrid';
+/* Component CSS for this view only. Page-level, not imported from
+   ResultsGrid.tsx: an island import ships with the island's JS and flashes
+   unstyled tiles. Unscoped because Preact components apply the classes and
+   Astro's scoping only reaches .astro templates. */
+import '../styles/results.css';
 ---
 
 <Layout title="Scan results — imageextract">

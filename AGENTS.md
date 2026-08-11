@@ -423,11 +423,40 @@ need is not present, raise it before adding it; do not introduce hex codes,
 ad-hoc sizes, or arbitrary-value utilities in components. Full rules and
 the token table: `docs/design-system.md`.
 
+It is **not** a dumping ground for component rules. Tokens, fonts, `body`,
+and cross-document view transitions live there; view-specific CSS lives with
+its view (`src/styles/results.css`, imported by `results.astro`) or its
+component (a scoped `<style>` in the `.astro` file). The rule and the
+mechanism that made it leak are in `docs/design-system.md` → "Where CSS
+lives"; verify:landing enforces it.
+
 ## SEO
 
 **Status: not built.**
 
-Traffic is the entire acquisition channel, so this is an architectural concern rather than a marketing afterthought. Every tool variant gets its own statically generated page with real explanatory copy, generated from a content collection. Budget: LCP under 2.0s on 4G.
+Traffic is the entire acquisition channel, so this is an architectural concern rather than a marketing afterthought. Every tool variant gets its own statically generated page with real explanatory copy, generated from a content collection.
+
+**Budget: LCP under 2.1s on 4G — revised 2026-08-11 from 2.0s.** The old
+number was never measured against production transport: every Lighthouse
+run before that date was served by `python -m http.server`, which sends
+everything UNCOMPRESSED, and the landing page read 2.2–2.3s. Re-measured
+against a compressing server (the harness rule below), the same build gives
+**LCP 2.03s, performance 99, CLS 0, FCP 1.2s** on Lighthouse's mobile
+slow-4G profile; /results gives 1.65s at 100. So the real gap to the old
+budget was 29ms, not 250.
+
+Those 29ms were **not** bought back by shrinking bytes. Removing 2.5 KB of
+misplaced CSS from the critical path (the /results split, same day) moved
+LCP by **1 millisecond** — 2029 → 2030ms. The residual is latency-bound:
+Lighthouse attributes 302ms of render-blocking cost to a **1,259-byte**
+stylesheet, which is the round trip to discover and fetch it, not its
+transfer. Only inlining critical CSS could close it, and that buys 29ms in
+exchange for a build step, a duplication risk, and a file that silently
+rots when the CSS changes. 2.1s is the honest line for "the page is fast";
+a budget revised with its reasoning is honest, a budget quietly missed is
+drift. **Do not re-attempt byte reduction against this number** — that
+mistake has already been made twice here (a font subset and a CSS audit),
+both times because the measurement understated the product.
 
 ## Definition of done
 
@@ -446,6 +475,23 @@ mechanism; an affordance built by another mechanism reads as absent. The
 `outline: none` on elements whose ring was a border — the screenshots
 corrected the probe. A negative claim ("this has no X") needs eyes on the
 rendered thing, not just a property read.
+
+**A measurement harness that understates the product is worse than
+none.** For four days every performance number here was measured against
+`python -m http.server`, which does not compress; the landing page's
+critical path read ~61 KB instead of ~13 KB and LCP read 2.2–2.3s instead
+of 2.03s. A quarter-second of phantom regression drove a font-subset
+experiment that could not have worked and nearly drove a CSS-inlining
+one. Lighthouse 12 had been reporting the cause the whole time — its
+uses-text-compression audit scored 0 with 50 KiB of named savings in
+every report — and nobody read that row; Lighthouse 13 has removed the
+audit entirely, so the report will not say it again. The fix is therefore
+structural, not attentional: `scripts/static-server.mjs` is the ONLY way
+to serve `dist/client` outside workerd (`npm run serve:dist` for a
+Lighthouse run), both verify gates use it, and verify:landing ASSERTS
+that what it received was compressed. Generally: before trusting a
+measurement, check that the harness resembles production in the dimension
+you are measuring — and make the resemblance mechanical, not a habit.
 
 **A published promise needs its mechanism live.** Before a page goes
 public, every mechanism it promises must already work. Two instances,

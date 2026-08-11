@@ -5,19 +5,23 @@
 //   - scrolling appends the rest
 // Reports the DOM node count at rest so regressions in per-tile weight show up.
 //
-// Self-contained: serves the built dist/client over a plain static server and
-// aborts all <img> loads so tiles fail fast without hitting the network. Run
-// `astro build` first (the `verify:results` npm script chains it).
+// Self-contained: serves the built dist/client over the shared COMPRESSING
+// static server (scripts/static-server.mjs) and aborts all <img> loads so tiles
+// fail fast without hitting the network. The emulated /api/proxy routes below
+// are served by hand, uncompressed and byte-exact, because several assertions
+// COUNT the bytes they send. Run `astro build` first (the `verify:results` npm
+// script chains it).
 //
 // Browser: playwright-core ships NO browser. Provide one via CHROMIUM_PATH, or
 // have Google Chrome installed (falls back to channel:"chrome").
 
 import { createServer } from 'node:http';
-import { readFile, stat } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { extname, join, dirname } from 'node:path';
+import { join, dirname } from 'node:path';
 import { chromium } from 'playwright-core';
+import { serveFromDist } from './static-server.mjs';
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const dist = join(root, 'dist', 'client');
@@ -70,11 +74,6 @@ function makeFixture(n) {
   return { pageUrl: 'https://example.com/', images };
 }
 
-const MIME = {
-  '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript',
-  '.svg': 'image/svg+xml', '.woff2': 'font/woff2', '.ico': 'image/x-icon',
-  '.json': 'application/json', '.png': 'image/png',
-};
 function serve() {
   return new Promise((resolve) => {
     const server = createServer(async (req, res) => {
@@ -163,15 +162,11 @@ function serve() {
           res.end(FB_SVG_BODY);
           return;
         }
-        let file = join(dist, p);
-        if (existsSync(file) && (await stat(file)).isDirectory()) file = join(file, 'index.html');
-        else if (!existsSync(file)) {
-          const asDir = join(dist, p, 'index.html');
-          file = existsSync(asDir) ? asDir : file;
-        }
-        if (!existsSync(file)) { res.statusCode = 404; res.end('not found'); return; }
-        res.setHeader('content-type', MIME[extname(file)] || 'application/octet-stream');
-        res.end(await readFile(file));
+        // Everything that is not the proxy emulation is a real build artifact,
+        // served through the shared COMPRESSING server so this gate meets the
+        // same bytes production ships. The emulated /api/proxy responses above
+        // deliberately bypass it — their byte counts are assertions.
+        if (!(await serveFromDist(dist, req, res))) { res.statusCode = 404; res.end('not found'); }
       } catch { res.statusCode = 500; res.end('err'); }
     });
     server.listen(0, '127.0.0.1', () => resolve(server));

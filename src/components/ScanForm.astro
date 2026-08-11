@@ -64,3 +64,25 @@ const { variant = 'default' } = Astro.props;
 		</form>
 	)
 }
+
+<style>
+	/* Compact source chip on /results: the input sizes to its content where
+	   field-sizing exists (Chromium); elsewhere it falls back to a fixed 28ch
+	   that the `truncate` utility ellipsizes — deliberate truncation, not a
+	   broken control.
+	   Scoped here rather than in global.css: this is ScanForm's own CSS and
+	   the element is in this file's template, so Astro's scoping reaches it
+	   (docs/design-system.md, "Where CSS lives"). */
+	.source-input {
+		width: 28ch;
+		max-width: 100%;
+	}
+	@supports (field-sizing: content) {
+		.source-input {
+			field-sizing: content;
+			width: auto;
+			/* Cap so an enormous URL can't push Re-scan off the row. */
+			max-width: 48ch;
+		}
+	}
+</style>
