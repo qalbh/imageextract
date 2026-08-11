@@ -8,11 +8,11 @@ Living document. Update it at the end of each working session rather than trying
 
 ## Where we are right now
 
-**Phase 3 of 8. Roughly 40% of the way to a launchable product.**
+**Phases 1–4 of 8 complete. Roughly 70% of the way to a launchable product.**
 
-Phase 2 is complete: the full results UI — token restyle, route split, faceted filters, four sorts, whole-tile selection with shift-ranges, incremental reveal, the dismissible per-scan copyright notice, and the 390px mobile pass (bottom-sheet filters) — shipped and verified. Phase 3 (download) is next, sequenced: hotlink proxy fallback → single-image download → lazy byte-size probing → client-zip assembly.
+Phase 4 (abuse controls) closed 2026-08-10: in-isolate rate limits with the shared-egress 429 copy, the KV-read domain blocklist, the measured `limits` block with doc-sync-asserted observability, and both log close-outs — on top of the coverage diagnosis that inverted the deep-scan assumption and produced the noscript and logical-cap extraction fixes. Phases 1–3 before it shipped the engine (scan, extraction, robots, proxy, SSRF guard), the full results UI, and the download path (hotlink fallback, unified Range probing, single-image download, client-side ZIP).
 
-Phase 1 is complete: the whole server-side engine — scan, extraction, robots, proxy, and the security layer around all of it — is built, suite green in workerd, and verified against live sites. What remains is mostly volume rather than difficulty — with two exceptions flagged below.
+Phase 5 (trust and legal) is next. Its hard blocker is the `/bot` page the User-Agent has been advertising since Phase 1. The open items that are not new code: the three by-hand device checks and the keyboard/focus audit, listed below.
 
 ### Done
 
@@ -27,11 +27,19 @@ Phase 1 is complete: the whole server-side engine — scan, extraction, robots, 
 - [x] **SSRF guard shipped** — `validateTargetUrl`, `dohCheckHostname`, `safeFetch`, all reserved ranges incl. TEST-NET/benchmarking/multicast
 - [x] DNS-over-HTTPS pre-check, fail-closed, in-isolate cache, `dns-nxdomain` distinguished for typo-friendly messaging
 - [x] **Phase 1 complete** — see checked list below; suite green in workerd, `tsc` clean, verified live against real sites
-
-### In progress
-
-- [ ] Phase 3, sequenced by dependency: hotlink proxy fallback → single-image download → lazy byte-size probing (individually-selected images only; select-all shows an em dash with an explicit "Calculate size" action) → client-zip streaming assembly. The proxy fallback and byte-probing items moved here from the Phase 2 list — they are proxy consumers, not grid work.
 - [x] Dimension probing (2026-08-10): unified Range probe (size + dimensions from one subrequest, HEAD retired client-side), Image size/Width/Height sorts restored with direction toggle and honest "n of m" counts, explicit "Measure dimensions (N)" with the allowance note past 200. Gate 33/33 incl. the transfer-stop assertion (range-ignoring 30 MB origin held to 16 KB sent).
+
+### Open items (verification, not new code)
+
+- [ ] The three by-hand device checks: **(1)** picker-path ZIP with a
+      human in stock Chrome/Edge — never yet exercised by anyone; the
+      completion line names its path ("· via picker") so the run is
+      unambiguous; **(2)** mid-range Android ZIP pass — the
+      disk-backed-Blob assumption is load-bearing and desktop memory
+      tells us nothing about the phone; **(3)** Firefox click-through of
+      the header view-transition — the unsupported-engine instant cut
+      rests on CSS error handling and has never been watched in a real
+      second engine.
 - [ ] Phase 2 leftover: the keyboard/focus audit (form → filters → grid focus order) was never run as a full pass; whole-tile keyboard selection and the focus ring are verified, the ordered walk-through is not.
 
 ---
@@ -45,9 +53,9 @@ Phase 1 is complete: the whole server-side engine — scan, extraction, robots, 
 - [x] HTMLRewriter extraction covering the full surface in AGENTS.md
 - [x] `<base href>` ordering handled correctly in a streaming parser (deferred resolution)
 - [x] URL normalization + dedupe
-- [x] 1000-image cap — `truncated` is now a reason, `'image-cap' | 'size-cap'`, not a flag
+- [x] 1,000-image cap — `truncated` is a reason, `'image-cap' | 'size-cap'`, not a flag. **Re-scoped 2026-08-10:** the cap now counts LOGICAL images (a variant set counts once; variants of an admitted image are never trimmed) — candidate counting starved it on srcset-heavy pages (the coverage diagnosis's gymshark finding)
 - [x] `/api/proxy` — single-image streaming pass-through, dual size caps (50 MB announced / 20 MB unannounced)
-- [x] `HEAD` variant for lazy byte-size probing
+- [x] `HEAD` variant — kept server-side for external callers; **no longer the client's probing mechanism** (superseded 2026-08-10 by the unified Range probe, which answers size and dimensions in one subrequest)
 - [x] Mid-stream size abort (errors the stream — complete ⇔ body ends without error)
 - [x] Error taxonomy mapped to HTTP statuses, end to end (`src/lib/api-errors.ts`)
 
@@ -60,7 +68,7 @@ Phase 1 is complete: the whole server-side engine — scan, extraction, robots, 
 - [x] Dimension badges — declared dims from the manifest at first paint, upgraded to measured `naturalWidth`/`naturalHeight` on load
 - [x] Type filter with live counts (faceted; grouped source filter alongside it)
 - [ ] Search across filename and URL (model + tests shipped; the sidebar control was removed per the 2026-08-10 design pass — reinstating it is one input)
-- [x] Sort — Document order / Width / Name / Type (height & aspect dropped per coverage data; width sorts unknowns last)
+- [x] Sort — six keys since 2026-08-10: Document order / Image size / Width / Height / Name / Type, one row per key with a direction text-toggle and "n of m" known counts (Height was dropped per the declared-dims coverage data, then RESTORED when the unified Range probe made measuring on demand cheap; unknowns sort last under both directions)
 - [x] Selection state, select all, deselect all (global selection, survives filter changes)
 - [x] Invert-background toggle (brought forward from Phase 9 — a white-on-transparent logo is invisible on the surface-coloured tile)
 - [x] Copy selected URLs
@@ -73,7 +81,7 @@ Phase 1 is complete: the whole server-side engine — scan, extraction, robots, 
 ### Phase 3 — Download
 
 - [x] Proxy fallback on hotlink 403 — one retry per tile via a monotonic parent-owned status map; verified by the verify:results fallback scenario: 1 proxy request per failed tile and zero new proxy/origin requests across a filter round trip (the remount case). Live check closed (2026-08-10): referrerless 403s confirmed real across three origins; our referrerless proxy shares the failure for referer-required origins (kept deliberately — DECISIONS: impersonation argument), so its real recovery classes are CORP/ORB blocks and geo/IP splits. Full in-app loop not runnable live: image-protecting sites also page-protect, which caps the encounter rate.
-- [x] Lazy byte-size probing via proxy HEAD — shipped with the shared bounded queue (fetch-queue.ts, count + bytes-in-flight, the substrate ZIP reuses). Verified by the verify:results probing scenario with server-side HEAD counting: 0 HEADs until selection, 1 per single select, cache across deselect/reselect, 5-range auto-probes / 30-range falls to "Calculate size (24)", select-all 0, peak concurrency exactly 6, bar "44.8 MB + 2 unknown" (never a silent undercount), Cancel froze 8 slow probes at 6 arrivals. Client probe timeout 10s; data: URIs sized locally.
+- [x] Lazy byte-size probing — shipped via proxy HEAD with the shared bounded queue (fetch-queue.ts, count + bytes-in-flight, the substrate ZIP reuses), then **superseded 2026-08-10 by the unified Range probe** (one prefix GET answers size AND dimensions; the gate's HEAD counting converted to Range counting). The probing discipline carried over unchanged and stays verified: 0 probes until selection, 1 per single select, cache across deselect/reselect, 5-range auto-probes / 30-range falls to the explicit action, select-all 0, peak concurrency exactly 6, bar totals never silently undercount, Cancel freezes in-flight probes. Client probe timeout 10s; data: URIs sized locally.
 - [x] Single-image download — a same-origin anchor per tile (proxy download=1 for http(s); data: URIs download natively via the download attribute, no proxy). Verified in the verify:results download checks: a real file lands on disk with exact bytes; the server's disposition name wins over the anchor attribute; pointer and keyboard downloads don't toggle selection; data: downloads make zero proxy calls. Determined: a mid-stream proxy abort makes the browser discard the partial file and mark the download failed — never a silently short file.
 - [x] `client-zip` streaming assembly in the browser (MIT, 2.5.0) — src/lib/zip.ts; verified by the verify:results ZIP scenarios: a real archive parsed from disk (EOCD entry count). Partial device result (2026-08-10): a 120-member ZIP completed on DESKTOP via the Blob path (no picker appeared — that browser ships without the FS Access API, e.g. Brave), opened fine, no OOM. Still owed: the picker path with a human in stock Chrome/Edge (never yet exercised by anyone — the completion line now names its path so runs aren't ambiguous), and the mid-range Android pass, where the disk-backed-Blob assumption is load-bearing. Desktop memory tells us nothing about the phone.
 - [x] Concurrency cap of 6 parallel fetches, bounding BYTES in flight, not just count — MAX_ZIP_BYTES_IN_FLIGHT 64 MB, unknowns admitted at ZIP_UNKNOWN_WEIGHT 16 MB and corrected via setWeight on response headers; a queue slot is held until the member is written, so the budget covers blob residency. Admission logic suite-tested; not re-proven in the gate.
@@ -199,7 +207,9 @@ Phase 1 is complete: the whole server-side engine — scan, extraction, robots, 
 
 ### Phase 7 — Deploy
 
-- [ ] GitHub repository, code pushed
+- [x] GitHub repository, code pushed — verified 2026-08-10:
+      `origin → github.com/qalbh/imageextract`, `main` in sync with
+      `origin/main`, zero unpushed commits
 - [ ] Cloudflare account created
 - [ ] Nameservers moved from Hostinger to Cloudflare
 - [ ] First deploy via Wrangler
