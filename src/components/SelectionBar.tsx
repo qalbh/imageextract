@@ -32,6 +32,8 @@ export interface ZipView {
   failed: number;
   total: number;
   skipped: number;
+  /** How many skips were 429s — named in the completion line. */
+  rateLimited?: number;
   via?: 'picker' | 'browser';
 }
 
@@ -95,6 +97,7 @@ export default function SelectionBar({
           <span>
             ZIP saved · {zip.done} of {zip.total}
             {zip.skipped > 0 ? ` (${zip.skipped} skipped)` : ''}
+            {(zip.rateLimited ?? 0) > 0 ? ' · hourly image limit reached' : ''}
             {zip.via !== undefined ? ` · via ${zip.via}` : ''}
           </span>
         )

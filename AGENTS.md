@@ -333,16 +333,24 @@ and leading dots; cap length; deduplicate with a numeric suffix.
 /bot explainer page the UA links to does NOT exist yet — it ships in Phase 5
 and is deliberately unlinked from the site until it does, but the UA already
 carries its URL, which is why that page is a pre-launch hard blocker. Rate
-limits and user-facing notices not built.**
+limits and the 429 notices are built (in-isolate counters,
+`src/lib/rate-limit.ts`); the domain blocklist and wrangler limits block
+are not.**
 
 - Respect `robots.txt` before scanning. On a block, return `robotsBlocked` and show "This site has asked automated tools not to access this page." **No override button.**
 - Honest User-Agent naming the tool with a URL explaining it.
 - Rate limit by IP: 30 scans/hour, 1,000 proxy calls/hour (decided
   2026-08-10 from the measured session model — DECISIONS.md "The proxy
-  allowance is politeness, not cost recovery"). The 429 copy must
+  allowance is politeness, not cost recovery"). **Nominal budgets,
+  enforced per isolate** (`src/lib/rate-limit.ts`: fixed hourly windows,
+  in-isolate counters — the platform's rate-limit binding offers only
+  10s/60s windows): a real user's effective ceiling is a small multiple
+  of nominal, and there is no hard ceiling — budgets, not guarantees
+  (DECISIONS.md "The hourly allowance is a budget"). The 429 copy must
   account for shared egress: many users can sit behind one carrier-NAT
   or campus IP, so it must not accuse, and should say the limit is
-  shared by the network connection and when it resets.
+  shared by the network connection and when it resets — the copy lives
+  in `rateLimitResponse`.
 - Copyright notice above the results grid; abuse contact in the footer.
 
 ## Extraction surface

@@ -45,6 +45,41 @@ const REASON_RESPONSES: Record<RejectionReason, { status: number; message: strin
   },
 };
 
+// The 429 copy must not accuse: shared egress (carrier-NAT, campus Wi-Fi)
+// means many users sit behind one counter, so the person reading this may
+// have done nothing heavy. Say what was exceeded, that the allowance is
+// shared per network connection, and when it resets. Never "you".
+const RATE_LIMIT_COPY: Record<'scan' | 'proxy', (minutes: number) => string> = {
+  scan: (m) =>
+    'This tool allows 30 page scans per hour for each network connection, and the ' +
+    'allowance is shared — on mobile networks and shared Wi-Fi, many people can count ' +
+    `against the same connection. The limit resets within the hour; try again in about ${m} minute${m === 1 ? '' : 's'}.`,
+  proxy: (m) =>
+    'The hourly image limit (1,000 image requests per network connection) was reached. ' +
+    'The allowance is shared by everyone on your network connection, and resets within ' +
+    `the hour — try again in about ${m} minute${m === 1 ? '' : 's'}.`,
+};
+
+export function rateLimitResponse(kind: 'scan' | 'proxy', retryAfterSeconds: number): Response {
+  const minutes = Math.max(1, Math.ceil(retryAfterSeconds / 60));
+  return new Response(
+    JSON.stringify({
+      error: 'rate-limited',
+      message: RATE_LIMIT_COPY[kind](minutes),
+      retryAfterSeconds,
+    }),
+    {
+      status: 429,
+      headers: {
+        'content-type': 'application/json; charset=utf-8',
+        'cache-control': 'no-store',
+        'x-content-type-options': 'nosniff',
+        'retry-after': String(retryAfterSeconds),
+      },
+    },
+  );
+}
+
 export function errorResponse(err: unknown): Response {
   if (err instanceof BlockedHostError) {
     const mapped = REASON_RESPONSES[err.reason];

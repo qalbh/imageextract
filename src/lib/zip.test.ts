@@ -70,6 +70,25 @@ describe('assembleZip', () => {
     expect(s.skipped).toEqual([{ filename: 'bad.png', reason: 'http-502', url: 'https://cdn.test/bad.png' }]);
   });
 
+  it('a 429 member gets the rate-limit token and the report footer explains it', async () => {
+    const images = [img('good.png'), img('limited.png')];
+    const { response, stats } = assembleZip(images, {
+      weightOf: () => ZIP_UNKNOWN_WEIGHT,
+      signal: new AbortController().signal,
+      fetchImpl: async (input) =>
+        String(input).includes('limited') ? new Response('slow down', { status: 429 }) : bodyOf('ok'),
+    });
+    const buffer = await response.arrayBuffer();
+    const s = await stats;
+    // Terse token beside http-* reasons; the footer carries the explanation.
+    expect(includes(buffer, 'limited.png\trate-limit')).toBe(true);
+    expect(includes(buffer, 'hourly image allowance was reached')).toBe(true);
+    expect(includes(buffer, 'retryable after the limit resets')).toBe(true);
+    expect(s.skipped).toEqual([
+      { filename: 'limited.png', reason: 'rate-limit', url: 'https://cdn.test/limited.png' },
+    ]);
+  });
+
   it('treats an errored body stream as a skipped member (the truncation contract)', async () => {
     const images = [img('trunc.png'), img('fine.png')];
     const { response, stats } = assembleZip(images, {

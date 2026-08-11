@@ -616,6 +616,39 @@ async function main() {
     );
     await bg.close();
 
+    // Rate-limited scan: the 429 body's copy renders in the error view —
+    // heading from the client's ERRORS map, message verbatim from the
+    // server, and no "try again in a moment" line (retry: false — a retry
+    // that fails for an hour is worse than none).
+    const rl = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    await rl.route('**/api/scan*', (route) =>
+      route.fulfill({
+        status: 429,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          error: 'rate-limited',
+          message:
+            'This tool allows 30 page scans per hour for each network connection, and the ' +
+            'allowance is shared — on mobile networks and shared Wi-Fi, many people can count ' +
+            'against the same connection. The limit resets within the hour; try again in about 42 minutes.',
+          retryAfterSeconds: 2520,
+        }),
+      }),
+    );
+    await rl.goto(`${base}/results?url=${encodeURIComponent('https://example.com/')}`, {
+      waitUntil: 'load',
+    });
+    await rl.waitForSelector('h2:has-text("The hourly scan limit was reached")', { timeout: 15000 });
+    const rlShared = (await rl.locator('text=/allowance is shared/').count()) > 0;
+    const rlReset = (await rl.locator('text=/about 42 minutes/').count()) > 0;
+    const rlRetryLine = await rl.locator('text=/try again in a moment/').count();
+    ok(
+      'scan 429 → error view carries the shared-egress copy, no retry hint',
+      rlShared && rlReset && rlRetryLine === 0,
+      `shared=${rlShared} reset=${rlReset} retryHint=${rlRetryLine}`,
+    );
+    await rl.close();
+
     // -----------------------------------------------------------------------
     // ZIP assembly — real downloads parsed from disk. Headless has no
     // showSaveFilePicker, so this exercises the Blob + object-URL path (the

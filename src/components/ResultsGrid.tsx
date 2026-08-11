@@ -63,6 +63,9 @@ const ERRORS: Record<string, { heading: string; retry: boolean }> = {
   'too-many-redirects': { heading: 'Too many redirects', retry: false },
   timeout: { heading: 'The site took too long to respond', retry: true },
   'upstream-network': { heading: "The site couldn't be reached", retry: true },
+  // No retry button: it would fail for up to an hour; the message carries
+  // the reset time instead.
+  'rate-limited': { heading: 'The hourly scan limit was reached', retry: false },
 };
 
 // Stable empty manifest so the derived memos keep referential stability while
@@ -186,6 +189,7 @@ export default function ResultsGrid() {
       failed: number;
       total: number;
       skipped: number;
+      rateLimited?: number;
       // Which write path produced the file — rendered in the completion line
       // so a device/desktop pass can SEE what ran (a 120-member desktop run
       // came back path-ambiguous once; a path nobody can observe is a path
@@ -542,6 +546,10 @@ export default function ResultsGrid() {
               failed: s.skipped.length,
               total: s.requested,
               skipped: s.skipped.length,
+              // Named in the completion line: 300 silent skips mid-ZIP is
+              // exactly the confused-support-message the 429 copy exists
+              // to prevent.
+              rateLimited: s.skipped.filter((k) => k.reason === 'rate-limit').length,
               via: writable !== null ? 'picker' : 'browser',
             },
       );

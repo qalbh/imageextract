@@ -147,7 +147,13 @@ export function assembleZip(
         } else {
           const response = await fetchImpl(proxyUrl(img.url), { signal: taskSignal });
           if (!response.ok) {
-            fetched[i]!.resolve({ skip: `http-${response.status}` });
+            // 429 gets its own token, not http-429: it is the one skip the
+            // user can act on (wait for the reset), and the SKIPPED.txt
+            // footer explains it. Kept as terse as http-502 so the reason
+            // column stays scannable.
+            fetched[i]!.resolve({
+              skip: response.status === 429 ? 'rate-limit' : `http-${response.status}`,
+            });
             return;
           }
           const announced = response.headers.get('content-length');
@@ -194,9 +200,17 @@ export function assembleZip(
     }
     if (!signal.aborted && skipped.length > 0) {
       const report = skipped.map((s) => `${s.filename}\t${s.reason}\t${s.url}`).join('\n');
+      // The footer explains the one retryable reason; the column stays terse.
+      const rateLimited = skipped.filter((s) => s.reason === 'rate-limit').length;
+      const footer =
+        rateLimited > 0
+          ? `\nrate-limit: the hourly image allowance was reached — these ${rateLimited === 1 ? 'image is' : `${rateLimited} images are`} retryable after the limit resets (within the hour).\n`
+          : '';
       yield {
         name: skippedReportName(usedNames),
-        input: new Blob([`skipped ${skipped.length} of ${total}\n\n${report}\n`], { type: 'text/plain' }),
+        input: new Blob([`skipped ${skipped.length} of ${total}\n\n${report}\n${footer}`], {
+          type: 'text/plain',
+        }),
       };
     }
     statsDeferred.resolve({ requested: total, written: done, skipped, canceled: signal.aborted });

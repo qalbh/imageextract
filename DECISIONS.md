@@ -341,6 +341,43 @@ cluster on carrier ASNs (the shared-egress assumption bit real users —
 finer keys are constrained by statelessness, so this needs design, not a
 number tweak).
 
+## The hourly allowance is a budget the platform cannot enforce exactly
+
+Found while building the limiter (2026-08-10): the 1,000/hour number was
+chosen against the session model **before checking what the platform can
+enforce**. Cloudflare's Rate Limiting binding offers only 10- and
+60-second windows; shaping 1,000/hour as ~17/minute would throttle a
+legitimate 500-member ZIP mid-assembly — the exact user the number was
+chosen to protect. So the hourly figure is not expressible as a platform
+guarantee, and it must never be read as one.
+
+Enforcement chosen: **in-isolate hourly counters**
+(`src/lib/rate-limit.ts`) — fixed windows, one Map, zero persistence,
+the DoH-cache precedent. Durable Objects were rejected: exact
+enforcement bought with persistent state, for the least security-critical
+control in the system. The looseness is the point, and it COMPOUNDS:
+fixed windows allow a boundary straddle, each isolate counts
+independently, and isolate recycling forgets history mid-window — the
+three multiply, so the 2–5× steady-state estimate for a real user is an
+estimate, not a ceiling, and no hard ceiling exists. That is the correct
+failure direction for a politeness control: looser for legitimate users,
+while a deliberately distributed abuser was never going to be held by
+any per-IP number (rotation defeats exact counters equally).
+
+Keys derive from `CF-Connecting-IP`, which the edge sets and clients
+cannot spoof through it. Absent header → fail open without counting
+(dev, tests); the anomalous production case is surfaced by a static
+`x-rate-limit: unenforced` response header — observable by an
+operator's curl, logging nothing.
+
+**Cost:** a determined single-IP user can exceed nominal by the
+compounding factors above; accepted — politeness enforced approximately
+is still politeness.
+**Revisit if:** abuse telemetry shows the approximation exploited in
+practice at damaging volume — the escalation path is the platform
+binding for a per-minute *burst* cap layered under the hourly budget,
+not Durable Objects.
+
 ## Open questions
 
 | Question | Trigger |

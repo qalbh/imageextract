@@ -86,7 +86,17 @@ Phase 1 is complete: the whole server-side engine — scan, extraction, robots, 
 
 ### Phase 4 — Abuse controls
 
-- [ ] Rate limiting binding: ~30 scans/hour, ~500 proxy calls/hour per IP
+- [x] Rate limiting: 30 scans/hour, 1,000 proxy calls/hour per IP —
+      in-isolate hourly counters, NOT the platform binding (its 10s/60s
+      windows can't hold an hourly budget without throttling a legitimate
+      500-member ZIP; DECISIONS.md "The hourly allowance is a budget").
+      Verified: unit suite (window count/reset/Retry-After from window
+      start, key isolation, fail-open on absent header, rejected requests
+      don't extend windows); route tests (31st scan → 429 with the
+      shared-egress copy, zero subrequests spent on limited calls, the
+      `x-rate-limit: unenforced` canary stamps exactly when
+      CF-Connecting-IP is absent); gate scenario (429 body renders in the
+      error view, no retry hint).
 - [ ] Domain blocklist, editable without redeploy
 - [ ] `limits.cpu_ms` and `limits.subrequests` in `wrangler.jsonc`
 - [x] Honest User-Agent naming the tool — the string is **live** (sent since Phase 1) and already carries the `/bot` URL; what does NOT exist is the `/bot` page itself, which is the Phase 5 hard blocker. The split matters: the UA is advertising a URL that 404s until that page ships.
@@ -107,7 +117,15 @@ Phase 1 is complete: the whole server-side engine — scan, extraction, robots, 
       AFTER this audit (rate limiter, blocklist) gets its own narrower
       sweep before the Phase 4 commit — recorded as a second close-out,
       not an extension of this one's claim.
-- [ ] Friendly rate-limit message
+- [x] Friendly rate-limit message — the 429 copy never says "you", names
+      what was exceeded, that the allowance is shared per network
+      connection (carrier-NAT users can hit it having done nothing
+      heavy), and when it resets (Retry-After + "about N minutes").
+      Proxy-side short forms: ZIP members skipped as `rate-limit` (terse
+      beside `http-502` in SKIPPED.txt, with a footer explaining those
+      are retryable after reset) and the completion line names "hourly
+      image limit reached". Verified by the route tests and the gate's
+      429 scenario.
 
 ### Phase 5 — Trust and legal
 
