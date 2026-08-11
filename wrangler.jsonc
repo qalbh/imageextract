@@ -8,7 +8,13 @@
 		"directory": "./dist",
 		"binding": "ASSETS"
 	},
+	// DISARMED 2026-08-10 (log-audit Finding A): our endpoint URLs embed the
+	// user's scanned URL (/api/scan?url=…), so invocation logging captures
+	// every user's URL with zero code changes. Do not enable without
+	// verified URL redaction — see AGENTS.md "No URLs in logs binds
+	// configuration". The full enforcement comment and limits block land
+	// with Phase 4 step 4.
 	"observability": {
-		"enabled": true
+		"enabled": false
 	}
 }

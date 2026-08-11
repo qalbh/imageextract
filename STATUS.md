@@ -117,6 +117,13 @@ Phase 1 is complete: the whole server-side engine — scan, extraction, robots, 
       AFTER this audit (rate limiter, blocklist) gets its own narrower
       sweep before the Phase 4 commit — recorded as a second close-out,
       not an extension of this one's claim.
+      **Scope correction (2026-08-10):** the audit swept src/ and never
+      opened wrangler.jsonc — where `observability.enabled: true` sat
+      armed while Finding A claimed nothing enabled it. Disarmed the day
+      it was found, before any deploy; nothing leaked. The lesson is now
+      procedure: the second close-out explicitly covers CONFIG as well
+      as code — wrangler.jsonc, package.json scripts, anything that can
+      enable platform behaviour without a source change.
 - [x] Friendly rate-limit message — the 429 copy never says "you", names
       what was exceeded, that the allowance is shared per network
       connection (carrier-NAT users can hit it having done nothing
