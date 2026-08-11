@@ -22,12 +22,10 @@ const dateHuman = new Date(`${lastUpdated}T00:00:00Z`).toLocaleDateString('en-GB
 });
 ---
 
-<Layout title="Privacy — ImageExtract">
-	<meta
-		slot="head"
-		name="description"
-		content="ImageExtract's privacy policy: no accounts, no cookies, no stored URLs or images — what actually happens when you scan a page, and what is briefly held in memory."
-	/>
+<Layout
+	title="Privacy — ImageExtract"
+	description="ImageExtract's privacy policy: no accounts, no cookies, no stored URLs or images — what actually happens when you scan a page, and what is briefly held in memory."
+>
 	<SiteHeader anchorPrefix="/" nav={false} />
 	<main class="mx-auto max-w-content px-md py-xl">
 		<article class="privacy-article">

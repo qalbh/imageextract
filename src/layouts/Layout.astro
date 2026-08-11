@@ -7,9 +7,20 @@ import displayFont from '../styles/fonts/schibsted-grotesk-latin-400-700.woff2';
 
 interface Props {
 	title?: string;
+	description?: string;
 }
 
-const { title = 'imageextract — extract images from any web page' } = Astro.props;
+const {
+	title = 'imageextract — extract images from any web page',
+	description = 'Free tool that lists every image on a public web page — preview, check formats and dimensions, and download.',
+} = Astro.props;
+
+// Absolute URLs for social meta — relative og:image fails on most
+// platforms. Astro.site comes from astro.config's `site`. The og:image
+// dimensions are the DECLARED display size (1200×630); the file itself is
+// a 2× source (2400×1260), which platforms handle fine.
+const pageUrl = new URL(Astro.url.pathname, Astro.site);
+const ogImage = new URL('/og-image.png', Astro.site);
 ---
 
 <!doctype html>
@@ -23,11 +34,20 @@ const { title = 'imageextract — extract images from any web page' } = Astro.pr
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 		<link rel="icon" href="/favicon.ico" />
 		<meta name="generator" content={Astro.generator} />
-		<meta
-			name="description"
-			content="Free tool that lists every image on a public web page — preview, check formats and dimensions, and download."
-		/>
+		<meta name="description" content={description} />
 		<title>{title}</title>
+		<meta property="og:title" content={title} />
+		<meta property="og:description" content={description} />
+		<meta property="og:type" content="website" />
+		<meta property="og:site_name" content="ImageExtract" />
+		<meta property="og:url" content={pageUrl.href} />
+		<meta property="og:image" content={ogImage.href} />
+		<meta property="og:image:width" content="1200" />
+		<meta property="og:image:height" content="630" />
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="twitter:title" content={title} />
+		<meta name="twitter:description" content={description} />
+		<meta name="twitter:image" content={ogImage.href} />
 		<slot name="head" />
 	</head>
 	<body>

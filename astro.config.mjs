@@ -8,6 +8,8 @@ import tailwindcss from '@tailwindcss/vite';
 
 import preact from '@astrojs/preact';
 
+import sitemap from '@astrojs/sitemap';
+
 // Legal pages' "Last updated" derives from git so it cannot rot silently:
 // each date IS its file's last commit date, recomputed every build. This
 // lives here (not in page frontmatter) because the Cloudflare adapter
@@ -37,6 +39,8 @@ const termsLastUpdated = gitDateOf('src/pages/terms.astro');
 
 // https://astro.build/config
 export default defineConfig({
+  // Absolute URLs for og:image/og:url and the sitemap both need the origin.
+  site: 'https://imageextract.pics',
   // 'passthrough' because we never use Astro's image optimization; the
   // default ('cloudflare-binding') injects an IMAGES binding we don't want.
   adapter: cloudflare({ imageService: 'passthrough' }),
@@ -59,5 +63,13 @@ export default defineConfig({
   // supported integration path, so we keep writing React-flavoured JSX while
   // shipping Preact's runtime. preact-render-to-string arrives as a proper
   // transitive dependency of the integration.
-  integrations: [preact({ compat: true })]
+  integrations: [
+    preact({ compat: true }),
+    // MIT; build-time only — zero runtime bytes. /results is excluded here
+    // AND robots-disallowed: the meta robots tag only works if the crawler
+    // fetches the page, and the ?url= space is unbounded. /traffic must
+    // stay IN: it is the UA explainer's main discovery route after the log
+    // line itself.
+    sitemap({ filter: (page) => !page.includes('/results') })
+  ]
 });

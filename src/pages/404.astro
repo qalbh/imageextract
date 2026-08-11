@@ -1,0 +1,26 @@
+---
+import Layout from '../layouts/Layout.astro';
+import SiteHeader from '../components/SiteHeader.astro';
+
+// Short and useful: say it doesn't exist, link home. No search box, no
+// clever copy.
+---
+
+<Layout title="Page not found — ImageExtract" description="This page doesn't exist.">
+	<SiteHeader anchorPrefix="/" nav={false} />
+	<main class="mx-auto max-w-content px-md py-xl">
+		<article class="notfound-article">
+			<h1 class="text-h1 font-semibold text-text">Page not found</h1>
+			<p class="mt-md text-body text-muted">This page doesn't exist.</p>
+			<p class="mt-sm mb-xl text-body text-muted">
+				<a href="/" class="text-accent hover:underline">Go to the homepage</a>
+			</p>
+		</article>
+	</main>
+</Layout>
+
+<style>
+	.notfound-article {
+		max-width: calc(var(--container-content) / 2);
+	}
+</style>

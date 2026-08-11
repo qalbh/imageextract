@@ -14,12 +14,10 @@ import SiteHeader from '../components/SiteHeader.astro';
 // changes section — gitDateOf is a legal-pages mechanism.
 ---
 
-<Layout title="About — ImageExtract">
-	<meta
-		slot="head"
-		name="description"
-		content="ImageExtract lists every image on a web page for preview, filtering, and download. Free, no account, nothing stored — built by an independent developer."
-	/>
+<Layout
+	title="About — ImageExtract"
+	description="ImageExtract lists every image on a web page for preview, filtering, and download. Free, no account, nothing stored — built by an independent developer."
+>
 	<SiteHeader anchorPrefix="/" nav={false} />
 	<main class="mx-auto max-w-content px-md py-xl">
 		<article class="about-article">

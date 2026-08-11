@@ -1,0 +1,7 @@
+# /results carries noindex meta too, but the meta only works if the
+# crawler fetches the page at all — and the ?url= space is unbounded.
+User-agent: *
+Disallow: /results
+Disallow: /api/
+
+Sitemap: https://imageextract.pics/sitemap-index.xml

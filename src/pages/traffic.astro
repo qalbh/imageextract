@@ -9,12 +9,10 @@ import SiteHeader from '../components/SiteHeader.astro';
 // agent" should land here. Copy is fixed; do not add sections.
 ---
 
-<Layout title="About ImageExtract traffic">
-	<meta
-		slot="head"
-		name="description"
-		content="What the ImageExtract user agent is, why it appeared in your logs, and what it did — one user-directed page fetch, no crawling, nothing stored."
-	/>
+<Layout
+	title="About ImageExtract traffic"
+	description="What the ImageExtract user agent is, why it appeared in your logs, and what it did — one user-directed page fetch, no crawling, nothing stored."
+>
 	<SiteHeader anchorPrefix="/" nav={false} />
 	<main class="mx-auto max-w-content px-md py-xl">
 		<article class="traffic-article">

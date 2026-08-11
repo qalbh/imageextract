@@ -296,17 +296,52 @@ Phase 5 (trust and legal): every page has shipped — `/traffic` (the renamed ha
 - [x] Homepage copy that explains the tool (landing page shipped — truthful copy, zero JS)
 - [ ] Astro content collection for tool-variant landing pages
 - [ ] First 5 landing pages generated from the collection
-- [ ] Our own `robots.txt` and `sitemap.xml` — **must carry `Disallow: /results`**; the meta robots tag only works if the crawler fetches the page at all
-- [ ] Open Graph and Twitter card meta
-- [ ] Favicon and basic brand marks
+- [x] Our own `robots.txt` and `sitemap.xml` — shipped 2026-08-11.
+      robots.txt carries `Disallow: /results` (with the why in a
+      comment) and `Disallow: /api/`, plus the Sitemap line.
+      @astrojs/sitemap (MIT, build-time only — zero runtime bytes)
+      generates sitemap-index + sitemap-0 with exactly the five public
+      pages: /results filtered out, **/traffic explicitly in** (its
+      main discovery route after the log line itself). Verified in the
+      built output, not the config.
+- [x] Open Graph and Twitter card meta — in Layout.astro with per-page
+      title/description props (the slot-meta pattern retired — it was
+      double-printing descriptions). og:image is an ABSOLUTE URL
+      (verified in built HTML), declared 1200×630; the file shipped is
+      a 2× source (2400×1260, 158,944 bytes, ratio verified exact).
+      `site` set in astro.config. The image is meta-only: Lighthouse's
+      network log confirms it never loads on the page itself.
+- [x] Favicon and basic brand marks — favicon.svg (mark, token-exact
+      colours), a regenerated multi-size favicon.ico (32+16, replacing
+      Astro's stale default — deleting would 404 legacy clients
+      forever), and logo.svg (the full lockup) replacing the header's
+      tile+text pair. All three inspected before wiring: no scripts,
+      rasters, or external refs; fills are frozen copies of
+      --color-accent/--color-text (exact match — a token change must
+      re-export). vt-wordmark stays on the anchor, so the header morph
+      is unchanged; 390px verified no-wrap (203×25 natural in a 58px
+      header).
 - [ ] Cloudflare Web Analytics — **coupled to /privacy**: "We use no
       analytics, advertising, or tracking services" must change in the
       SAME commit that adds this, and doc-sync layer 5 enforces exactly
       that (the beacon marker fails the suite while the sentence
       stands). Dashboard-side auto-injection bypasses the guard — check
       it by hand at deploy.
-- [ ] Lighthouse pass, LCP under 2.0s on 4G
-- [ ] 404 page
+- [ ] Lighthouse pass, LCP under 2.0s on 4G — **measured 2026-08-11
+      (Lighthouse 12, mobile slow-4G, production build): / scores 98
+      with LCP 2.3s; /results scores 99 with LCP 2.0s; CLS 0 on
+      both.** The landing misses the budget by 0.3s, and the miss is
+      PRE-EXISTING, not from the brand assets: a logo-blocked
+      counterfactual run measured 2.2s, og-image never loads
+      (meta-only, network-log-confirmed), so the logo costs ~0.1s and
+      the 2.2s baseline is the H1 waiting on the 43 KB display font
+      over 1.6 Mbps (FCP 1.7 → LCP 2.3 = the swap repaint). Box stays
+      open; closing it means a font-strategy decision (subset further,
+      swap tuning, or accept slow-4G at 2.2–2.3 as the floor).
+- [x] 404 page — shipped 2026-08-11: same shape as the static pages
+      (wordmark-only header, reading measure, tokens), zero script
+      tags in the built 404.html, says the page doesn't exist and
+      links home. Excluded from the sitemap automatically.
 
 ### Phase 7 — Deploy
 

@@ -29,12 +29,14 @@ const nav = [
 			wide ? 'results-shell' : 'mx-auto max-w-content px-md',
 		]}
 	>
-		<a href="/" class="vt-wordmark flex items-center gap-xs text-body font-semibold text-text">
-			<span
-				class="flex size-md items-center justify-center rounded-md bg-accent font-mono text-label uppercase text-surface"
-				aria-hidden="true">IE</span
-			>
-			ImageExtract.pics
+		{/* logo.svg is the full lockup (mark + wordmark as OUTLINED paths —
+		    not text, so the accessible name lives in alt). Its fills are
+		    frozen copies of --color-accent/--color-text, verified exact at
+		    the 2026-08-11 asset inspection; a token change must re-export
+		    the SVG. width/height attrs pin layout — no CLS. vt-wordmark
+		    stays on the anchor, so the header morph element is unchanged. */}
+		<a href="/" class="vt-wordmark flex items-center">
+			<img src="/logo.svg" alt="ImageExtract.pics" width="203" height="25" />
 		</a>
 		{/* The four-item nav can't sit beside the wordmark at 390px; below sm the
 		    header is wordmark-only rather than wrapping/clipping the nav. */}
