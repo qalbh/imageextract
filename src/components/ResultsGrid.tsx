@@ -62,6 +62,7 @@ const ERRORS: Record<string, { heading: string; retry: boolean }> = {
   'dns-error': { heading: "DNS didn't answer", retry: true },
   'too-many-redirects': { heading: 'Too many redirects', retry: false },
   timeout: { heading: 'The site took too long to respond', retry: true },
+  'upstream-network': { heading: "The site couldn't be reached", retry: true },
 };
 
 // Stable empty manifest so the derived memos keep referential stability while

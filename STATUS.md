@@ -90,7 +90,23 @@ Phase 1 is complete: the whole server-side engine — scan, extraction, robots, 
 - [ ] Domain blocklist, editable without redeploy
 - [ ] `limits.cpu_ms` and `limits.subrequests` in `wrangler.jsonc`
 - [x] Honest User-Agent naming the tool — the string is **live** (sent since Phase 1) and already carries the `/bot` URL; what does NOT exist is the `/bot` page itself, which is the Phase 5 hard blocker. The split matters: the UA is advertising a URL that 404s until that page ships.
-- [ ] Full log audit — no page URLs, no image URLs, anywhere
+- [x] Full log audit — no page URLs, no image URLs, anywhere. Verified
+      (2026-08-10, scope = all shipped code as of the coverage commit):
+      zero `console.*` in src and routes; every thrown error typed with
+      static/structural messages (BlockedHostError details are reason
+      strings and CIDR constants, never the tripping host); all ten
+      server-side `new URL()` sites guarded or safe-by-invariant; zod is
+      safeParse-only; DoH failures collapse to static details. Uncaught
+      rethrow measured safe ON WORKERD ONLY (probe in the workerd pool:
+      "Invalid URL string.", "Network connection lost.", "internal
+      error; reference = …" — no inputs echoed; Node would echo). Two
+      standing findings recorded: the constraint binds CONFIG
+      (observability off — AGENTS security section; enforcement comment
+      lands with the wrangler limits block) and the runtime dependency
+      (comment at errorResponse's rethrow). The Phase 4 code written
+      AFTER this audit (rate limiter, blocklist) gets its own narrower
+      sweep before the Phase 4 commit — recorded as a second close-out,
+      not an extension of this one's claim.
 - [ ] Friendly rate-limit message
 
 ### Phase 5 — Trust and legal

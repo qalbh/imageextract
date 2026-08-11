@@ -9,6 +9,7 @@ import {
   BlockedHostError,
   TimeoutError,
   TooManyRedirectsError,
+  UpstreamNetworkError,
   type RejectionReason,
 } from './ssrf-guard';
 import { NotAnImageError, SizeLimitError, UpstreamHttpError } from './proxy';
@@ -68,5 +69,20 @@ export function errorResponse(err: unknown): Response {
       message: "The image's server responded with an error.",
     });
   }
+  if (err instanceof UpstreamNetworkError) {
+    return json(502, {
+      error: 'upstream-network',
+      message: "That server couldn't be reached — it may be down or refusing connections.",
+    });
+  }
+  // Rethrown on purpose: a genuine bug should surface as a raw 500, not
+  // hide behind a friendly catch-all. The uncaught message lands in
+  // platform logs, and that is safe ONLY because message hygiene is a
+  // RUNTIME property, not a code property: workerd genericizes error text
+  // (measured 2026-08-10 in the workerd pool — "TypeError: Invalid URL
+  // string.", "Error: Network connection lost.", "Error: internal error;
+  // reference = ..."). The same rethrow on Node would log
+  // "Invalid URL: <the user's URL>". If this code ever runs outside
+  // workerd, this line is where the no-URLs-in-logs constraint breaks.
   throw err;
 }

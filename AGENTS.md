@@ -275,6 +275,18 @@ at most the TTL, a window the per-request check cannot close anyway.
 Those are the mechanisms that would actually give this Worker reach into
 private networks.
 
+**"No URLs in logs" binds configuration, not just code** (log audit,
+2026-08-10). The inbound request URL embeds the scanned page URL
+(`/api/scan?url=…`), so enabling Workers Logs / observability / Logpush
+would log every user's URL with zero code changes. Observability stays
+OFF; if it is ever wanted, it ships only after URL redaction is verified.
+The `wrangler.jsonc` limits block carries this rule as a comment at the
+exact spot someone would flip it. Relatedly, the audit measured that
+uncaught-error hygiene is a RUNTIME property: workerd genericizes error
+messages ("Invalid URL string." — input not echoed); the same code on
+Node would log the user's URL. The dependency is recorded at
+`errorResponse`'s rethrow.
+
 Other limits: 100 KB cap on `robots.txt`, 5 MB cap on the fetched HTML,
 `MAX_ZIP_IMAGES` (500) per ZIP, 1,000 **logical** images per scan (a
 variant set counts once; variants of an admitted image are never trimmed)
@@ -354,7 +366,7 @@ Then dedupe by normalized URL (strip fragment, sort query params) and drop `data
 
 ## Code conventions
 
-- Errors are typed and enumerated, never bare strings: `BlockedHostError`, `TimeoutError`, `TooManyRedirectsError`, `SizeLimitError`, `NotAnImageError`, `UpstreamHttpError`. Each maps to a specific user-facing message and HTTP status in `src/lib/api-errors.ts`. No catch-all "Something went wrong." A robots block is not an error — it is a successful scan of a page we were asked not to read, returned as a 200 manifest with `robotsBlocked`.
+- Errors are typed and enumerated, never bare strings: `BlockedHostError`, `TimeoutError`, `TooManyRedirectsError`, `SizeLimitError`, `NotAnImageError`, `UpstreamHttpError`, `UpstreamNetworkError` (the server answered badly vs. never answered — both typed; a dead host is not a raw 500). Each maps to a specific user-facing message and HTTP status in `src/lib/api-errors.ts`. No catch-all "Something went wrong." A robots block is not an error — it is a successful scan of a page we were asked not to read, returned as a 200 manifest with `robotsBlocked`.
 - Astro pages ship zero JavaScript by default. Add `client:*` directives only to the results grid.
 - Comments explain *why* — a spec quirk, a workaround for a class of malformed page — not *what*.
 - Every `URL.createObjectURL` has a matching `revokeObjectURL`.

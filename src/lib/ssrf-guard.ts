@@ -51,6 +51,22 @@ export class TimeoutError extends Error {
   }
 }
 
+/**
+ * Transport-level upstream failure: connection refused, TLS broken, socket
+ * dropped mid-handshake. Distinct from UpstreamHttpError (the server
+ * answered, badly) — here the server never answered at all. Without this
+ * class a dead host surfaced as an untyped raw 500, the catch-all the
+ * error taxonomy exists to prevent. Carries no payload on purpose: the
+ * runtime's own error is deliberately not wrapped as `cause`, so nothing
+ * runtime-authored can ride into logs through this type.
+ */
+export class UpstreamNetworkError extends Error {
+  constructor() {
+    super('Upstream connection failed');
+    this.name = 'UpstreamNetworkError';
+  }
+}
+
 const RESERVED_V4: ReadonlyArray<readonly [cidr: string, base: number, bits: number]> = [
   ['127.0.0.0/8', 0x7f000000, 8],
   ['10.0.0.0/8', 0x0a000000, 8],
@@ -377,8 +393,10 @@ export interface SafeFetchOptions {
  * hop. Never uses redirect:'follow' — that would let the platform hop
  * through URLs this guard never saw.
  *
- * Throws BlockedHostError, TooManyRedirectsError, or TimeoutError; any
- * other fetch failure propagates as-is.
+ * Throws BlockedHostError, TooManyRedirectsError, TimeoutError, or
+ * UpstreamNetworkError (transport failure on the request itself). Errors
+ * thrown outside the fetch call — a bug in this code — still propagate raw
+ * on purpose; see errorResponse's rethrow comment.
  */
 export async function safeFetch(rawUrl: string, options: SafeFetchOptions): Promise<Response> {
   const { timeoutMs, init, maxRedirects = 3, dohCheck = true } = options;
@@ -405,7 +423,15 @@ export async function safeFetch(rawUrl: string, options: SafeFetchOptions): Prom
         checkedHosts.add(url.hostname);
       }
 
-      const response = await fetchImpl(url.toString(), { ...init, redirect: 'manual', signal });
+      let response: Response;
+      try {
+        response = await fetchImpl(url.toString(), { ...init, redirect: 'manual', signal });
+      } catch (err) {
+        // An aborted fetch must reach the outer catch raw — the timeout
+        // conversion there owns abort semantics.
+        if (signal.aborted) throw err;
+        throw new UpstreamNetworkError();
+      }
 
       if (REDIRECT_STATUSES.has(response.status)) {
         const location = response.headers.get('location');
@@ -429,7 +455,8 @@ export async function safeFetch(rawUrl: string, options: SafeFetchOptions): Prom
     if (
       timeoutSignal.aborted &&
       !(err instanceof BlockedHostError) &&
-      !(err instanceof TooManyRedirectsError)
+      !(err instanceof TooManyRedirectsError) &&
+      !(err instanceof UpstreamNetworkError)
     ) {
       throw new TimeoutError(timeoutMs);
     }

@@ -3,11 +3,13 @@ import {
   BlockedHostError,
   TimeoutError,
   TooManyRedirectsError,
+  UpstreamNetworkError,
   clearDohCache,
   dohCheckHostname,
   safeFetch,
   validateTargetUrl,
 } from './ssrf-guard';
+import { errorResponse } from './api-errors';
 
 // The DoH verdict cache is module-level state; every test starts cold.
 beforeEach(() => clearDohCache());
@@ -519,5 +521,52 @@ describe('safeFetch', () => {
         fetchImpl: hanging,
       }),
     ).rejects.toBeInstanceOf(TimeoutError);
+  });
+});
+
+describe('safeFetch: transport failures are typed (UpstreamNetworkError)', () => {
+  it('converts a fetch-level failure into UpstreamNetworkError', async () => {
+    // What workerd actually throws for connect-refused (measured in the
+    // 2026-08-10 log audit): a generic Error with no URL in the message.
+    const fetchImpl = vi.fn(async () => {
+      throw new Error('Network connection lost.');
+    });
+    await expect(
+      safeFetch('https://dead.example/', {
+        timeoutMs: 5_000,
+        dohCheck: false,
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+      }),
+    ).rejects.toMatchObject({ name: 'UpstreamNetworkError' });
+  });
+
+  it('a timeout is still a TimeoutError, never relabelled as a network failure', async () => {
+    // Mimic real fetch abort behaviour: reject only when the signal fires.
+    const fetchImpl = vi.fn(
+      (_url: string, init: RequestInit) =>
+        new Promise((_resolve, reject) => {
+          init.signal?.addEventListener('abort', () =>
+            reject(new DOMException('The operation was aborted.', 'AbortError')),
+          );
+        }),
+    );
+    await expect(
+      safeFetch('https://slow.example/', {
+        timeoutMs: 30,
+        dohCheck: false,
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+      }),
+    ).rejects.toMatchObject({ name: 'TimeoutError' });
+  });
+
+  it('errorResponse maps it to a 502 with its own enumerated code', async () => {
+    const res = errorResponse(new UpstreamNetworkError());
+    expect(res.status).toBe(502);
+    expect(await res.json()).toMatchObject({ error: 'upstream-network' });
+  });
+
+  it('errorResponse still rethrows unknown errors raw (the surface-bugs-as-500 contract)', () => {
+    const bug = new Error('genuine bug');
+    expect(() => errorResponse(bug)).toThrow(bug);
   });
 });
