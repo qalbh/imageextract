@@ -14,6 +14,18 @@
 	// Declared here rather than clicked in the dashboard so the binding is
 	// version-controlled and reproducible from a clean checkout.
 	"routes": [{ "pattern": "imageextract.pics", "custom_domain": true }],
+	// PINNED, not inherited. Adding `routes` makes wrangler disable
+	// workers.dev by default and warn about it — so this was already the
+	// live behaviour, arrived at by default rather than by decision. The
+	// decision: imageextract.qalb2096.workers.dev must NOT serve the site,
+	// because a second hostname serving byte-identical, indexable content
+	// is duplicate content competing with the domain the entire
+	// acquisition channel depends on — and every absolute URL we emit
+	// (og:url, canonical, sitemap) names the apex, so the workers.dev copy
+	// would be the one with no correct self-reference. Stated explicitly
+	// so a future reader sees a choice rather than a default, and so
+	// removing `routes` cannot silently re-expose it.
+	"workers_dev": false,
 	"assets": {
 		"directory": "./dist",
 		"binding": "ASSETS",

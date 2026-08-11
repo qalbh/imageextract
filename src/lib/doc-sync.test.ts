@@ -233,7 +233,23 @@ describe('layer 4: wrangler.jsonc invariants', () => {
 // never to coexist. RESIDUAL, named: Cloudflare can auto-inject Web
 // Analytics from the DASHBOARD, invisible to this repo — if analytics are
 // ever wanted, the sentence changes in the SAME commit, and the dashboard
-// path must be checked by hand at deploy (Phase 7).
+// path must be checked by hand at deploy.
+//
+// THE RESIDUAL FIRED on 2026-08-12, at the first custom-domain attach, so
+// this now records WHERE to look — the search cost 20 minutes and three
+// wrong pages last time:
+//
+//   Cloudflare dashboard → ACCOUNT level → Analytics & Logs → Web
+//   Analytics → the site entry for imageextract.pics → automatic setup.
+//
+// It is ACCOUNT-level, not zone-level. The zone's Speed → Real user
+// monitoring page reported RUM disabled the ENTIRE time the beacon was
+// being injected, because the zone toggle and the account site entry are
+// separate settings — reading the zone page and concluding "analytics are
+// off" is the exact wrong turn. Verify from the SERVED HTML instead of any
+// dashboard page: fetch the real hostname with browser-like headers (the
+// injection is gated on them — curl with default headers sees nothing) and
+// assert zero third-party requests. See AGENTS "Releasing", step 5.
 declare const __PRIVACY_GUARD__: { sentencePresent: boolean; analyticsHits: string[] };
 
 describe('layer 5: the /privacy no-analytics sentence', () => {

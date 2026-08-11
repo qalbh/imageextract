@@ -493,6 +493,25 @@ read what came back. Check status codes rather than "it renders", count
 script tags rather than trusting the build's count, and confirm the
 promises each page makes are still true of the bytes being served.
 
+**After every deploy, check the RENDERED HTML for injected third-party
+scripts.** Not the build, not `curl` with default headers — both were
+clean while production was not. Concretely, either:
+
+- fetch each page with a browser `User-Agent` **and** `Accept:
+  text/html`, and grep the response for `cloudflareinsights`,
+  data-cf-beacon, `/cdn-cgi/`; or better,
+- load each page in a real browser and assert **zero requests to any
+  host other than the site's own** — that catches injection by any
+  mechanism, not just the one script tag you thought to grep for.
+
+The second is what finally proved the beacon gone (7/7 pages, zero
+third-party requests, live script counts identical to the build's
+1/0/0/0/0/2/0). Cloudflare features that can inject: Web Analytics,
+Rocket Loader, Email Obfuscation, Bot Fight Mode — all zone/account
+settings, none visible in this repo, all able to appear without a
+deploy. Which is the real point: **this check is owed after a
+CONFIGURATION change too, not only after a code deploy.**
+
 ## Definition of done
 
 **When marking a done-when box, record what was actually verified — not a

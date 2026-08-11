@@ -471,9 +471,48 @@ Phase 5 (trust and legal): every page has shipped — `/traffic` (the renamed ha
       address cannot rot half-way — with two names, a silently failing
       alias leaves one page printing a bouncing address while the other
       looks fine.
-- [ ] Confirm Cloudflare Web Analytics dashboard auto-injection is OFF
-      — the doc-sync analytics guard covers source, not the dashboard
-      (layer 5's named residual).
+- [x] Cloudflare Web Analytics auto-injection is OFF — **it was ON, and
+      it fired the moment the custom domain was attached (2026-08-12).
+      Incident recorded in full because the SEARCH is the reusable
+      part.**
+      What happened: attaching imageextract.pics put a
+      `static.cloudflareinsights.com/beacon.min.js` script (with a
+      data-cf-beacon token) into all seven pages — including
+      /privacy, which serves "We use no analytics, advertising, or
+      tracking services." That sentence was false on the live site for
+      roughly an hour.
+      **WHERE IT ACTUALLY LIVED — the correction that matters.** The
+      setting is at **ACCOUNT level: Analytics & Logs → Web Analytics →
+      the site entry for imageextract.pics → automatic injection**. It
+      is NOT the zone toggle. The zone's **Speed → Real user monitoring
+      page reported RUM as DISABLED the entire time**, because the zone
+      toggle and the account-level site entry are separate settings.
+      Three dashboard pages actively misled before the right one was
+      found. Anyone reading the zone page and concluding "analytics are
+      off" repeats the mistake — which is why layer 5's residual note
+      in `src/lib/doc-sync.test.ts` now names the exact path instead of
+      just saying "check the dashboard".
+      **Why nothing in the repo could have caught it.** Source was
+      clean and doc-sync layer 5 passed throughout — correctly; this is
+      precisely the dashboard-side path layer 5 names as uncoverable.
+      It was invisible two independent ways: zone features do not apply
+      to `*.workers.dev`, so the identical Worker was clean on one
+      hostname and injected on the other (it could ONLY appear at the
+      moment the hostname joined the zone); and injection is gated on
+      browser-like request headers, so `curl` with default headers
+      showed zero script tags while a browser showed one.
+      **Verified gone (2026-08-12), three ways:** header-shaped fetch of
+      all 7 pages → beacon 0; real-browser DOM → beacon 0 and script
+      counts identical to the local build (1/0/0/0/0/2/0, so nothing is
+      being added); and the strongest check — **zero requests to any
+      non-first-party host across all 7 pages**, which catches injection
+      by any mechanism rather than only the script tag we knew to grep
+      for. /privacy's sentence is true on the live site again.
+      Standing consequence: AGENTS "Releasing" now requires the
+      rendered-HTML third-party check after every deploy **and after
+      configuration changes**, since Rocket Loader, Email Obfuscation
+      and Bot Fight Mode can all appear the same way with no deploy at
+      all.
 - [ ] Workers Paid ($5/mo) — required, free tier CPU is insufficient
 - [x] Deploy-on-push — **CLOSED as not-doing (2026-08-12), a decision
       rather than outstanding work.** Releases are a direct
