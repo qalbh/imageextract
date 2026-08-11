@@ -458,6 +458,41 @@ drift. **Do not re-attempt byte reduction against this number** — that
 mistake has already been made twice here (a font subset and a CSS audit),
 both times because the measurement understated the product.
 
+## Releasing
+
+Releases are a direct deploy from a local machine, never deploy-on-push
+(DECISIONS.md "Releases are a direct wrangler deploy" — the gates need a
+real Chromium that a push-triggered build would not run).
+
+1. Build the feature
+2. `npm test` · `npx astro check` · `npm run verify:landing` ·
+   `npm run verify:results`
+3. Commit
+4. `npm run build && npx wrangler deploy`
+5. **Verify the deployed site, not just the build**
+
+**Step 5 is not ceremony, and step 2 does not cover it.** Verifying the
+build tells you what you produced; only the deployment tells you what a
+visitor receives. The platform is between the two, and it edits the
+response.
+
+Proven at the first custom-domain attach (2026-08-12): Cloudflare Web
+Analytics auto-injection put a `cloudflareinsights.com` beacon into
+every page — while `/privacy` served "We use no analytics, advertising,
+or tracking services." Nothing in the repo could have caught it. The
+source was clean, doc-sync layer 5 passed, and layer 5's own test names
+this as the one path it cannot cover. It was invisible to every local
+check because zone features do not apply to `*.workers.dev`, so the same
+Worker was clean on one hostname and not the other — it could ONLY
+appear at the moment the hostname joined the zone. It was also invisible
+to `curl`: injection is gated on browser-like request headers, so a
+header-less fetch showed zero script tags while a browser showed one.
+
+So step 5 means: fetch the real hostname, with browser-like headers, and
+read what came back. Check status codes rather than "it renders", count
+script tags rather than trusting the build's count, and confirm the
+promises each page makes are still true of the bytes being served.
+
 ## Definition of done
 
 **When marking a done-when box, record what was actually verified — not a

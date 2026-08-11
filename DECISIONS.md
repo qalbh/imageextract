@@ -504,6 +504,51 @@ than one.
 robots rule failed, or asking how to block us — either is the signal
 that /traffic needs the robots paragraph after all.
 
+## Releases are a direct wrangler deploy, not deploy-on-push
+
+Decided 2026-08-12, at the first deploy: releases go out with
+`npm run build && npx wrangler deploy` from a local machine, after the
+verification gates pass. Cloudflare's Git integration (build-and-deploy
+on push to `main`) is deliberately NOT wired up.
+
+**The gates cannot run where a push-triggered build runs.**
+`verify-landing.mjs` and `verify-results.mjs` drive a real Chromium
+through playwright-core — 50 checks that exist precisely because they
+catch what unit tests cannot: that the LCP element is the H1, that the
+reveal cap holds at 220 tiles under CPU throttle, that a cancelled ZIP
+downloads nothing, that `/privacy` ships no results CSS. Cloudflare's
+build environment would not run them. Deploy-on-push would therefore
+ship code that never passed the gates this project spent phases
+building, and the gates would degrade into something run when someone
+remembers. Direct deploy inverts that: what is live is always something
+that already passed.
+
+**The build output has been audited, and the audit only means something
+if it keeps being the same build.** What ships was measured at the first
+deploy, not assumed — 38 files, all from `dist/client`, zero `.md`,
+`.ts`, `.astro`, `.test.*` or `.map`, with the 46-vs-38 discrepancy
+reconciled (six directories, plus `_headers` and `.assetsignore`
+consumed rather than served). Deploy-on-push moves that build to a
+machine nobody inspects.
+
+**A push should stay a smaller commitment than a release.** With
+deploy-on-push every commit to `main` is live. That is wrong for a site
+whose failure mode is a broken scanner — and this repo commits freely
+mid-investigation (falsified hypotheses, reverted experiments, probe
+entries). Those are commits that should never have been releases.
+
+**Cost:** a manual step per release, and the deploying machine must
+have wrangler authenticated — so releases are gated on one operator's
+laptop rather than on CI. Accepted while that operator is the only one.
+The middle path, if the friction ever costs more than it buys, is
+deploy-on-push wired to a PRODUCTION BRANCH rather than `main`:
+automation without every commit being a release. That is the first
+thing to reach for, not full CI.
+
+**Revisit if:** there is more than one operator (the authenticated-laptop
+bottleneck becomes a bus factor), or releases become frequent enough
+that the manual step is the bottleneck rather than the safety.
+
 ## Open questions
 
 | Question | Trigger |

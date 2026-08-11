@@ -475,7 +475,17 @@ Phase 5 (trust and legal): every page has shipped — `/traffic` (the renamed ha
       — the doc-sync analytics guard covers source, not the dashboard
       (layer 5's named residual).
 - [ ] Workers Paid ($5/mo) — required, free tier CPU is insufficient
-- [ ] Deploy-on-push wired up
+- [x] Deploy-on-push — **CLOSED as not-doing (2026-08-12), a decision
+      rather than outstanding work.** Releases are a direct
+      `npm run build && npx wrangler deploy` after the gates pass. The
+      deciding reason: verify:landing and verify:results drive a real
+      Chromium, Cloudflare's build environment would not run them, so
+      deploy-on-push would ship code that never passed the gates this
+      project spent phases building. Full reasoning, the named cost,
+      and the middle path (deploy-on-push from a PRODUCTION BRANCH, not
+      `main`) in DECISIONS.md "Releases are a direct wrangler deploy,
+      not deploy-on-push". Checked, not left blank: an unchecked box
+      reads as owed work.
 - [ ] Billing alert configured
 - [ ] Anonymous error telemetry (error class only, never URLs)
 - [ ] Re-scan the walled probes (lovehoney.eu, amazon, etsy, unsplash)
