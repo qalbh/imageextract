@@ -12,6 +12,7 @@ import {
   validateTargetUrl,
 } from './ssrf-guard';
 import { isPathAllowed, parseRobotsGroups } from './robots';
+import type { BlocklistKv } from './blocklist';
 import {
   extractCssUrls,
   extractFromHtml,
@@ -34,6 +35,8 @@ export interface ScanDeps {
   dohFetchImpl?: typeof fetch;
   dohCheck?: boolean;
   timeoutMs?: number;
+  /** Operator blocklist KV binding, passed through to every safeFetch. */
+  blocklist?: BlocklistKv | null;
 }
 
 /**
@@ -93,6 +96,7 @@ export async function scanPage(rawUrl: string, deps: ScanDeps = {}): Promise<Sca
     dohCheck: deps.dohCheck,
     fetchImpl: deps.fetchImpl,
     dohFetchImpl: deps.dohFetchImpl,
+    blocklist: deps.blocklist,
   };
 
   // robots.txt — an unreachable or non-2xx robots file means "no rules",

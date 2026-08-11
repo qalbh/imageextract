@@ -58,6 +58,7 @@ const ERRORS: Record<string, { heading: string; retry: boolean }> = {
   'private-ip': { heading: "That address isn't scannable", retry: false },
   'blocked-hostname': { heading: "That address isn't scannable", retry: false },
   'dns-private': { heading: "That address isn't scannable", retry: false },
+  'domain-blocked': { heading: 'This site is excluded', retry: false },
   'dns-nxdomain': { heading: 'Domain not found', retry: false },
   'dns-error': { heading: "DNS didn't answer", retry: true },
   'too-many-redirects': { heading: 'Too many redirects', retry: false },

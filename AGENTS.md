@@ -82,7 +82,7 @@ A free web tool that takes a public webpage URL and lists every image on it, so 
 
 ## Non-negotiable constraints
 
-**Nothing is persisted.** No database, no KV, no R2, no D1, no cache of user-submitted URLs — sole carve-out: the in-isolate DoH verdict cache (see Security). No page URL or image URL appears in any log line. Bytes stream through and are forgotten. If a task seems to require storage, stop and ask before adding it.
+**Nothing is persisted.** No database, no KV, no R2, no D1, no cache of user-submitted URLs — two carve-outs: the in-isolate DoH verdict cache (see Security), and the operator domain blocklist read from KV (see Politeness). The distinction that keeps both honest: this rule targets retention of USER data. The blocklist is operator-authored, holds no user data, and is only ever READ by the Worker — "nothing written to KV" stays literally true. No page URL or image URL appears in any log line. Bytes stream through and are forgotten. If a task seems to require storage, stop and ask before adding it.
 
 **Zero persistence is not zero traffic.** Image bytes must pass through our proxy for downloads, because CORS prevents the browser from reading cross-origin image data and browsers ignore the `download` attribute on cross-origin links. The proxy is required; storage is not.
 
@@ -334,10 +334,22 @@ and leading dots; cap length; deduplicate with a numeric suffix.
 and is deliberately unlinked from the site until it does, but the UA already
 carries its URL, which is why that page is a pre-launch hard blocker. Rate
 limits and the 429 notices are built (in-isolate counters,
-`src/lib/rate-limit.ts`); the domain blocklist and wrangler limits block
-are not.**
+`src/lib/rate-limit.ts`), as is the domain blocklist
+(`src/lib/blocklist.ts`, KV namespace created at Phase 7); the wrangler
+limits block is not.**
 
 - Respect `robots.txt` before scanning. On a block, return `robotsBlocked` and show "This site has asked automated tools not to access this page." **No override button.**
+- Operator domain blocklist (`src/lib/blocklist.ts`, KV key `domains`,
+  one hostname per line): an entry blocks the host and EVERY subdomain
+  (dot-boundary suffix — the reading an operator mid-abuse-response
+  assumes); IDN entries are punycoded and full-URL pastes forgiven at
+  parse. Enforced inside `safeFetch` per hop, so it covers both
+  endpoints, every redirect hop, robots, and stylesheet fetches — and
+  image URLs on a blocked host keep dying after a scan, because the
+  proxy re-checks per call. Fail-open (KV blip ≠ outage; security
+  fails closed, politeness fails open) and deliberately enumerable —
+  a 403 `domain-blocked` with honest copy (DECISIONS.md). An edit is
+  live worldwide within ~2 minutes (KV consistency + 60s cache TTL).
 - Honest User-Agent naming the tool with a URL explaining it.
 - Rate limit by IP: 30 scans/hour, 1,000 proxy calls/hour (decided
   2026-08-10 from the measured session model — DECISIONS.md "The proxy

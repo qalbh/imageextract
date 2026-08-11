@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { errorResponse, json, rateLimitResponse } from '../../lib/api-errors';
 import { checkRateLimit } from '../../lib/rate-limit';
 import { proxyImage } from '../../lib/proxy';
+import { blocklistBinding } from '../../lib/blocklist';
 
 export const prerender = false;
 
@@ -31,6 +32,7 @@ function handler(method: 'GET' | 'HEAD'): APIRoute {
           download: url.searchParams.get('download') === '1',
           range: request?.headers.get('range') ?? null,
           selfOrigin: url.origin,
+          blocklist: blocklistBinding(),
         }),
       );
     } catch (err) {

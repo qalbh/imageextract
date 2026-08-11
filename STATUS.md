@@ -97,7 +97,17 @@ Phase 1 is complete: the whole server-side engine — scan, extraction, robots, 
       `x-rate-limit: unenforced` canary stamps exactly when
       CF-Connecting-IP is absent); gate scenario (429 body renders in the
       error view, no retry hint).
-- [ ] Domain blocklist, editable without redeploy
+- [x] Domain blocklist, editable without redeploy — KV read-only
+      (`src/lib/blocklist.ts`; the zero-persistence carve-out and its
+      reasoning in DECISIONS.md). Verified: unit suite (forgiving parse
+      incl. full-URL pastes and IDN punycoding, dot-boundary broad
+      match with lookalike negatives, 60s cache reads KV once per TTL,
+      read failure fails open AND caches so an erroring KV isn't
+      hammered); safeFetch integration (blocked initial URL rejects
+      with zero fetches; a redirect INTO a blocked host dies at the
+      hop); route tests (403 `domain-blocked` with the honest copy on
+      BOTH endpoints, zero network). The KV namespace itself is a
+      Phase 7 deploy task — until then the binding fails open.
 - [ ] `limits.cpu_ms` and `limits.subrequests` in `wrangler.jsonc`
 - [x] Honest User-Agent naming the tool — the string is **live** (sent since Phase 1) and already carries the `/bot` URL; what does NOT exist is the `/bot` page itself, which is the Phase 5 hard blocker. The split matters: the UA is advertising a URL that 404s until that page ships.
 - [x] Full log audit — no page URLs, no image URLs, anywhere. Verified
@@ -163,6 +173,8 @@ Phase 1 is complete: the whole server-side engine — scan, extraction, robots, 
 - [ ] Nameservers moved from Hostinger to Cloudflare
 - [ ] First deploy via Wrangler
 - [ ] Custom domain attached, SSL verified
+- [ ] Create the BLOCKLIST KV namespace; replace the placeholder id in
+      wrangler.jsonc (the blocklist fails open until this exists)
 - [ ] Workers Paid ($5/mo) — required, free tier CPU is insufficient
 - [ ] Deploy-on-push wired up
 - [ ] Billing alert configured

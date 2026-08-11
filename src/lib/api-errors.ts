@@ -35,6 +35,12 @@ const REASON_RESPONSES: Record<RejectionReason, { status: number; message: strin
     message: "That address isn't reachable from the public internet.",
   },
   'dns-private': { status: 403, message: "That address isn't reachable from the public internet." },
+  // Honest about both populations on the list (owner requests AND abuse
+  // blocks), and deliberately distinguishable from the robots message.
+  'domain-blocked': {
+    status: 403,
+    message: "This site is excluded from this tool — at its owner's request, or for abuse prevention.",
+  },
   'dns-nxdomain': {
     status: 404,
     message: "We couldn't find that domain — check the URL and try again.",

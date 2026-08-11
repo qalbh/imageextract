@@ -8,6 +8,13 @@
 		"directory": "./dist",
 		"binding": "ASSETS"
 	},
+	// Operator domain blocklist — READ-ONLY from the Worker. The
+	// zero-persistence carve-out (AGENTS.md "Politeness" / DECISIONS.md):
+	// the rule targets retention of USER data, this list holds none, and
+	// the Worker never writes it. The id is a placeholder until the
+	// namespace is created at Phase 7 deploy (local dev uses miniflare's
+	// simulated KV, which ignores the id).
+	"kv_namespaces": [{ "binding": "BLOCKLIST", "id": "created-at-phase-7-deploy" }],
 	// DISARMED 2026-08-10 (log-audit Finding A): our endpoint URLs embed the
 	// user's scanned URL (/api/scan?url=…), so invocation logging captures
 	// every user's URL with zero code changes. Do not enable without

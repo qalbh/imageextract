@@ -13,12 +13,15 @@
  * never the submitted value.
  */
 
+import { isBlockedHostname, loadBlocklist, type BlocklistKv } from './blocklist';
+
 export type RejectionReason =
   | 'invalid-url'
   | 'bad-scheme'
   | 'bad-port'
   | 'private-ip'
   | 'blocked-hostname'
+  | 'domain-blocked'
   | 'dns-private'
   | 'dns-nxdomain'
   | 'dns-error';
@@ -383,6 +386,14 @@ export interface SafeFetchOptions {
   init?: RequestInit;
   maxRedirects?: number;
   dohCheck?: boolean;
+  /**
+   * Operator domain blocklist (KV, read-only). Checked here — per hop,
+   * beside the guard — so ONE integration point covers both endpoints,
+   * every redirect hop, robots, and stylesheet fetches. Absent/null →
+   * no blocking (fail-open: dev, tests, and KV outages all read as an
+   * empty list).
+   */
+  blocklist?: BlocklistKv | null;
   /** Test seam; production always uses global fetch. */
   fetchImpl?: typeof fetch;
   dohFetchImpl?: typeof fetch;
@@ -414,6 +425,15 @@ export async function safeFetch(rawUrl: string, options: SafeFetchOptions): Prom
       const verdict = validateTargetUrl(current);
       if (!verdict.ok) throw new BlockedHostError(verdict.reason, verdict.detail);
       const { url } = verdict;
+
+      // Operator blocklist, before DoH: a blocked host should cost zero
+      // subrequests, and the check is an amortized cache lookup.
+      if (options.blocklist != null) {
+        const entries = await loadBlocklist(options.blocklist, Date.now());
+        if (isBlockedHostname(url.hostname, entries)) {
+          throw new BlockedHostError('domain-blocked', 'hostname is on the operator blocklist');
+        }
+      }
 
       // IP literals involve no DNS, so there is nothing for DoH to check.
       const isIpLiteral = url.hostname.startsWith('[') || parseIpv4Literal(url.hostname) !== null;

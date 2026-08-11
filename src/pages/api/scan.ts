@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { errorResponse, json, rateLimitResponse } from '../../lib/api-errors';
 import { checkRateLimit } from '../../lib/rate-limit';
 import { scanPage } from '../../lib/scan';
+import { blocklistBinding } from '../../lib/blocklist';
 
 export const prerender = false;
 
@@ -28,7 +29,9 @@ export const GET: APIRoute = async ({ url, request }) => {
     return res;
   };
   try {
-    return respond(json(200, await scanPage(parsed.data.url)));
+    return respond(
+      json(200, await scanPage(parsed.data.url, { blocklist: blocklistBinding() })),
+    );
   } catch (err) {
     return respond(errorResponse(err));
   }

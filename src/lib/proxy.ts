@@ -15,6 +15,7 @@
  */
 
 import { safeFetch } from './ssrf-guard';
+import type { BlocklistKv } from './blocklist';
 import { sanitizeFilename } from './extract';
 import { USER_AGENT } from './scan';
 
@@ -130,6 +131,8 @@ export interface ProxyOptions {
   range?: string | null;
   timeoutMs?: number;
   dohCheck?: boolean;
+  /** Operator blocklist KV binding, passed through to safeFetch. */
+  blocklist?: BlocklistKv | null;
   fetchImpl?: typeof fetch;
   dohFetchImpl?: typeof fetch;
 }
@@ -145,6 +148,7 @@ export async function proxyImage(rawUrl: string, options: ProxyOptions): Promise
   const upstream = await safeFetch(rawUrl, {
     timeoutMs: options.timeoutMs ?? PROXY_TIMEOUT_MS,
     dohCheck: options.dohCheck,
+    blocklist: options.blocklist,
     fetchImpl: options.fetchImpl,
     dohFetchImpl: options.dohFetchImpl,
     init: { method, headers: upstreamHeaders },

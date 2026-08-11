@@ -378,6 +378,57 @@ practice at damaging volume — the escalation path is the platform
 binding for a per-minute *burst* cap layered under the hourly budget,
 not Durable Objects.
 
+## The domain blocklist reads from KV and fails open
+
+Decided 2026-08-10. "Editable without redeploy" rules out a source
+constant, so the list lives in KV — the second carve-out from the
+zero-persistence rule, and the distinction is what keeps the rule
+intact: **zero persistence targets retention of USER data.** The
+blocklist is operator-authored, holds no user data, and the Worker only
+ever READS it, so the done-when box "Nothing written to KV" stays
+literally true. A future reader seeing "KV" in wrangler.jsonc should
+conclude the rule held, not that it was broken.
+
+Matching is the BROAD reading, deliberately: an entry blocks the host
+and every subdomain (dot-boundary suffix, IDN punycoded, full-URL
+pastes forgiven at parse) — because an operator adding a domain during
+an abuse response assumes the broad reading, and a narrow or
+silently-dropped entry fails for the exact case it was added for.
+Enforcement lives inside safeFetch beside the SSRF guard's per-hop
+checks: one integration point covers both endpoints, every redirect
+hop, robots, and stylesheet fetches, and blocks cost zero subrequests
+(checked before DoH). Image URLs on a blocked host keep dying after a
+scan — the proxy re-checks on every call.
+
+Fail-open, and the asymmetry with SSRF/DoH is principled, not
+inconsistent: those are security and fail closed; this is politeness
+and fails open — a KV blip must not take the tool down. Absent binding
+(dev, tests) reads as an empty list for the same reason.
+
+The list is ENUMERABLE, deliberately: a distinct `domain-blocked` 403
+lets anyone probe it one domain per scan. Chosen because (a) the
+alternative is lying — an indistinguishable error violates the
+no-catch-all taxonomy and robs the site owner who asked out of
+confirming it worked, which is the entire courtesy; (b) the contents
+are not secrets — an owner knows they asked, an abuser learns on the
+next attempt regardless of wording; (c) enumeration is already
+throttled by the scan limiter and reveals nothing security-relevant,
+because the blocklist is politeness — the SSRF guard, not this list,
+protects infrastructure.
+
+Propagation: an edit is live worldwide within roughly two minutes (KV
+eventual consistency ≤60s typical + the 60s in-isolate cache TTL) —
+written down so an incident responder treats a block as done two
+minutes after the save, not at the save.
+
+**Cost:** every request pays a cache lookup and each isolate one KV
+read per minute; a site's images mirrored on a third-party CDN are not
+covered (the list is host-scoped, not site-scoped — block the CDN host
+if it asks).
+**Revisit if:** the list outgrows a single KV value (~thousands of
+entries is still fine) or an owner asks for path-level exclusion,
+which robots.txt already provides and we already honour.
+
 ## Open questions
 
 | Question | Trigger |

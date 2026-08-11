@@ -28,6 +28,12 @@ export default defineConfig({
       miniflare: {
         compatibilityDate: wrangler.compatibility_date,
         compatibilityFlags: wrangler.compatibility_flags ?? [],
+        // A REAL (miniflare) KV binding for the blocklist, so route tests
+        // exercise the production read path — `import { env } from
+        // 'cloudflare:workers'` — instead of stubbing a locals shape. The
+        // stub variant went green against Astro.locals.runtime.env, an API
+        // the adapter had removed; only the dev-boot check caught it.
+        kvNamespaces: ['BLOCKLIST'],
       },
     }),
   ],
