@@ -1,0 +1,137 @@
+---
+import Layout from '../layouts/Layout.astro';
+import SiteHeader from '../components/SiteHeader.astro';
+
+// Copy is an accurate technical description written against AGENTS.md and
+// DECISIONS.md, claim-verified against source 2026-08-10 — NOT legally
+// reviewed (STATUS: lawyer's read owed before launch). Every claim here is
+// checkable; two were repaired during verification (probing on select,
+// rate-counter contents). The no-analytics sentence is GUARDED by doc-sync
+// (layer 5): adding an analytics script while it stands fails the suite.
+//
+// Last-updated derives from git at BUILD TIME so it cannot rot silently:
+// the date is this file's last commit date, injected by astro.config.mjs
+// as a define — the Cloudflare adapter prerenders in WORKERD, so
+// node:child_process cannot run here; the config runs in Node and can.
+const lastUpdated = __PRIVACY_LAST_UPDATED__;
+const dateHuman = new Date(`${lastUpdated}T00:00:00Z`).toLocaleDateString('en-GB', {
+  day: 'numeric',
+  month: 'long',
+  year: 'numeric',
+  timeZone: 'UTC',
+});
+---
+
+<Layout title="Privacy — ImageExtract">
+	<meta
+		slot="head"
+		name="description"
+		content="ImageExtract's privacy policy: no accounts, no cookies, no stored URLs or images — what actually happens when you scan a page, and what is briefly held in memory."
+	/>
+	<SiteHeader anchorPrefix="/" nav={false} />
+	<main class="mx-auto max-w-content px-md py-xl">
+		<article class="privacy-article">
+			<h1 class="text-h1 font-semibold text-text">Privacy</h1>
+			<p class="mt-md text-body text-muted">
+				ImageExtract doesn't have accounts, doesn't set cookies, and doesn't store the pages you
+				scan or the images you download.
+			</p>
+			<p class="mt-sm text-body text-muted">
+				This page explains what actually happens when you use it.
+			</p>
+
+			<h2 class="mt-xl text-h3 font-semibold text-text">What happens when you scan a page</h2>
+			<p class="mt-sm text-body text-muted">
+				You paste a URL. Our server fetches that page, reads its HTML to find image references,
+				and sends you back a list. The page's HTML is parsed in memory and discarded when the
+				request ends. The URL you entered is never written anywhere.
+			</p>
+			<p class="mt-sm text-body text-muted">
+				The list of images appears in your browser. Filtering, sorting, and searching happen on
+				your device and never reach our server. So does selecting — though checking a selected
+				image's size and dimensions reads the first few kilobytes of it through our server, which
+				streams through and is forgotten like everything else.
+			</p>
+
+			<h2 class="mt-xl text-h3 font-semibold text-text">What happens to the images</h2>
+			<p class="mt-sm text-body text-muted">
+				Thumbnails load directly from the site you scanned to your browser. They don't pass
+				through us at all.
+			</p>
+			<p class="mt-sm text-body text-muted">
+				Images pass through our server in two cases: when a preview fails to load directly and we
+				retry it, and when you download something. In both cases the bytes stream through and are
+				forgotten — nothing is written to disk, no cache, no database.
+			</p>
+			<p class="mt-sm text-body text-muted">
+				ZIP archives are assembled in your browser, not on our server.
+			</p>
+
+			<h2 class="mt-xl text-h3 font-semibold text-text">What we don't keep</h2>
+			<ul class="mt-sm list-disc pl-lg text-body text-muted">
+				<li>No accounts, no sign-in, no profiles</li>
+				<li class="mt-xs">No record of URLs you scan or images you download</li>
+				<li class="mt-xs">No cookies set by us</li>
+				<li class="mt-xs">No analytics that identify you</li>
+				<li class="mt-xs">No logs containing page URLs or image URLs</li>
+			</ul>
+
+			<h2 class="mt-xl text-h3 font-semibold text-text">What is temporarily held</h2>
+			<p class="mt-sm text-body text-muted">
+				Two things exist in server memory and disappear on their own:
+			</p>
+			<p class="mt-sm text-body text-muted">
+				<strong class="text-text">Rate-limit counters.</strong> To keep the service usable, we
+				count requests per network connection for an hour at a time. These counters hold a
+				network address and request counts — nothing about which pages or images were requested.
+				They live in memory only and vanish when the server process recycles.
+			</p>
+			<p class="mt-sm text-body text-muted">
+				<strong class="text-text">A DNS cache.</strong> Hostnames are resolved before fetching,
+				and results are cached briefly to avoid repeated lookups. Hostnames only, for about a
+				minute.
+			</p>
+			<p class="mt-sm text-body text-muted">
+				Neither is written to storage and neither survives a restart.
+			</p>
+
+			<h2 class="mt-xl text-h3 font-semibold text-text">Third parties</h2>
+			<p class="mt-sm text-body text-muted">
+				<strong class="text-text">Cloudflare</strong> hosts this service and handles every
+				request as our infrastructure provider. Their network sees traffic in transit and they
+				may retain logs under their own policies, which we do not control.
+			</p>
+			<p class="mt-sm text-body text-muted">
+				<strong class="text-text">The sites you scan</strong> see a request from us, identified
+				as ImageExtract — see <a href="/traffic" class="text-accent hover:underline">/traffic</a>
+				for exactly what that request does. When thumbnails load directly from those sites, they
+				see your browser as they would any visitor, though we ask your browser not to tell them
+				which page you were scanning.
+			</p>
+			<p class="mt-sm text-body text-muted">
+				We use no analytics, advertising, or tracking services.
+			</p>
+
+			<h2 class="mt-xl text-h3 font-semibold text-text">Your rights</h2>
+			<p class="mt-sm text-body text-muted">
+				We hold nothing about you, so there is nothing to request, correct, or delete. If you
+				believe otherwise, write to
+				<strong class="text-text">privacy@imageextract.pics</strong>.
+			</p>
+
+			<h2 class="mt-xl text-h3 font-semibold text-text">Changes</h2>
+			<p class="mt-sm text-body text-muted">
+				If this policy changes, the date below changes with it.
+			</p>
+			<p class="mt-sm mb-xl text-caption text-muted">Last updated: {dateHuman}</p>
+		</article>
+	</main>
+</Layout>
+
+<style>
+	/* Reading measure: half the content width, derived from the container
+	   token rather than an invented value (the .hero-form precedent). */
+	.privacy-article {
+		max-width: calc(var(--container-content) / 2);
+	}
+</style>

@@ -239,7 +239,19 @@ Phase 5 (trust and legal) is underway: its hard blocker — the UA-explainer pag
 - [ ] `/about` page — general product/about page
 - [ ] Abuse contact address, live and monitored
 - [x] Copyright notice above the results grid (shipped early, with the Phase 2 first pass)
-- [ ] Privacy policy (short: we store nothing)
+- [x] Privacy policy — `/privacy` shipped 2026-08-10. **The technical
+      claims are the part we can vouch for**: every checkable statement
+      was verified against source before writing (probe = 4 KB Range,
+      counters = kind:ip + counts, DNS cache = hostname→verdict 60s,
+      no-referrer covers thumbnails, zero cookie writes + proxy strips
+      upstream Set-Cookie), and two claims were REPAIRED during
+      verification because the code didn't support them as drafted
+      (selection triggers probes; counters store the endpoint class).
+      The no-analytics sentence is mechanically guarded (doc-sync layer
+      5: sentence + any analytics marker in shipped source cannot
+      coexist). Last-updated derives from git at build — cannot rot
+      silently. **NOT legally reviewed — a lawyer's read is owed before
+      launch (Phase 7 item).**
 - [ ] Terms of use
 - [ ] DMCA / takedown contact
 
@@ -251,7 +263,12 @@ Phase 5 (trust and legal) is underway: its hard blocker — the UA-explainer pag
 - [ ] Our own `robots.txt` and `sitemap.xml` — **must carry `Disallow: /results`**; the meta robots tag only works if the crawler fetches the page at all
 - [ ] Open Graph and Twitter card meta
 - [ ] Favicon and basic brand marks
-- [ ] Cloudflare Web Analytics
+- [ ] Cloudflare Web Analytics — **coupled to /privacy**: "We use no
+      analytics, advertising, or tracking services" must change in the
+      SAME commit that adds this, and doc-sync layer 5 enforces exactly
+      that (the beacon marker fails the suite while the sentence
+      stands). Dashboard-side auto-injection bypasses the guard — check
+      it by hand at deploy.
 - [ ] Lighthouse pass, LCP under 2.0s on 4G
 - [ ] 404 page
 
@@ -266,6 +283,17 @@ Phase 5 (trust and legal) is underway: its hard blocker — the UA-explainer pag
 - [ ] Custom domain attached, SSL verified
 - [ ] Create the BLOCKLIST KV namespace; replace the placeholder id in
       wrangler.jsonc (the blocklist fails open until this exists)
+- [ ] Legal review of /privacy and /terms — the copy is an accurate
+      technical description, claim-verified against source; what it has
+      never had is a lawyer's read. Owed before launch.
+- [ ] Mail routing: provision abuse@ AND privacy@ together — one
+      inbox, two names (privacy@ aliases into the abuse@ mailbox).
+      Neither address is provisioned without the other: /privacy
+      already prints privacy@, the footer prints abuse@, and a
+      bouncing address on either page is worse than none.
+- [ ] Confirm Cloudflare Web Analytics dashboard auto-injection is OFF
+      — the doc-sync analytics guard covers source, not the dashboard
+      (layer 5's named residual).
 - [ ] Workers Paid ($5/mo) — required, free tier CPU is insufficient
 - [ ] Deploy-on-push wired up
 - [ ] Billing alert configured

@@ -221,3 +221,32 @@ describe('layer 4: wrangler.jsonc invariants', () => {
     expect(bindings).toContain('BLOCKLIST');
   });
 });
+
+// ---------------------------------------------------------------------------
+// Layer 5 — the /privacy no-analytics claim. "We use no analytics,
+// advertising, or tracking services" is a sentence a reader will rely on,
+// and Phase 6 plans Cloudflare Web Analytics in a different commit, weeks
+// later, by someone not thinking about that page. Same class as the
+// observability flag, which got its test after it bit. vitest.config scans
+// every shipped source (src, astro.config, package.json deps) for analytics
+// markers at config time; here the sentence and the markers are asserted
+// never to coexist. RESIDUAL, named: Cloudflare can auto-inject Web
+// Analytics from the DASHBOARD, invisible to this repo — if analytics are
+// ever wanted, the sentence changes in the SAME commit, and the dashboard
+// path must be checked by hand at deploy (Phase 7).
+declare const __PRIVACY_GUARD__: { sentencePresent: boolean; analyticsHits: string[] };
+
+describe('layer 5: the /privacy no-analytics sentence', () => {
+  it('the sentence stands', () => {
+    // If a rewrite drops it, this forces the guard to be updated
+    // consciously rather than silently deactivating.
+    expect(__PRIVACY_GUARD__.sentencePresent).toBe(true);
+  });
+
+  it('no analytics marker exists anywhere in shipped source while it stands', () => {
+    expect(
+      __PRIVACY_GUARD__.analyticsHits,
+      'analytics found in source while /privacy claims none — change the sentence in the SAME commit',
+    ).toEqual([]);
+  });
+});
