@@ -11,10 +11,16 @@
 	// Operator domain blocklist — READ-ONLY from the Worker. The
 	// zero-persistence carve-out (AGENTS.md "Politeness" / DECISIONS.md):
 	// the rule targets retention of USER data, this list holds none, and
-	// the Worker never writes it. The id is a placeholder until the
-	// namespace is created at Phase 7 deploy (local dev uses miniflare's
-	// simulated KV, which ignores the id).
-	"kv_namespaces": [{ "binding": "BLOCKLIST", "id": "created-at-phase-7-deploy" }],
+	// the Worker never writes it. Namespace created 2026-08-12 at the
+	// first deploy; the id is a resource identifier, not a secret (reads
+	// still require account auth), which is why it lives in the repo.
+	// Until a `domains` key is written, the list is EMPTY and every
+	// lookup is a clean miss — the code fails open by design, so an
+	// empty namespace blocks nothing. /terms' exclusion promise is
+	// deliverable from now on: it needs an operator to add a line, not a
+	// deploy. Local dev uses miniflare's simulated KV, which ignores
+	// this id.
+	"kv_namespaces": [{ "binding": "BLOCKLIST", "id": "b4ef65c2b3e346eaa02dca44e839468a" }],
 	// Runaway-bug guards, not cost optimizers — both sized to be
 	// unreachable by honest traffic, so firing means a logic bug.
 	// cpu_ms: measured worst case (5 MB candidate-dense document incl.
