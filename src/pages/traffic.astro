@@ -1,0 +1,79 @@
+---
+import Layout from '../layouts/Layout.astro';
+import SiteHeader from '../components/SiteHeader.astro';
+
+// The UA explainer the User-Agent string advertises
+// (+https://imageextract.pics/traffic). Audience: a site owner following a
+// log line — so no nav, no call to action, no product links beyond the
+// wordmark. INDEXABLE on purpose: someone searching "ImageExtract user
+// agent" should land here. Copy is fixed; do not add sections.
+---
+
+<Layout title="About ImageExtract traffic">
+	<meta
+		slot="head"
+		name="description"
+		content="What the ImageExtract user agent is, why it appeared in your logs, and what it did — one user-directed page fetch, no crawling, nothing stored."
+	/>
+	<SiteHeader anchorPrefix="/" nav={false} />
+	<main class="mx-auto max-w-content px-md py-xl">
+		<article class="traffic-article">
+			<h1 class="text-h1 font-semibold text-text">About ImageExtract traffic</h1>
+			<p class="mt-md text-body text-muted">
+				You're probably here because you saw <code class="font-mono">ImageExtract/1.0</code> in
+				your server logs and wanted to know what it was.
+			</p>
+
+			<h2 class="mt-xl text-h3 font-semibold text-text">What happened</h2>
+			<p class="mt-sm text-body text-muted">
+				Someone pasted a URL from your site into ImageExtract, a tool that lists the images on a
+				web page so they can preview and download them. Your page was fetched once, because a
+				person asked for it.
+			</p>
+			<p class="mt-sm text-body text-muted">
+				It isn't a crawler. It doesn't walk your site, follow links to other pages, or come back
+				on a schedule. One person, one page, one request — the same shape as someone opening it
+				in a browser.
+			</p>
+
+			<h2 class="mt-xl text-h3 font-semibold text-text">What the request actually did</h2>
+			<p class="mt-sm text-body text-muted">The scan reads HTML. That's all it does.</p>
+			<ul class="mt-sm list-disc pl-lg text-body text-muted">
+				<li>One request for the page itself</li>
+				<li class="mt-xs">Up to three linked stylesheets, to find images referenced in CSS</li>
+			</ul>
+			<p class="mt-sm text-body text-muted">
+				No JavaScript is executed. No links are followed. Nothing is crawled beyond the single
+				page that was requested.
+			</p>
+
+			<h2 class="mt-xl text-h3 font-semibold text-text">Were your images downloaded?</h2>
+			<p class="mt-sm text-body text-muted">
+				Not by the scan. Reading a page's HTML doesn't fetch the images it references.
+			</p>
+			<p class="mt-sm text-body text-muted">
+				Thumbnails in the results grid load from your server directly to that person's browser —
+				the same requests any visitor's browser would make while viewing your page.
+			</p>
+			<p class="mt-sm text-body text-muted">
+				Images pass through ImageExtract only if the person explicitly downloads one, or includes
+				it in a ZIP. Nothing is stored: bytes stream through and are forgotten. No copies are
+				kept, no cache, no database.
+			</p>
+
+			<h2 class="mt-xl text-h3 font-semibold text-text">Contact</h2>
+			<p class="mt-sm mb-xl text-body text-muted">
+				Questions about this traffic, or requests relating to your site, go to
+				<strong class="text-text">abuse@imageextract.pics</strong>. A person reads it.
+			</p>
+		</article>
+	</main>
+</Layout>
+
+<style>
+	/* Reading measure: half the content width, derived from the container
+	   token rather than an invented value (the .hero-form precedent). */
+	.traffic-article {
+		max-width: calc(var(--container-content) / 2);
+	}
+</style>

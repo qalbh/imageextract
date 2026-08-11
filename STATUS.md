@@ -12,7 +12,7 @@ Living document. Update it at the end of each working session rather than trying
 
 Phase 4 (abuse controls) closed 2026-08-10: in-isolate rate limits with the shared-egress 429 copy, the KV-read domain blocklist, the measured `limits` block with doc-sync-asserted observability, and both log close-outs — on top of the coverage diagnosis that inverted the deep-scan assumption and produced the noscript and logical-cap extraction fixes. Phases 1–3 before it shipped the engine (scan, extraction, robots, proxy, SSRF guard), the full results UI, and the download path (hotlink fallback, unified Range probing, single-image download, client-side ZIP).
 
-Phase 5 (trust and legal) is next. Its hard blocker is the `/bot` page the User-Agent has been advertising since Phase 1. Exactly ONE device item remains open, and it is deferred, not pending: the post-deploy Android ZIP pass (Phase 7 list — it holds Phase 3 open). Everything else on the verification ledger is closed.
+Phase 5 (trust and legal) is underway: its hard blocker — the UA-explainer page — closed 2026-08-10 as `/traffic` (renamed from the planned `/bot`, with the UA string reshaped to a user-directed fetch). Exactly ONE device item remains open, and it is deferred, not pending: the post-deploy Android ZIP pass (Phase 7 list — it holds Phase 3 open). Everything else on the verification ledger is closed.
 
 ### Done
 
@@ -177,7 +177,14 @@ Phase 5 (trust and legal) is next. Its hard blocker is the `/bot` page the User-
       "throw" are both comments); no interpolated URL/IP/key in any
       message; observability false now TEST-ASSERTED (doc-sync layer
       4), not remembered.
-- [x] Honest User-Agent naming the tool — the string is **live** (sent since Phase 1) and already carries the `/bot` URL; what does NOT exist is the `/bot` page itself, which is the Phase 5 hard blocker. The split matters: the UA is advertising a URL that 404s until that page ships.
+- [x] Honest User-Agent naming the tool — renamed 2026-08-10 to
+      `Mozilla/5.0 (compatible; ImageExtract/1.0; +https://imageextract.pics/traffic)`
+      (a user-directed fetch presenting as one — DECISIONS.md), and the
+      advertised page now EXISTS (`/traffic`, Phase 5). Robots matching
+      verified under the rename: token `imageextract`, name-specific
+      rules honoured through scanPage (test-pinned), version-suffixed
+      rules (`ImageExtract/1.0`) don't match per spec — recorded in
+      DECISIONS as one half of a known silent-failure stack.
 - [x] Full log audit — no page URLs, no image URLs, anywhere. Verified
       (2026-08-10, scope = all shipped code as of the coverage commit):
       zero `console.*` in src and routes; every thrown error typed with
@@ -214,7 +221,21 @@ Phase 5 (trust and legal) is next. Its hard blocker is the `/bot` page the User-
 
 ### Phase 5 — Trust and legal
 
-- [ ] `/bot` crawler-info page — **hard dependency of the User-Agent string (`+https://imageextract.pics/bot`), must exist before the first real scan**
+- [x] `/traffic` UA-explainer page (renamed from the planned `/bot` —
+      "bot" mischaracterised a user-directed fetch) — **shipped
+      2026-08-10, the phase's hard blocker closed**. Verified: renders
+      static with zero script tags in the built page, indexable (no
+      robots meta), reading-measure article derived from the container
+      token, wordmark-only header (the audience followed a log line and
+      did not choose the product), footer-linked under Company.
+      **Known consequence of the copy decision, not a defect:** the page
+      deliberately does not mention robots.txt. The scanner still checks
+      robots and still stops with no override — but a site owner has no
+      way to learn that from us, so someone who blocks us via robots may
+      assume the block failed and escalate to the abuse address. Stacked
+      with the version-suffix matching rule (see DECISIONS), this is two
+      silent modes a site owner can hit; the reconsideration, if it
+      comes, has both halves recorded.
 - [ ] `/about` page — general product/about page
 - [ ] Abuse contact address, live and monitored
 - [x] Copyright notice above the results grid (shipped early, with the Phase 2 first pass)

@@ -7,8 +7,14 @@
 interface Props {
 	anchorPrefix?: string;
 	wide?: boolean;
+	/**
+	 * /traffic passes false: its audience is a site owner following a log
+	 * line, and the nav's three anchors are product marketing — identity
+	 * (the wordmark) without a pitch. Everywhere else keeps the default.
+	 */
+	nav?: boolean;
 }
-const { anchorPrefix = '', wide = false } = Astro.props;
+const { anchorPrefix = '', wide = false, nav: showNav = true } = Astro.props;
 const nav = [
 	{ href: `${anchorPrefix}#features`, label: 'Features' },
 	{ href: `${anchorPrefix}#how-it-works`, label: 'How It Works' },
@@ -32,12 +38,20 @@ const nav = [
 		</a>
 		{/* The four-item nav can't sit beside the wordmark at 390px; below sm the
 		    header is wordmark-only rather than wrapping/clipping the nav. */}
-		<nav aria-label="Main" class="vt-nav hidden sm:block">
-			<ul class="flex gap-md text-caption text-muted">
-				{nav.map((item) => (
-					<li><a href={item.href} class="hover:text-text">{item.label}</a></li>
-				))}
-			</ul>
-		</nav>
+		{
+			showNav && (
+				<nav aria-label="Main" class="vt-nav hidden sm:block">
+					<ul class="flex gap-md text-caption text-muted">
+						{nav.map((item) => (
+							<li>
+								<a href={item.href} class="hover:text-text">
+									{item.label}
+								</a>
+							</li>
+						))}
+					</ul>
+				</nav>
+			)
+		}
 	</div>
 </header>

@@ -6,9 +6,11 @@
 - **Abuse mailbox** (`abuse@imageextract.pics`) live and monitored — the
   landing footer links it. A bouncing abuse address is worse than none for
   a tool whose defence is good citizenship.
-- **`/bot` crawler-info page** — hard dependency of the User-Agent string;
-  must exist before the first real scan. Deliberately NOT linked anywhere
-  until it exists: site owners follow that URL from their access logs.
+- **`/traffic` UA-explainer page — SHIPPED 2026-08-10** (renamed from the
+  planned `/bot`: "bot" mischaracterised a user-directed fetch; nothing was
+  deployed, so the rename cost one string). Hard dependency of the
+  User-Agent string, which now carries the new path. Linked from the
+  footer (Company); the UA string is its primary route in.
 
 General pre-launch (linked from the landing footer, 404 until Phase 5/6):
 `/privacy` · `/terms` · `/about`.

@@ -59,6 +59,24 @@ describe('scanPage', () => {
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
 
+  it('honours a robots group naming ImageExtract — through scanPage, under the renamed UA', async () => {
+    // The UA rename (2026-08-10) changed the string's SHAPE; robots
+    // matching keys on UA_TOKEN. This pins the pairing end to end: a
+    // name-specific rule blocks the scan even though the star group
+    // allows everything.
+    const fetchImpl = routedFetch({
+      'https://site.example/robots.txt': {
+        body: 'User-agent: *\nAllow: /\n\nUser-agent: ImageExtract\nDisallow: /',
+      },
+    });
+    const result = await scanPage('https://site.example/gallery', {
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      dohCheck: false,
+    });
+    expect(result.robotsBlocked).toBe(true);
+    expect(fetchImpl).toHaveBeenCalledTimes(1); // robots only — the page was never fetched
+  });
+
   it('scans when robots.txt disallows a different path', async () => {
     const result = await scanPage(
       'https://site.example/public/album',

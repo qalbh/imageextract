@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { isPathAllowed, parseRobotsGroups, type RobotsRule } from './robots';
 
-const UA = 'imageextractbot';
+const UA = 'imageextract';
 
 function allowed(robots: string, path: string): boolean {
   return isPathAllowed(parseRobotsGroups(robots, UA), path);
@@ -18,26 +18,26 @@ describe('parseRobotsGroups', () => {
       'User-agent: *',
       'Disallow: /',
       '',
-      'User-agent: ImageExtractBot',
+      'User-agent: ImageExtract',
       'Disallow: /only-this/',
     ].join('\n');
     expect(parseRobotsGroups(robots, UA)).toEqual([{ allow: false, pattern: '/only-this/' }]);
   });
 
   it('an empty group naming us suppresses the star group', () => {
-    const robots = ['User-agent: *', 'Disallow: /', '', 'User-agent: imageextractbot'].join('\n');
+    const robots = ['User-agent: *', 'Disallow: /', '', 'User-agent: imageextract'].join('\n');
     expect(parseRobotsGroups(robots, UA)).toEqual([]);
     expect(allowed(robots, '/anything')).toBe(true);
   });
 
   it('stacked user-agent lines share the following rules', () => {
-    const robots = ['User-agent: otherbot', 'User-agent: imageextractbot', 'Disallow: /x'].join('\n');
+    const robots = ['User-agent: otherbot', 'User-agent: imageextract', 'Disallow: /x'].join('\n');
     expect(parseRobotsGroups(robots, UA)).toEqual([{ allow: false, pattern: '/x' }]);
   });
 
   it('a user-agent line after rules starts a new group', () => {
     const robots = [
-      'User-agent: imageextractbot',
+      'User-agent: imageextract',
       'Disallow: /ours',
       'User-agent: otherbot',
       'Disallow: /theirs',
@@ -111,5 +111,23 @@ describe('isPathAllowed', () => {
     const started = Date.now();
     expect(allowed(hostile, path)).toBe(false);
     expect(Date.now() - started).toBeLessThan(1000);
+  });
+});
+
+describe('the renamed token still matches name-specific rules (UA rename, 2026-08-10)', () => {
+  // The matcher keys on UA_TOKEN, not on parsing USER_AGENT — the two
+  // constants renamed together, and these pin the pairing.
+  it('a group naming ImageExtract is honoured under the new token', () => {
+    const robots = ['User-agent: *', 'Allow: /', '', 'User-agent: ImageExtract', 'Disallow: /'].join('\n');
+    expect(allowed(robots, '/anything')).toBe(false);
+  });
+
+  it('a version-suffixed group (ImageExtract/1.0) does NOT match — equality per spec', () => {
+    // The stacked silent-failure a site owner can hit: this rule looks
+    // right, matches nothing, and /traffic never mentions robots at all.
+    // Recorded in DECISIONS ("The User-Agent presents as a user-directed
+    // fetch") as one half of the future reconsideration.
+    const robots = ['User-agent: ImageExtract/1.0', 'Disallow: /'].join('\n');
+    expect(allowed(robots, '/anything')).toBe(true);
   });
 });

@@ -329,10 +329,12 @@ and leading dots; cap length; deduplicate with a numeric suffix.
 
 ## Politeness
 
-**Status: robots enforcement and the honest User-Agent string are live. The
-/bot explainer page the UA links to does NOT exist yet — it ships in Phase 5
-and is deliberately unlinked from the site until it does, but the UA already
-carries its URL, which is why that page is a pre-launch hard blocker. Rate
+**Status: robots enforcement and the honest User-Agent string are live, and
+the /traffic explainer page the UA links to EXISTS (Phase 5 hard blocker
+closed 2026-08-10 — the UA was renamed the same day:
+`Mozilla/5.0 (compatible; ImageExtract/1.0; +https://imageextract.pics/traffic)`,
+a user-directed fetch presenting as one, robots token `ImageExtract` —
+DECISIONS.md "The User-Agent presents as a user-directed fetch"). Rate
 limits and the 429 notices are built (in-isolate counters,
 `src/lib/rate-limit.ts`), as is the domain blocklist
 (`src/lib/blocklist.ts`, KV namespace created at Phase 7) and the
@@ -350,7 +352,11 @@ wrangler `limits` block — Phase 4 abuse controls are complete.**
   fails closed, politeness fails open) and deliberately enumerable —
   a 403 `domain-blocked` with honest copy (DECISIONS.md). An edit is
   live worldwide within ~2 minutes (KV consistency + 60s cache TTL).
-- Honest User-Agent naming the tool with a URL explaining it.
+- Honest User-Agent naming the tool with a URL explaining it:
+  `Mozilla/5.0 (compatible; ImageExtract/1.0; +https://imageextract.pics/traffic)`.
+  The `USER_AGENT` string and the robots `UA_TOKEN` (`imageextract`) live
+  together in scan.ts and MOVE TOGETHER — matching keys on the token, not
+  the string (test-pinned through scanPage).
 - Rate limit by IP: 30 scans/hour, 1,000 proxy calls/hour (decided
   2026-08-10 from the measured session model — DECISIONS.md "The proxy
   allowance is politeness, not cost recovery"). **Nominal budgets,

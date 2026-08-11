@@ -23,8 +23,16 @@ import {
 } from './extract';
 
 export const SCAN_TIMEOUT_MS = 10_000;
-export const USER_AGENT = 'ImageExtractBot/0.1 (+https://imageextract.pics/bot)';
-const UA_TOKEN = 'imageextractbot';
+// Mozilla/5.0 (compatible; ...) is the convention for legitimate
+// non-browser agents, and this is a USER-DIRECTED fetch — one page a
+// person pasted, no crawling, no schedule — not a crawler, so the string
+// reads that way (DECISIONS.md "The User-Agent presents as a
+// user-directed fetch"). The two constants MOVE TOGETHER: robots matching
+// keys on UA_TOKEN, not on parsing USER_AGENT, so renaming one without
+// the other silently stops honouring name-specific robots rules
+// (test-pinned through scanPage).
+export const USER_AGENT = 'Mozilla/5.0 (compatible; ImageExtract/1.0; +https://imageextract.pics/traffic)';
+export const UA_TOKEN = 'imageextract';
 
 const MAX_ROBOTS_BYTES = 102_400;
 const MAX_HTML_BYTES = 5_242_880;

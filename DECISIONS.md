@@ -259,7 +259,7 @@ walls — a deep-scan mode buys ~1 image per readable page and nothing at
 all behind a wall.
 
 The honest-UA cost, now measured rather than assumed: identifying as
-`ImageExtractBot` is precisely what bot walls key on, so honesty makes us
+`ImageExtract` (then `ImageExtractBot`) is precisely what bot walls key on, so honesty makes us
 *more* wallable than a UA-spoofing competitor. That is the values choice
 already made ("robots.txt respected, no override" — same reasoning:
 impersonating a browser to defeat an origin's stated wishes is the thing
@@ -457,6 +457,52 @@ and both discard.
 **Revisit if:** limit-fire telemetry ever shows honest traffic hitting
 either number — that means the sizing assumption broke, not that the
 taxonomy needs a row.
+
+## The User-Agent presents as a user-directed fetch, not a crawler
+
+Decided 2026-08-10, with the /traffic page (the renamed Phase 5 hard
+blocker):
+`Mozilla/5.0 (compatible; ImageExtract/1.0; +https://imageextract.pics/traffic)`.
+
+The `Mozilla/5.0 (compatible; …)` prefix is the convention for
+legitimate non-browser agents, and this tool is a USER-DIRECTED fetch —
+one page a person explicitly pasted, no link-following, no schedule, no
+image fetching during the scan — not a crawler, so the string reads
+that way. The path is `/traffic`, not `/bot`, because "bot"
+mischaracterises what this does; nothing was deployed, so the rename
+cost one string.
+
+What keeps this honest: the tool stays NAMEABLE. robots.txt rules for
+`ImageExtract` still work and there is still no override — that is
+what separates presenting-as-what-we-are from disguising as a browser,
+which was rejected for the same reason the fabricated Referer was
+("The proxy stays referrerless": impersonating a browser context to
+defeat an origin's stated wishes is the thing we decided not to be).
+
+Two costs, named so neither gets undone or re-litigated blind:
+
+**The Mozilla prefix may mislead naive log tools** into bucketing us
+as a browser. Accepted because the product token stays present and
+greppable in the parenthetical — the standard place legitimate agents
+identify themselves. Someone auditing this later asking "why does a
+non-browser send Mozilla/5.0?" — this is why, and it is deliberate.
+
+**Version-suffix matching is a silent failure a site owner can
+plausibly hit.** A robots rule written `User-agent: ImageExtract/1.0`
+matches nothing — correct per spec (group names match by equality, no
+version parsing), test-pinned, and exactly the mistake someone makes
+copying the string out of their logs. Combined with /traffic
+deliberately not mentioning robots.txt at all, the two failure modes
+STACK: the mis-written rule fails silently, and nothing we publish
+tells the owner that robots is honoured or how to name us. This is an
+argument for reconsidering the page's robots silence later, not now —
+recorded so the reconsideration has both halves in front of it rather
+than one.
+
+**Cost:** as above — naive log bucketing, and the stacked silent modes.
+**Revisit if:** abuse-address traffic shows site owners discovering the
+robots rule failed, or asking how to block us — either is the signal
+that /traffic needs the robots paragraph after all.
 
 ## Open questions
 
