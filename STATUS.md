@@ -12,7 +12,7 @@ Living document. Update it at the end of each working session rather than trying
 
 Phase 4 (abuse controls) closed 2026-08-10: in-isolate rate limits with the shared-egress 429 copy, the KV-read domain blocklist, the measured `limits` block with doc-sync-asserted observability, and both log close-outs — on top of the coverage diagnosis that inverted the deep-scan assumption and produced the noscript and logical-cap extraction fixes. Phases 1–3 before it shipped the engine (scan, extraction, robots, proxy, SSRF guard), the full results UI, and the download path (hotlink fallback, unified Range probing, single-image download, client-side ZIP).
 
-Phase 5 (trust and legal) is next. Its hard blocker is the `/bot` page the User-Agent has been advertising since Phase 1. Still open, none of it new code: the deferred Android ZIP pass (post-deploy, holds Phase 3 open) and the Firefox view-transition click-through — listed below.
+Phase 5 (trust and legal) is next. Its hard blocker is the `/bot` page the User-Agent has been advertising since Phase 1. Exactly ONE device item remains open, and it is deferred, not pending: the post-deploy Android ZIP pass (Phase 7 list — it holds Phase 3 open). Everything else on the verification ledger is closed.
 
 ### Done
 
@@ -40,9 +40,16 @@ Phase 5 (trust and legal) is next. Its hard blocker is the `/bot` page the User-
       post-deploy** (Phase 7 list; needs a LAN setup now, runs against
       the real https URL from any phone after deploy). Holds Phase 3
       open; the interim risk carried is recorded in the Phase 3 box.
-- [ ] Device check (3): Firefox click-through of the header
-      view-transition — the unsupported-engine instant cut rests on CSS
-      error handling and has never been watched in a real second engine.
+- [x] Device check (3): Firefox click-through of the header
+      view-transition — **closed 2026-08-10, run by hand.** Observed: in
+      Chrome the wordmark and nav morph across the / → /results
+      navigation; in Firefox the header cuts instantly with no
+      animation, and the results page layout is IDENTICAL to Chrome's —
+      nothing dropped alongside the transition rules. That is the
+      spec-mandated degrade the view-transition commit argued for but
+      could not witness (an engine without the feature drops the unknown
+      at-rule and property wholesale, leaving zero behavioural CSS) —
+      now witnessed in a real second engine.
 - [x] Phase 2 leftover: the keyboard/focus audit — run 2026-08-10 as a
       full recorded walk, findings fixed same day. Verified (desktop
       1440×900, real Chrome): the 17 pre-grid Tab stops match the visual
