@@ -200,12 +200,46 @@ export function assembleZip(
     }
     if (!signal.aborted && skipped.length > 0) {
       const report = skipped.map((s) => `${s.filename}\t${s.reason}\t${s.url}`).join('\n');
-      // The footer explains the one retryable reason; the column stays terse.
-      const rateLimited = skipped.filter((s) => s.reason === 'rate-limit').length;
-      const footer =
-        rateLimited > 0
-          ? `\nrate-limit: the hourly image allowance was reached — these ${rateLimited === 1 ? 'image is' : `${rateLimited} images are`} retryable after the limit resets (within the hour).\n`
-          : '';
+      // Footers explain the reason codes a reader cannot safely infer — in
+      // BOTH directions, which is why none of these may be stripped as
+      // noise. rate-limit is the one ACTIONABLE skip (wait, then retry).
+      // http-415 is here for the opposite reason: it is not a failure at
+      // all — fonts and stylesheets in the manifest are expected — and
+      // without the line, "120 of 159" on a font-heavy page reads as a 25%
+      // failure rate when nothing went wrong. http-403 lands in BULK when
+      // a site refuses proxied downloads wholesale, and bulk needs an
+      // explanation where a one-off would not. "truncated" would otherwise
+      // read as if a cut-short file were INSIDE the archive, when the
+      // contract is the opposite. A one-off http-502 explains itself and
+      // deliberately gets no line.
+      const FOOTNOTES: ReadonlyArray<[reason: string, note: (n: number) => string]> = [
+        [
+          'rate-limit',
+          (n) =>
+            `rate-limit: the hourly image allowance was reached — ${n === 1 ? 'this image is' : `these ${n} images are`} retryable after the limit resets (within the hour).`,
+        ],
+        [
+          'http-415',
+          () =>
+            "http-415: these URLs served something that isn't an image (fonts, stylesheets) — the proxy passes image types only. Nothing was lost.",
+        ],
+        [
+          'http-403',
+          () =>
+            "http-403: the site's server refused these requests — some sites block downloads that don't come from their own pages.",
+        ],
+        [
+          'truncated',
+          () =>
+            'truncated: these transfers ended early or exceeded the size limit — partial files are never written into the archive, so these members were dropped whole.',
+        ],
+      ];
+      const counts = new Map<string, number>();
+      for (const s of skipped) counts.set(s.reason, (counts.get(s.reason) ?? 0) + 1);
+      const notes = FOOTNOTES.filter(([reason]) => counts.has(reason)).map(([reason, note]) =>
+        note(counts.get(reason) ?? 0),
+      );
+      const footer = notes.length > 0 ? `\n${notes.join('\n')}\n` : '';
       yield {
         name: skippedReportName(usedNames),
         input: new Blob([`skipped ${skipped.length} of ${total}\n\n${report}\n${footer}`], {

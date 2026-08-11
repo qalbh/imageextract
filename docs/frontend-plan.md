@@ -422,9 +422,10 @@ Done when:
 
 **ZIP assembly shipped 2026-08-10** (`src/lib/zip.ts`, client-zip MIT 2.5.0):
 members prefetch through the shared queue with slots held until WRITTEN
-(byte budget covers blob residency); constants MAX_ZIP_IMAGES 250
-(rate-budget coherence — half the hourly proxy allowance so a retry plus
-preceding probes fit), MAX_ZIP_BYTES_IN_FLIGHT 64 MB (working in the
+(byte budget covers blob residency); constants MAX_ZIP_IMAGES 500 (was
+250 — moved with the allowance when it settled at 1,000/hr; rate-budget
+coherence — half the hourly proxy allowance so a retry plus preceding
+probes fit), MAX_ZIP_BYTES_IN_FLIGHT 64 MB (working in the
 constant comment; ASSUMES disk-backed Blob storage — the device pass tests
 exactly that), ZIP_UNKNOWN_WEIGHT 16 MB corrected on headers. Over-cap is
 blocked with the stated bar line, never truncated. Failures: live counts +
@@ -439,16 +440,40 @@ ZIP on desktop completed, saved to Downloads, opened, no tab crash — but
 NO PICKER appeared, which by the branch logic means
 `'showSaveFilePicker' in window` was FALSE in that browser and the BLOB
 path ran (a rejecting picker produces no file at all; a resolving one
-shows an OS dialog). Cause in that binary: it ships without the File
-System Access API — Brave disables it by default; flags/policy can too.
-So: the desktop run demonstrated the Blob path completing at 120 members
-on desktop, and the FS-ACCESS PICKER PATH REMAINS UNEXERCISED by any
-human — run the picker check in stock Chrome/Edge (confirm with
-`'showSaveFilePicker' in window` → true in DevTools first). The
+shows an OS dialog). TWO causes fit that binary: the browser ships
+without the File System Access API (Brave disables it; flags/policy can
+too) — or, learned in A2 below, the ORIGIN is not a secure context. The
 completion line now names its path ("ZIP saved · … · via picker/browser")
-so no future run is ambiguous. The mid-range ANDROID box below is NOT
-retired — desktop memory says nothing about the phone, where the
-disk-backed-Blob assumption is load-bearing.
+so no future run is ambiguous.
+
+**A2 CLOSED (2026-08-10), and it surfaced the secure-context boundary.**
+Run 2, stock Chrome with a human: the real picker appeared, and **cancel
+mid-write left nothing at the chosen location** — the FS-Access abort
+contract is now WITNESSED through the real picker, not just
+OPFS-inferred. Run 1, same browser minutes earlier, seemed to contradict
+it: the ZIP arrived silently in Downloads with no dialog. Diagnosed and
+reproduced (one Chrome instance, both origins): **the picker path is
+secure-context gated** — `showSaveFilePicker` exists on localhost and
+https and does NOT exist on a plain-http LAN address
+(`http://192.168.x.x:4321` → `isSecureContext: false`, API absent), so
+Run 1 was the Blob path working correctly in a context that has no
+picker, completion line "· via browser". Activation expiry was ruled out
+twice: EMPIRICALLY (instrumented picker called 0.2–0.6 ms after the
+click with `userActivation.isActive: true` at both 2 selected and
+select-all-159 — nothing before the picker scales with selection; it is
+the handler's first await) and STRUCTURALLY (any picker rejection —
+dismissal or SecurityError alike — returns without downloading anything,
+so a file in Downloads can only mean the branch was never entered).
+
+**Consequence, stated so nobody reads it as a gap: any device run
+against the LAN IP exercises the Blob path BY CONSTRUCTION** — and for
+the Android pass that is the right test for the right reason: a phone
+must use the LAN IP, Android has no FS-Access picker anyway so the Blob
+path is what a phone uses in production, and the disk-backed-Blob
+assumption under test is a Blob-path property. In deployed production
+(https everywhere) the secure-context split disappears. The mid-range
+ANDROID box below is NOT retired — desktop memory says nothing about the
+phone, where the disk-backed-Blob assumption is load-bearing.
 
 **Device pass (owed, retires the step-7 box below): run on a mid-range
 Android** — `npx astro dev --host` on the Mac, open

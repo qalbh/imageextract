@@ -109,7 +109,34 @@ describe('assembleZip', () => {
     const s = await stats;
     expect(eocdEntryCount(buffer)).toBe(2); // fine.png + SKIPPED.txt
     expect(includes(buffer, 'trunc.png\ttruncated')).toBe(true);
+    // The footer counters the token's misleading read: nothing cut-short
+    // is ever inside the archive.
+    expect(includes(buffer, 'never written into the archive')).toBe(true);
     expect(s.written).toBe(1);
+  });
+
+  it('bulk-capable skip reasons get explanatory footers; bare codes stay bare', async () => {
+    const images = [img('font.woff2'), img('walled.jpg'), img('down.png'), img('good.png')];
+    const { response } = assembleZip(images, {
+      weightOf: () => ZIP_UNKNOWN_WEIGHT,
+      signal: new AbortController().signal,
+      fetchImpl: async (input) => {
+        const u = String(input);
+        if (u.includes('font')) return new Response('css', { status: 415 });
+        if (u.includes('walled')) return new Response('no', { status: 403 });
+        if (u.includes('down')) return new Response('err', { status: 502 });
+        return bodyOf('ok');
+      },
+    });
+    const buffer = await response.arrayBuffer();
+    // 415: reassurance — a font-heavy page's skips are not failures.
+    expect(includes(buffer, 'font.woff2\thttp-415')).toBe(true);
+    expect(includes(buffer, 'Nothing was lost.')).toBe(true);
+    // 403: the bulk wall case gets its explanation.
+    expect(includes(buffer, "some sites block downloads that don't come from their own pages")).toBe(true);
+    // 502 stays a bare, self-explanatory code — no footer line for it.
+    expect(includes(buffer, 'down.png\thttp-502')).toBe(true);
+    expect(includes(buffer, 'http-502:')).toBe(false);
   });
 
   it('embeds data: URI members without any fetch', async () => {
