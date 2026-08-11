@@ -41,6 +41,17 @@ const termsLastUpdated = gitDateOf('src/pages/terms.astro');
 export default defineConfig({
   // Absolute URLs for og:image/og:url and the sitemap both need the origin.
   site: 'https://imageextract.pics',
+  // The generated half of "the bare URL is canonical". This does NOT remove
+  // the trailing-slash redirect — that is decided at runtime by the Workers
+  // assets layer (wrangler.jsonc → assets.html_handling, which carries the
+  // full reasoning). What it does is make everything Astro GENERATES agree
+  // with what the server serves: og:url becomes .../traffic instead of
+  // .../traffic/, and @astrojs/sitemap emits the bare form (it branches on
+  // this exact value — see its dist/index.js). Without it the sitemap would
+  // point crawlers at the one form that still redirects, which would move
+  // the hop rather than remove it. Build output shape is unchanged
+  // (build.format stays 'directory'); only the emitted URLs change.
+  trailingSlash: 'never',
   // 'passthrough' because we never use Astro's image optimization; the
   // default ('cloudflare-binding') injects an IMAGES binding we don't want.
   adapter: cloudflare({ imageService: 'passthrough' }),

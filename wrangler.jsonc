@@ -6,7 +6,24 @@
 	"main": "@astrojs/cloudflare/entrypoints/server",
 	"assets": {
 		"directory": "./dist",
-		"binding": "ASSETS"
+		"binding": "ASSETS",
+		// THE BARE URL IS CANONICAL, and this is the line that makes it so.
+		// The User-Agent advertises https://imageextract.pics/traffic — the
+		// least changeable string we own, since it lands in third-party
+		// access logs and stays there for years. Under the default
+		// ("auto-trailing-slash") that URL 307s to /traffic/, because Astro
+		// emits traffic/index.html and the assets layer canonicalises a
+		// directory to the slashed form. So the redirect is a RUNTIME
+		// decision, not an Astro one — Astro's `trailingSlash` cannot remove
+		// it (setting that alone just repoints the sitemap at a URL that
+		// still redirects). "drop-trailing-slash" inverts it: /traffic
+		// serves 200 directly and /traffic/ redirects instead, which is the
+		// direction that costs nothing, because nothing we publish uses the
+		// slashed form. astro.config's trailingSlash: 'never' is the other
+		// half — it aligns og:url and the sitemap with what this serves.
+		// Verified against `wrangler dev` before deploying, on a harness
+		// first checked to reproduce the production 307.
+		"html_handling": "drop-trailing-slash"
 	},
 	// Operator domain blocklist — READ-ONLY from the Worker. The
 	// zero-persistence carve-out (AGENTS.md "Politeness" / DECISIONS.md):
