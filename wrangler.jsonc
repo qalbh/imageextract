@@ -4,6 +4,16 @@
 	"compatibility_flags": ["global_fetch_strictly_public"],
 	"name": "imageextract",
 	"main": "@astrojs/cloudflare/entrypoints/server",
+	// CUSTOM DOMAIN, not a route pattern — chosen because the hostname
+	// belongs entirely to this Worker. There is no second origin in this
+	// zone: one Worker serves the site AND /api/*, so there is nothing to
+	// split traffic with. A route pattern would additionally require a
+	// placeholder DNS record maintained by hand, whose only job is to give
+	// Cloudflare something to intercept. custom_domain creates the DNS
+	// record and the certificate together and keeps them with the Worker.
+	// Declared here rather than clicked in the dashboard so the binding is
+	// version-controlled and reproducible from a clean checkout.
+	"routes": [{ "pattern": "imageextract.pics", "custom_domain": true }],
 	"assets": {
 		"directory": "./dist",
 		"binding": "ASSETS",
