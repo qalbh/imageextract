@@ -249,12 +249,19 @@ Phase 5 (trust and legal): every page has shipped — `/traffic` (the renamed ha
       No last-updated date: no dated promises, no changes section.
 - [ ] Abuse contact address, live and monitored — **the last open
       Phase 5 item, and it holds the phase open.** Every shipped page
-      prints abuse@ (and /privacy prints privacy@), so the
-      published-promise rule applies: an address that receives nothing
-      is a promise without a mechanism — "nothing is deployed yet"
-      would have excused the dead UA URL for four phases. Mechanism:
-      Phase 7's mail-routing task (one inbox, two names). Phase 5
-      closes when mail FLOWS, not when pages ship.
+      prints support@imageextract.pics, so the published-promise rule
+      applies: an address that receives nothing is a promise without a
+      mechanism — "nothing is deployed yet" would have excused the dead
+      UA URL for four phases. Mechanism: Phase 7's mail-routing task.
+      Phase 5 closes when mail FLOWS, not when pages ship.
+      **Superseded 2026-08-12: the one-inbox-two-names plan is dead.**
+      It provisioned abuse@ and privacy@ as two names aliasing into one
+      mailbox. There is now ONE address — support@imageextract.pics —
+      carrying abuse, privacy, and takedown alike. One live mailbox
+      beat two names over a mailbox that did not exist yet, and a
+      single address cannot rot half-way: with two names, one alias
+      silently failing leaves a page printing a bouncing address while
+      the other page looks fine.
 - [x] Copyright notice above the results grid (shipped early, with the Phase 2 first pass)
 - [x] Privacy policy — `/privacy` shipped 2026-08-10. **The technical
       claims are the part we can vouch for**: every checkable statement
@@ -285,7 +292,7 @@ Phase 5 (trust and legal): every page has shipped — `/traffic` (the renamed ha
       the FAQ answer change in the same commit.** Git-derived
       last-updated via the shared gitDateOf define.
 - [x] DMCA / takedown contact — the /terms takedown section: what to
-      send, to abuse@imageextract.pics, honest about the mechanism (no
+      send, to support@imageextract.pics, honest about the mechanism (no
       hosted copies to remove; domain exclusion where a claim is
       credible; off-site material belongs with its host). Same
       vouch-scope caveat; deliverability of the exclusion promise is
@@ -440,7 +447,7 @@ Phase 5 (trust and legal): every page has shipped — `/traffic` (the renamed ha
 - [ ] Custom domain attached, SSL verified
 - [ ] **HARD BLOCKER — create the BLOCKLIST KV namespace** and replace
       the placeholder id in wrangler.jsonc. Elevated 2026-08-10 because
-      /terms now PROMISES domain exclusion ("write to abuse@ and have
+      /terms now PROMISES domain exclusion ("write to support@ and have
       your domain excluded") and the blocklist FAILS OPEN until the
       namespace exists — a deploy without it publishes a promise whose
       mechanism silently no-ops. This is the same failure the UA taught
@@ -452,11 +459,18 @@ Phase 5 (trust and legal): every page has shipped — `/traffic` (the renamed ha
 - [ ] Legal review of /privacy and /terms — the copy is an accurate
       technical description, claim-verified against source; what it has
       never had is a lawyer's read. Owed before launch.
-- [ ] Mail routing: provision abuse@ AND privacy@ together — one
-      inbox, two names (privacy@ aliases into the abuse@ mailbox).
-      Neither address is provisioned without the other: /privacy
-      already prints privacy@, the footer prints abuse@, and a
-      bouncing address on either page is worse than none.
+- [ ] Mail routing: **support@imageextract.pics exists and receives
+      mail — verify before launch.** One address, used for abuse,
+      privacy, and takedown alike; every shipped page prints it and
+      nothing else. It holds Phase 5 open until mail demonstrably
+      flows — a bouncing address on a page whose whole defence is good
+      citizenship is worse than no address at all.
+      **Supersedes the one-inbox-two-names plan (2026-08-12):** abuse@
+      and privacy@ as two names aliasing into one mailbox. Dropped
+      because the mailbox that actually exists is support@, and one
+      address cannot rot half-way — with two names, a silently failing
+      alias leaves one page printing a bouncing address while the other
+      looks fine.
 - [ ] Confirm Cloudflare Web Analytics dashboard auto-injection is OFF
       — the doc-sync analytics guard covers source, not the dashboard
       (layer 5's named residual).

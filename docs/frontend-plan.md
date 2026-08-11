@@ -3,9 +3,12 @@
 ## Pre-launch blockers (from the landing page, 2026-08-08)
 
 **HARD blockers — launch does not happen without these:**
-- **Abuse mailbox** (`abuse@imageextract.pics`) live and monitored — the
-  landing footer links it. A bouncing abuse address is worse than none for
-  a tool whose defence is good citizenship.
+- **Contact mailbox** (`support@imageextract.pics`) live and monitored — the
+  landing footer links it, and /traffic, /terms, /about and /privacy all
+  print it. A bouncing address is worse than none for a tool whose defence
+  is good citizenship. (Was `abuse@`, with `privacy@` planned alongside it
+  as a second name over one inbox; superseded 2026-08-12 — support@ is the
+  mailbox that exists, and it carries abuse, privacy, and takedown alike.)
 - **`/traffic` UA-explainer page — SHIPPED 2026-08-10** (renamed from the
   planned `/bot`: "bot" mischaracterised a user-directed fetch; nothing was
   deployed, so the rename cost one string). Hard dependency of the
