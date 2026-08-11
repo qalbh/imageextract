@@ -329,15 +329,32 @@ Phase 5 (trust and legal): every page has shipped — `/traffic` (the renamed ha
       it by hand at deploy.
 - [ ] Lighthouse pass, LCP under 2.0s on 4G — **measured 2026-08-11
       (Lighthouse 12, mobile slow-4G, production build): / scores 98
-      with LCP 2.3s; /results scores 99 with LCP 2.0s; CLS 0 on
-      both.** The landing misses the budget by 0.3s, and the miss is
-      PRE-EXISTING, not from the brand assets: a logo-blocked
-      counterfactual run measured 2.2s, og-image never loads
-      (meta-only, network-log-confirmed), so the logo costs ~0.1s and
-      the 2.2s baseline is the H1 waiting on the 43 KB display font
-      over 1.6 Mbps (FCP 1.7 → LCP 2.3 = the swap repaint). Box stays
-      open; closing it means a font-strategy decision (subset further,
-      swap tuning, or accept slow-4G at 2.2–2.3 as the floor).
+      with LCP 2.2–2.3s; /results scores 99 with LCP 2.0s; CLS 0 on
+      both.** The landing misses the budget by ~0.25s. Not from the
+      new brand assets: og-image never loads (meta-only,
+      network-log-confirmed) and a logo-blocked counterfactual moved
+      LCP ~0.1s.
+      **The font hypothesis was TESTED AND FALSIFIED (2026-08-11).** A
+      2,152-byte hero subset (19 glyphs, instanced at 700 from the same
+      variable file, inlined by Vite so it cost zero requests) was
+      built, wired to the H1, and measured: LCP 2.3s with both fonts
+      preloaded — identical to baseline — and 2.5s when the full face's
+      preload was dropped. Zero gain, so it was REVERTED rather than
+      kept as neutral-but-maintained (it would have needed regeneration
+      on every hero-copy change). CLS stayed 0 throughout; the subset
+      never shipped, so the two-face swap question is moot.
+      **What the measurement actually shows:** LCP is ~100% RENDER
+      DELAY (2,030ms of a 2,480ms LCP; TTFB 452ms, load delay 0, load
+      time 0). The blockers are the two render-blocking stylesheets —
+      SiteHeader.css 25.8 KB and index.css 6.6 KB, Lighthouse-attributed
+      452ms and 302ms — not font bytes. The earlier
+      "H1 waits on the 43 KB display font" attribution in this box was
+      wrong; the H1 waits on CSS.
+      Closing this box means a CSS-delivery decision (inline the
+      critical subset, split the shared chunk, or accept ~2.2s as the
+      slow-4G floor for a 32 KB render-blocking payload) — or revising
+      the budget. Recorded as an open miss, deliberately not left
+      quiet.
 - [x] 404 page — shipped 2026-08-11: same shape as the static pages
       (wordmark-only header, reading measure, tokens), zero script
       tags in the built 404.html, says the page doesn't exist and
