@@ -159,7 +159,14 @@ badge** on the tile; source is a sidebar filter, which is where it does its work
   box and always uniform. The keyboard **focus ring** is an outset 2px accent
   outline, and `.result-tile:focus-visible` lifts `content-visibility` on the
   focused tile so the outline isn't clipped (one tile focused at a time — no perf
-  cost). Never a shadow.
+  cost). Never a shadow. The same 2px accent outline at 2px offset rides
+  **every control**, including all selection-bar buttons (brought into line
+  by the 2026-08-10 keyboard audit — they were the one class left on the
+  UA-default 1px ring). **One deliberate exception:** the source chip's URL
+  input signals focus with its **border**, not an outline — changing it
+  risks the field-sizing behaviour for no user-visible gain. Recorded
+  because an outline-only audit will misread that field as having no focus
+  affordance; it has one, built by another mechanism. Look at it.
 - **Image well** (`.tile-well`, 262:180): deliberately not square — the ratio
   sits between 4:3 and 16:9 so the dominant photo shapes fill it with a mild
   crop under `object-cover` instead of letterboxing. `--color-surface` ground
@@ -249,13 +256,17 @@ badge** on the tile; source is a sidebar filter, which is where it does its work
   the count + size + Calculate/Sizing controls on their own row, so the probe
   strings can never crowd the chrome; row 3 the Filters trigger + Download), a
   single row from `md`. Mobile height is `calc(var(--layout-stickybar) * 2)`.
-- **`.filter-sheet`** is `fixed`, `max-height: 70vh`, stopping
-  `calc(var(--layout-stickybar) * 2)` off the bottom (matching the mobile
-  selection-bar height — the two values must move together) so that bar stays
-  visible while it's open. `.filter-scrim`
-  (`--color-overlay`) dims the content behind at `z 20`, below the bottom chrome
-  (`z 30`) and the sheet (`z 40`). Clear/Apply sit at the sheet's base; filters
-  are live, so Apply only dismisses.
+- **`.filter-sheet`** is a native `<dialog>` shown with `showModal()`
+  (since the 2026-08-10 keyboard audit: the platform provides the focus
+  trap, Escape-to-close, page inertness, and focus-restore-to-trigger that
+  the previous scrim+div only claimed via `aria-modal`). Fixed,
+  `max-height: 70vh`, stopping `calc(var(--layout-stickybar) * 2)` off the
+  bottom (matching the mobile selection-bar height — the two values must
+  move together) so that bar stays visible — visible but **inert** — while
+  the sheet is open. The old scrim is now `::backdrop`
+  (`--color-overlay`); clicking it closes (a backdrop click targets the
+  dialog element). Clear/Apply sit at the sheet's base; filters are live,
+  so Apply only dismisses.
 
 ## Interaction
 

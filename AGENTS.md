@@ -434,6 +434,13 @@ satisfying it, and "verified keyboard selection" became "verified focus
 order" without anyone lying. The fix is procedural, not attentional — state
 the evidence, and the gap between it and the box text stays visible.
 
+**Look before recording a negative.** Computed styles describe one
+mechanism; an affordance built by another mechanism reads as absent. The
+2026-08-10 keyboard audit twice recorded "no focus ring" from
+`outline: none` on elements whose ring was a border — the screenshots
+corrected the probe. A negative claim ("this has no X") needs eyes on the
+rendered thing, not just a property read.
+
 - [ ] SSRF guard unit-tested against every reserved range, including a redirect chain into one
 - [ ] Nothing written to KV, R2, D1, or cache
 - [ ] No URLs in logs

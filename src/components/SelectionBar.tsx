@@ -15,8 +15,10 @@ import { MAX_ZIP_IMAGES } from '../lib/zip';
  * carries its consequence in its own label — on the Blob path cancelling
  * discards everything, and the user must know BEFORE clicking, not after.
  */
+// The token focus ring rides every bar control — the keyboard audit found
+// these were the one control class on the page left on the UA default ring.
 const actionClass =
-  'font-mono text-label uppercase text-muted enabled:hover:text-text disabled:text-light-muted';
+  'font-mono text-label uppercase text-muted enabled:hover:text-text disabled:text-light-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent';
 
 export interface SizeSummaryView {
   knownBytes: number;
@@ -139,7 +141,7 @@ export default function SelectionBar({
             ? 'Assembly in progress'
             : undefined
       }
-      className={`rounded-md px-md py-xs font-mono text-label uppercase ${
+      className={`rounded-md px-md py-xs font-mono text-label uppercase focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
         zipEnabled ? 'bg-accent text-surface' : 'bg-border text-light-muted'
       } ${className}`}
     >
@@ -177,7 +179,7 @@ export default function SelectionBar({
           type="button"
           onClick={onOpenFilters}
           aria-expanded={filtersOpen}
-          className="rounded-md border border-border px-sm py-xs font-mono text-label uppercase text-text"
+          className="rounded-md border border-border px-sm py-xs font-mono text-label uppercase text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
         >
           Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
         </button>

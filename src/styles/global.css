@@ -330,27 +330,34 @@ body {
   }
 }
 
-/* Mobile filter sheet + scrim (Frame 2). Structural layout only — every colour
-   is a token. The sheet stops above the two fixed bottom bars (selection bar +
-   Filters trigger, each --layout-stickybar tall) so the selection bar stays
-   visible while the sheet is open; the scrim (z 20) dims the content behind but
-   sits below the bottom chrome (z 30) and the sheet (z 40). 70vh is the brief's
+/* Mobile filter sheet (Frame 2). Structural layout only — every colour is a
+   token. A native <dialog> shown with showModal() (keyboard audit, 2026-08-10:
+   the platform provides the focus trap, Escape, page inertness, and focus
+   restore that the hand-rolled scrim+div version only claimed via aria-modal).
+   The UA centres modal dialogs with auto margins and caps their size, so the
+   bottom-sheet placement needs explicit resets. Styles are gated on [open] —
+   the element mounts a tick before showModal() runs, and the UA's
+   display:none must win until then or the sheet flashes. The old .filter-scrim
+   is now ::backdrop. The sheet still stops above the selection bar (visible
+   but INERT while open — what aria-modal always claimed). 70vh is the brief's
    "~70% of the screen", a proportion rather than a token. */
-.filter-scrim {
-  position: fixed;
-  inset: 0;
-  z-index: 20;
-  background: var(--color-overlay);
-}
-.filter-sheet {
+.filter-sheet[open] {
   position: fixed;
   left: 0;
   right: 0;
+  top: auto;
   bottom: calc(var(--layout-stickybar) * 2); /* clears the three-row mobile selection bar */
-  z-index: 40;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  border: 0;
+  padding: 0;
   display: flex;
   flex-direction: column;
   max-height: 70vh;
+}
+.filter-sheet::backdrop {
+  background: var(--color-overlay);
 }
 
 /* Selection bar: three stacked rows on phones (actions; count + size +

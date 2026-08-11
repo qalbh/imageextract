@@ -40,7 +40,26 @@ Phase 5 (trust and legal) is next. Its hard blocker is the `/bot` page the User-
       the header view-transition — the unsupported-engine instant cut
       rests on CSS error handling and has never been watched in a real
       second engine.
-- [ ] Phase 2 leftover: the keyboard/focus audit (form → filters → grid focus order) was never run as a full pass; whole-tile keyboard selection and the focus ring are verified, the ordered walk-through is not.
+- [x] Phase 2 leftover: the keyboard/focus audit — run 2026-08-10 as a
+      full recorded walk, findings fixed same day. Verified (desktop
+      1440×900, real Chrome): the 17 pre-grid Tab stops match the visual
+      order (header → source input/clear/Re-scan → notice dismiss →
+      format checkboxes → sort radio group as ONE stop with arrow-keys
+      confirmed moving within → Source summary → invert switch); all
+      159 tiles × 2 stops (tile + download anchor) = 318 grid stops
+      reachable; the reveal-cap append fired mid-walk (120→159) with
+      focus UNCHANGED and appended tiles tabbable; disabled bar buttons
+      correctly skipped in the empty-selection state. Findings fixed:
+      the 390px filter sheet is now a native <dialog> via showModal()
+      (was aria-modal markup with no trap, no Escape, no focus move-in —
+      re-walk verified: focus enters on open, 40 tabs reach ZERO page
+      elements outside the dialog, Escape and Apply both close with
+      focus restored to the Filters trigger, backdrop click closes,
+      ::backdrop dims); selection-bar controls now carry the 2px token
+      ring (were the one class on the UA default — re-verified 2px solid
+      accent). Recorded observation, deliberate: the source chip signals
+      focus via BORDER, not outline (design-system.md notes an
+      outline-only audit will misread it).
 
 ---
 

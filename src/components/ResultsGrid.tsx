@@ -217,6 +217,13 @@ export default function ResultsGrid() {
   const [noticeDismissed, setNoticeDismissed] = useState(false);
   // Mobile only: the filter sidebar collapses into a bottom sheet toggled here.
   const [sheetOpen, setSheetOpen] = useState(false);
+  const sheetRef = useRef<HTMLDialogElement | null>(null);
+  // The dialog mounts conditionally; showModal() must run after mount, and
+  // is what makes it modal (trap + inert background + Escape + focus
+  // restore). A plain open attribute would render it non-modally.
+  useEffect(() => {
+    if (sheetOpen) sheetRef.current?.showModal();
+  }, [sheetOpen]);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   // Anchor for shift-click range selection (the last tile toggled).
   const lastClickedRef = useRef<string | null>(null);
@@ -763,17 +770,22 @@ export default function ResultsGrid() {
               visible. Live filters, so Apply just dismisses; Clear resets. */}
           {sheetOpen && (
             <div className="md:hidden">
-              <button
-                type="button"
-                aria-label="Close filters"
-                onClick={() => setSheetOpen(false)}
-                className="filter-scrim"
-              />
-              <div
-                className="filter-sheet rounded-md bg-surface"
-                role="dialog"
-                aria-modal="true"
+              {/* Native <dialog> + showModal(): the focus trap, Escape-to-
+                  close, page inertness, and focus-restore-to-trigger all
+                  come from the platform — the keyboard audit found the
+                  hand-rolled version claimed aria-modal while focus walked
+                  into the page behind the scrim. role/aria-modal are
+                  implicit in a modal dialog; the scrim button is replaced
+                  by ::backdrop (click-to-close: a backdrop click targets
+                  the dialog element itself). */}
+              <dialog
+                ref={sheetRef}
                 aria-label="Filters"
+                className="filter-sheet rounded-md bg-surface"
+                onClose={() => setSheetOpen(false)}
+                onClick={(event) => {
+                  if (event.target === sheetRef.current) sheetRef.current?.close();
+                }}
               >
                 <div className="min-h-0 flex-1 overflow-y-auto border-t border-border p-md">
                   <ResultsSidebar instanceId="mobile" {...sidebarProps} />
@@ -782,19 +794,19 @@ export default function ResultsGrid() {
                   <button
                     type="button"
                     onClick={clearFilters}
-                    className="rounded-md border border-border px-md py-xs font-mono text-label uppercase text-text"
+                    className="rounded-md border border-border px-md py-xs font-mono text-label uppercase text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                   >
                     Clear
                   </button>
                   <button
                     type="button"
-                    onClick={() => setSheetOpen(false)}
-                    className="flex-1 rounded-md bg-accent px-md py-xs font-mono text-label uppercase text-surface"
+                    onClick={() => sheetRef.current?.close()}
+                    className="flex-1 rounded-md bg-accent px-md py-xs font-mono text-label uppercase text-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                   >
                     Apply
                   </button>
                 </div>
-              </div>
+              </dialog>
             </div>
           )}
         </div>
