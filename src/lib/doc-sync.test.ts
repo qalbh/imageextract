@@ -191,3 +191,33 @@ describe('layer 3: design-system colour table matches @theme', () => {
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// Layer 4 — deployed config. wrangler.jsonc is the kind of file people
+// regenerate or paste over, and a comment does not survive that. These
+// assertions do. The observability one is a regression test for a real
+// incident: the flag sat enabled while the log audit claimed nothing
+// enabled it, because the audit swept src/ and never opened config.
+declare const __WRANGLER_CONFIG__: {
+  observability?: { enabled?: boolean };
+  limits?: { cpu_ms?: number; subrequests?: number };
+  kv_namespaces?: Array<{ binding: string }>;
+};
+
+describe('layer 4: wrangler.jsonc invariants', () => {
+  it('observability stays OFF — inbound request URLs embed every scanned URL', () => {
+    expect(__WRANGLER_CONFIG__.observability?.enabled).toBe(false);
+  });
+
+  it('the limits block matches the documented, derived values', () => {
+    // 30,000 = 1,570 ms measured worst-case parse × 4 (hardware
+    // assumption) × ~5 headroom; 100 ≈ 1.6× the 61-subrequest worst
+    // structural scan (subrequest-budget.test.ts owns that derivation).
+    expect(__WRANGLER_CONFIG__.limits).toEqual({ cpu_ms: 30000, subrequests: 100 });
+  });
+
+  it('the BLOCKLIST binding survives — the blocklist fails open without it', () => {
+    const bindings = (__WRANGLER_CONFIG__.kv_namespaces ?? []).map((n) => n.binding);
+    expect(bindings).toContain('BLOCKLIST');
+  });
+});

@@ -335,8 +335,8 @@ and is deliberately unlinked from the site until it does, but the UA already
 carries its URL, which is why that page is a pre-launch hard blocker. Rate
 limits and the 429 notices are built (in-isolate counters,
 `src/lib/rate-limit.ts`), as is the domain blocklist
-(`src/lib/blocklist.ts`, KV namespace created at Phase 7); the wrangler
-limits block is not.**
+(`src/lib/blocklist.ts`, KV namespace created at Phase 7) and the
+wrangler `limits` block — Phase 4 abuse controls are complete.**
 
 - Respect `robots.txt` before scanning. On a block, return `robotsBlocked` and show "This site has asked automated tools not to access this page." **No override button.**
 - Operator domain blocklist (`src/lib/blocklist.ts`, KV key `domains`,
@@ -448,7 +448,13 @@ the evidence, and the gap between it and the box text stays visible.
       recovery classes are CORP/ORB blocks and geo/IP splits (DECISIONS:
       "The proxy stays referrerless")
 - [ ] Large ZIP completes on a mid-range Android phone
-- [ ] `limits` block set in `wrangler.jsonc`
+- [x] `limits` block set in `wrangler.jsonc` — verified: cpu_ms 30,000
+      from a measured 1,570 ms local worst case with the hardware
+      assumption stated beside the number; subrequests 100 over a
+      derived worst of 61, held by the counting test in
+      `subrequest-budget.test.ts`; both values and observability=false
+      asserted by doc-sync layer 4, so a regenerated file fails the
+      suite
 - [ ] Copyright notice and abuse contact shipped
 
 ## How to work with me

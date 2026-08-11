@@ -108,7 +108,38 @@ Phase 1 is complete: the whole server-side engine — scan, extraction, robots, 
       hop); route tests (403 `domain-blocked` with the honest copy on
       BOTH endpoints, zero network). The KV namespace itself is a
       Phase 7 deploy task — until then the binding fails open.
-- [ ] `limits.cpu_ms` and `limits.subrequests` in `wrangler.jsonc`
+- [x] `limits.cpu_ms` and `limits.subrequests` in `wrangler.jsonc` —
+      30,000 / 100, each with its method: cpu_ms from a MEASURED worst
+      case (5 MB candidate-dense document incl. 1 MB noscript through
+      extract+finalize = 1,570 ms worst-of-3 on the dev machine; 50 MB
+      proxy stream = 10 ms) ×4 for the stated assumption that a shared
+      production core is slower than this laptop, ×~5 headroom, rounded
+      generously — a too-low cpu_ms kills requests on slow colos
+      undiagnosably. subrequests from the derived structural worst (61:
+      page 4 + robots 4 + sheets 12 + DoH 40 + KV 1) held by a
+      permanent counting test (subrequest-budget.test.ts) that fails if
+      MAX_STYLESHEETS or the hop cap moves without re-derivation, and
+      asserts the config keeps ≥1.5× headroom. Both values are
+      doc-sync-asserted (layer 4), so a regenerated wrangler.jsonc
+      fails the suite instead of deploying wrong. The
+      platform-limit-fires-outside-the-taxonomy consequence is accepted
+      and recorded (DECISIONS.md), with the mid-stream kill case probed
+      against real Chrome: partial discarded, download marked failed —
+      the truncation contract holds.
+- [x] Second log close-out (Phase 4 code + CONFIG — config swept
+      because the first close-out's gap was config and it bit within a
+      day). Code: rate-limit.ts, blocklist.ts, api-errors.ts additions,
+      both API routes, zip.ts skip changes, SelectionBar/ResultsGrid
+      additions. Config: every key of wrangler.jsonc (enumerated:
+      schema/compat/name/main/assets/kv/limits/observability),
+      package.json scripts (wrangler types + deploy only — nothing
+      logging-enabling), vitest.config.ts, astro.config.mjs (the
+      session null-driver actively upholds no-persistence), env.d.ts.
+      Verified: zero console.* in all of it; the two new modules never
+      throw (rejections are returned verdicts — the two grep hits for
+      "throw" are both comments); no interpolated URL/IP/key in any
+      message; observability false now TEST-ASSERTED (doc-sync layer
+      4), not remembered.
 - [x] Honest User-Agent naming the tool — the string is **live** (sent since Phase 1) and already carries the `/bot` URL; what does NOT exist is the `/bot` page itself, which is the Phase 5 hard blocker. The split matters: the UA is advertising a URL that 404s until that page ships.
 - [x] Full log audit — no page URLs, no image URLs, anywhere. Verified
       (2026-08-10, scope = all shipped code as of the coverage commit):

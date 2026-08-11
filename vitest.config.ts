@@ -12,7 +12,13 @@ import { defineConfig } from 'vitest/config';
 // test startup rather than drifting silently.
 const wrangler = JSON.parse(
   readFileSync(new URL('./wrangler.jsonc', import.meta.url), 'utf8').replace(/^\s*\/\/.*$/gm, ''),
-) as { compatibility_date: string; compatibility_flags?: string[] };
+) as {
+  compatibility_date: string;
+  compatibility_flags?: string[];
+  observability?: { enabled?: boolean };
+  limits?: { cpu_ms?: number; subrequests?: number };
+  kv_namespaces?: Array<{ binding: string }>;
+};
 
 // The Tailwind Vite plugin claims every `.css` import, so `global.css?raw`
 // resolves to an empty string inside the test bundle. The doc-sync test needs
@@ -22,6 +28,11 @@ const globalCss = readFileSync(new URL('./src/styles/global.css', import.meta.ur
 export default defineConfig({
   define: {
     __GLOBAL_CSS__: JSON.stringify(globalCss),
+    // The deployed config, injected so doc-sync can ASSERT it — the
+    // observability constraint and the limits numbers are tested, not
+    // remembered. A comment does not survive a file rewrite; a failing
+    // suite does.
+    __WRANGLER_CONFIG__: JSON.stringify(wrangler),
   },
   plugins: [
     cloudflareTest({

@@ -15,12 +15,34 @@
 	// namespace is created at Phase 7 deploy (local dev uses miniflare's
 	// simulated KV, which ignores the id).
 	"kv_namespaces": [{ "binding": "BLOCKLIST", "id": "created-at-phase-7-deploy" }],
-	// DISARMED 2026-08-10 (log-audit Finding A): our endpoint URLs embed the
-	// user's scanned URL (/api/scan?url=…), so invocation logging captures
-	// every user's URL with zero code changes. Do not enable without
-	// verified URL redaction — see AGENTS.md "No URLs in logs binds
-	// configuration". The full enforcement comment and limits block land
-	// with Phase 4 step 4.
+	// Runaway-bug guards, not cost optimizers — both sized to be
+	// unreachable by honest traffic, so firing means a logic bug.
+	// cpu_ms: measured worst case (5 MB candidate-dense document incl.
+	// 1 MB noscript, full extract+finalize) = 1,570 ms on the dev
+	// machine; ×4 for the STATED ASSUMPTION that a shared production
+	// core is slower than this laptop, ×~5 headroom → 30,000. Rounded
+	// generously on purpose: a too-high cpu_ms costs nothing, a too-low
+	// one kills requests on slow colos in a way that is very hard to
+	// diagnose from the outside. (Proxy streaming measured 10 ms for
+	// 50 MB — CPU lives in the parser, not the proxy.)
+	// subrequests: worst structural scan = 61 (derivation and the
+	// counting test that re-checks it: src/lib/subrequest-budget.test.ts,
+	// which also asserts this value keeps ≥1.5× headroom).
+	"limits": {
+		"cpu_ms": 30000,
+		"subrequests": 100
+	},
+	// KEEP DISABLED (log-audit Finding A): our endpoint URLs embed the
+	// user's scanned URL (/api/scan?url=…), so enabling ANY invocation
+	// logging here — observability, Logpush, tail workers — captures
+	// every user's URL with zero code changes, violating the no-URLs-
+	// in-logs constraint (AGENTS.md "No URLs in logs binds
+	// configuration"). This flag was once found enabled while the audit
+	// claimed otherwise; it is now TESTED, not remembered — doc-sync
+	// asserts enabled === false and fails the suite on any regenerated
+	// or pasted-over version of this file. If logging is ever truly
+	// wanted, it ships only after URL redaction is verified, and the
+	// doc-sync assertion changes in the same commit as the flag.
 	"observability": {
 		"enabled": false
 	}

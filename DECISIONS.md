@@ -429,6 +429,35 @@ if it asks).
 entries is still fine) or an owner asks for path-level exclusion,
 which robots.txt already provides and we already honour.
 
+## Platform limits sit outside the error taxonomy — accepted
+
+The wrangler `limits` block (cpu_ms 30,000 / subrequests 100, 2026-08-10)
+terminates an invocation at the platform level. The user then gets
+whatever Cloudflare returns — the catch-all the no-catch-all convention
+exists to prevent, with no typed error and no honest copy. Accepted
+rather than left unexamined, because both limits are sized to be
+UNREACHABLE by honest traffic (cpu_ms carries ~19× the measured local
+worst case with the hardware assumption stated in wrangler.jsonc;
+subrequests ~1.6× the derived structural worst): a firing limit means a
+logic bug, and a bug's failure mode does not deserve a friendly message
+more than it deserves being fixed.
+
+The one sharp case was CHECKED, not reasoned about: a proxy stream
+killed mid-transfer severs the connection — harsher than the stream
+error the truncation contract was proved against. Probed (2026-08-10,
+socket-destroy mid-body against real Chrome): the browser still
+discards the partial file and marks the download failed ("canceled",
+no path). The truncation contract holds under the platform-kill
+analogue; its claim needs no narrowing. Residual honesty: a real
+Cloudflare kill cannot be produced locally, but at the transport layer
+it is one of the two shapes probed (clean stream error, hard reset),
+and both discard.
+
+**Cost:** if a limit ever fires, the user sees a raw platform error.
+**Revisit if:** limit-fire telemetry ever shows honest traffic hitting
+either number — that means the sizing assumption broke, not that the
+taxonomy needs a row.
+
 ## Open questions
 
 | Question | Trigger |
