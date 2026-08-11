@@ -441,12 +441,43 @@ Phase 5 (trust and legal): every page has shipped — `/traffic` (the renamed ha
 - [x] GitHub repository, code pushed — verified 2026-08-10:
       `origin → github.com/qalbh/imageextract`, `main` in sync with
       `origin/main`, zero unpushed commits
-- [ ] Cloudflare account created
-- [ ] Nameservers moved from Hostinger to Cloudflare
-- [ ] First deploy via Wrangler
-- [ ] Custom domain attached, SSL verified
-- [ ] **HARD BLOCKER — create the BLOCKLIST KV namespace** and replace
-      the placeholder id in wrangler.jsonc. Elevated 2026-08-10 because
+- [x] Cloudflare account created — 2026-08-12,
+      account `c9ad2f8b45e26aea20600e1121b19a7f`, wrangler
+      authenticated via OAuth (`workers_kv:write` in scope, which the
+      KV item below needed)
+- [x] Nameservers moved from Hostinger to Cloudflare — verified by
+      `dig NS`: `elle.ns.cloudflare.com` / `leif.ns.cloudflare.com`,
+      SOA on Cloudflare. Nothing stale came back from the Hostinger
+      parking setup: the apex held NO records before the attach and
+      `www` has zero.
+- [x] First deploy via Wrangler — 2026-08-12, version
+      `6ac71823-4056-4ff9-87ca-97ce19aaec21`. **What shipped was
+      measured, not assumed:** 38 files, all from `dist/client`, zero
+      `.md`/`.ts`/`.astro`/`.test.*`/`.map`; the "read 46 / uploaded
+      38" gap reconciled (six subdirectories, plus `_headers` and
+      `.assetsignore` consumed rather than served). Worker startup
+      24–28 ms; 636.69 KiB total, 166.16 KiB gzipped.
+- [x] Custom domain attached, SSL verified — `imageextract.pics`, as a
+      Custom Domain rather than a route pattern (the hostname belongs
+      entirely to this Worker; reasoning in wrangler.jsonc), declared
+      in config rather than clicked so it is version-controlled.
+      Cert: CN=imageextract.pics, Google Trust Services, 2026-08-11 →
+      2026-11-09, `ssl_verify=0`, HTTP/2. DNS created by the attach:
+      A `104.21.82.69` + `172.67.197.187`, AAAA
+      `2606:4700:3031::6815:5245` + `2606:4700:3030::ac43:c5bb`.
+      `workers_dev` pinned false in the same pass — a second hostname
+      serving identical indexable content is duplicate content.
+- [x] **HARD BLOCKER — BLOCKLIST KV namespace — CLOSED 2026-08-12.**
+      Namespace `b4ef65c2b3e346eaa02dca44e839468a` created at the first
+      deploy and set in wrangler.jsonc, replacing the placeholder.
+      /terms' exclusion promise is deliverable from now on: an empty
+      namespace blocks nothing (every lookup is a clean miss), but
+      honouring a request is now an operator adding a line, live
+      worldwide in ~2 minutes — not a redeploy. doc-sync layer 4 still
+      passes, verified rather than assumed: it asserts the BINDING
+      NAME, so a changed id does not trip it while a deleted binding
+      still does. Original reasoning kept below.
+      Elevated 2026-08-10 because
       /terms now PROMISES domain exclusion ("write to support@ and have
       your domain excluded") and the blocklist FAILS OPEN until the
       namespace exists — a deploy without it publishes a promise whose
@@ -513,7 +544,9 @@ Phase 5 (trust and legal): every page has shipped — `/traffic` (the renamed ha
       configuration changes**, since Rocket Loader, Email Obfuscation
       and Bot Fight Mode can all appear the same way with no deploy at
       all.
-- [ ] Workers Paid ($5/mo) — required, free tier CPU is insufficient
+- [x] Workers Paid ($5/mo) — active, confirmed before the first
+      deploy. Required: the free tier's 10 ms CPU ceiling would fail
+      every scan (measured worst case is 1,570 ms of parse).
 - [x] Deploy-on-push — **CLOSED as not-doing (2026-08-12), a decision
       rather than outstanding work.** Releases are a direct
       `npm run build && npx wrangler deploy` after the gates pass. The
