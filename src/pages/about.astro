@@ -1,0 +1,72 @@
+---
+import Layout from '../layouts/Layout.astro';
+import SiteHeader from '../components/SiteHeader.astro';
+
+// Claim-verified against source 2026-08-10 before writing, like /privacy
+// and /terms. "there won't be one" is a CONSCIOUS promise, not an
+// oversight: it forecloses the deferred sign-in decision, and the
+// deferred-decisions row was closed in the same commit — accounts are not
+// a feature we declined, they are a thing the architecture makes
+// unnecessary, and the abuse case sign-in was reserved for is handled by
+// rate limiting. If abuse ever outpaces that, the promise breaks
+// PUBLICLY: this page changes first, the feature comes second.
+// No last-updated date: this page makes no dated promises and has no
+// changes section — gitDateOf is a legal-pages mechanism.
+---
+
+<Layout title="About — ImageExtract">
+	<meta
+		slot="head"
+		name="description"
+		content="ImageExtract lists every image on a web page for preview, filtering, and download. Free, no account, nothing stored — built by an independent developer."
+	/>
+	<SiteHeader anchorPrefix="/" nav={false} />
+	<main class="mx-auto max-w-content px-md py-xl">
+		<article class="about-article">
+			<h1 class="text-h1 font-semibold text-text">About</h1>
+			<p class="mt-md text-body text-muted">
+				ImageExtract lists every image on a web page so you can preview, filter, and download the
+				ones you want.
+			</p>
+			<p class="mt-sm text-body text-muted">
+				It's free, there's no account, and there won't be one.
+			</p>
+
+			<h2 class="mt-xl text-h3 font-semibold text-text">Why it works this way</h2>
+			<p class="mt-sm text-body text-muted">
+				Most tools like this open your page in a real browser on their servers, which means
+				downloading every image on it whether you want them or not. That costs money on every
+				scan, which is why they need signups and paid tiers.
+			</p>
+			<p class="mt-sm text-body text-muted">
+				ImageExtract reads the page's HTML instead. It's fast, it costs almost nothing to run,
+				and it means your images and the pages you scan never sit on our servers. That's not a
+				policy we could change later — it's just how the thing is built.
+			</p>
+			<p class="mt-sm text-body text-muted">
+				The tradeoff: pages that build their galleries entirely with JavaScript will return
+				less. Most sites work fine.
+			</p>
+
+			<h2 class="mt-xl text-h3 font-semibold text-text">Who made it</h2>
+			<p class="mt-sm text-body text-muted">
+				An independent developer. Not a company, not funded, not collecting anything to sell.
+			</p>
+
+			<h2 class="mt-xl text-h3 font-semibold text-text">Contact</h2>
+			<p class="mt-sm mb-xl text-body text-muted">
+				<strong class="text-text">abuse@imageextract.pics</strong> for site owners and takedown
+				requests. See <a href="/traffic" class="text-accent hover:underline">Traffic</a> for what
+				our requests to your site actually do.
+			</p>
+		</article>
+	</main>
+</Layout>
+
+<style>
+	/* Reading measure: half the content width, derived from the container
+	   token rather than an invented value (the .hero-form precedent). */
+	.about-article {
+		max-width: calc(var(--container-content) / 2);
+	}
+</style>

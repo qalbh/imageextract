@@ -509,6 +509,6 @@ that /traffic needs the robots paragraph after all.
 | Question | Trigger |
 |---|---|
 | Headless-browser deep scan | Closed 2026-08-10 — not indicated; see "Deep-scan mode closed" above |
-| Sign-in or quotas | Only if abuse outpaces rate limits |
+| Sign-in or quotas | **Foreclosed 2026-08-10 by /about's published promise** ("there's no account, and there won't be one"). Accounts are not a feature we declined — the architecture makes them unnecessary: static parsing costs cents, so there is no per-scan compute to recover, which is the only reason competitors need signups. The abuse case this row reserved sign-in for is handled by rate limiting (1,000/hr, sized so one honest session always completes). If abuse ever outpaces that, the promise breaks PUBLICLY, in order: /about changes first, the feature comes second — the promise is what constrains, not an afterthought |
 | Monetization | Not before real traffic exists |
 | Open-sourcing the repo | Post-launch |

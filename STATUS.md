@@ -12,7 +12,7 @@ Living document. Update it at the end of each working session rather than trying
 
 Phase 4 (abuse controls) closed 2026-08-10: in-isolate rate limits with the shared-egress 429 copy, the KV-read domain blocklist, the measured `limits` block with doc-sync-asserted observability, and both log close-outs — on top of the coverage diagnosis that inverted the deep-scan assumption and produced the noscript and logical-cap extraction fixes. Phases 1–3 before it shipped the engine (scan, extraction, robots, proxy, SSRF guard), the full results UI, and the download path (hotlink fallback, unified Range probing, single-image download, client-side ZIP).
 
-Phase 5 (trust and legal) is underway: its hard blocker — the UA-explainer page — closed 2026-08-10 as `/traffic` (renamed from the planned `/bot`, with the UA string reshaped to a user-directed fetch). Exactly ONE device item remains open, and it is deferred, not pending: the post-deploy Android ZIP pass (Phase 7 list — it holds Phase 3 open). Everything else on the verification ledger is closed.
+Phase 5 (trust and legal): every page has shipped — `/traffic` (the renamed hard blocker), `/privacy`, `/terms` with the takedown section, and `/about` — all claim-verified before writing, none legally reviewed (Phase 7 item). **The phase stays OPEN on one item: the abuse mailbox.** Every shipped page prints an address that does not yet receive mail, and the published-promise rule holds the phase open until it flows (mechanism: Phase 7's mail-routing task). One deferred device item also remains: the post-deploy Android ZIP pass (Phase 7 list — it holds Phase 3 open).
 
 ### Done
 
@@ -236,8 +236,25 @@ Phase 5 (trust and legal) is underway: its hard blocker — the UA-explainer pag
       with the version-suffix matching rule (see DECISIONS), this is two
       silent modes a site owner can hit; the reconsideration, if it
       comes, has both halves recorded.
-- [ ] `/about` page — general product/about page
-- [ ] Abuse contact address, live and monitored
+- [x] `/about` page — shipped 2026-08-10, claim-verified before writing
+      like the other Phase 5 pages: the category sentence about
+      headless-browser tools is a mechanism description naming nobody
+      (one competitor confirms it in their own FAQ; the landing FAQ
+      already publishes the equivalent claim); "never sit on our
+      servers" is /privacy's precise wording coarsened, not
+      contradicted; the JS-galleries tradeoff understates the measured
+      coverage (90–100% logical on readable pages). "There won't be
+      one" (accounts) is a CONSCIOUS promise — the deferred sign-in row
+      was closed in the same commit, promise-first ordering recorded.
+      No last-updated date: no dated promises, no changes section.
+- [ ] Abuse contact address, live and monitored — **the last open
+      Phase 5 item, and it holds the phase open.** Every shipped page
+      prints abuse@ (and /privacy prints privacy@), so the
+      published-promise rule applies: an address that receives nothing
+      is a promise without a mechanism — "nothing is deployed yet"
+      would have excused the dead UA URL for four phases. Mechanism:
+      Phase 7's mail-routing task (one inbox, two names). Phase 5
+      closes when mail FLOWS, not when pages ship.
 - [x] Copyright notice above the results grid (shipped early, with the Phase 2 first pass)
 - [x] Privacy policy — `/privacy` shipped 2026-08-10. **The technical
       claims are the part we can vouch for**: every checkable statement
@@ -377,7 +394,7 @@ Phase 5 (trust and legal) is underway: its hard blocker — the UA-explainer pag
 | Decision | Trigger for revisiting |
 |---|---|
 | Headless-browser deep scan | **Closed 2026-08-10: not indicated.** The boundary is bot walls, not JavaScript — see DECISIONS.md. Reopens only if live-scan telemetry shows a class of *readable* pages with a large truly-absent residue |
-| Sign-in or quotas | Only if abuse outpaces rate limits |
+| Sign-in or quotas | **Foreclosed 2026-08-10 by /about's published promise** ("no account, and there won't be one") — the abuse case it was reserved for is handled by rate limiting. If abuse ever outpaces that, the promise breaks publicly: /about changes FIRST, the feature second. Full reasoning in DECISIONS.md |
 | Monetization | Not before real traffic exists |
 | Open-sourcing | Post-launch |
 | Extending to a broader toolkit | After this ships end to end |
