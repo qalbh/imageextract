@@ -454,7 +454,10 @@ rendered thing, not just a property read.
       referer-required origins the referrerless proxy fails too — its real
       recovery classes are CORP/ORB blocks and geo/IP splits (DECISIONS:
       "The proxy stays referrerless")
-- [ ] Large ZIP completes on a mid-range Android phone
+- [ ] Large ZIP completes on a mid-range Android phone — deferred to
+      post-deploy (Phase 7: runs against the real https URL from any
+      phone; STATUS records the carried risk: disk-backed-Blob
+      assumption unverified, worst case a lost download + tab reload)
 - [x] `limits` block set in `wrangler.jsonc` — verified: cpu_ms 30,000
       from a measured 1,570 ms local worst case with the hardware
       assumption stated beside the number; subrequests 100 over a

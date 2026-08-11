@@ -362,7 +362,8 @@ Done when:
 - [ ] 1,000-image scan scrolls smoothly on a mid-range Android phone —
       REOPENED (2026-08-10 phase-boundary read): what was actually verified
       is 220 tiles at 4× CPU throttle in desktop Chrome (verify:results);
-      the real-device claim retires with the Phase 3 ZIP device pass
+      the real-device claim retires with the POST-DEPLOY ZIP device pass
+      (deferred 2026-08-10 — Phase 7 list; this box stays unchecked)
 - [x] Filter flips on the full set stay under a perceptible stall
 - [x] Selection and badges behave identically across revealed boundaries
 
@@ -475,8 +476,17 @@ assumption under test is a Blob-path property. In deployed production
 ANDROID box below is NOT retired — desktop memory says nothing about the
 phone, where the disk-backed-Blob assumption is load-bearing.
 
-**Device pass (owed, retires the step-7 box below): run on a mid-range
-Android** — `npx astro dev --host` on the Mac, open
+**Device pass — DEFERRED TO POST-DEPLOY (2026-08-10, Phase 7 list; the
+step-7 box below stays unchecked until it runs).** Deferred because it
+needs a LAN setup now, and after deploy it runs against the real https
+URL from any phone anywhere — cheaper and more representative. The risk
+carried in the interim: the disk-backed-Blob assumption behind
+MAX_ZIP_BYTES_IN_FLIGHT stays unverified, so a large mobile ZIP could
+OOM the tab; the failure mode is a lost download and a reload, not data
+loss or a security issue. The script below is unchanged and runs as
+written against the deployed URL (the LAN instructions become moot):
+run on a mid-range Android — pre-deploy fallback:
+`npx astro dev --host` on the Mac, open
 `http://<mac-ip>:4321/results?url=<large page>` on the phone. (1) Scroll
 the full grid first — jank here is the step-7 signal. (2) Select all
 (300+ if the page allows), Download ZIP; watch for tab reload/crash during

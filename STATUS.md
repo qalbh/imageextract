@@ -8,11 +8,11 @@ Living document. Update it at the end of each working session rather than trying
 
 ## Where we are right now
 
-**Phases 1–4 of 8 complete. Roughly 70% of the way to a launchable product.**
+**Phases 1, 2, and 4 of 8 complete; Phase 3 open on one deferred device check. Roughly 70% of the way to a launchable product.**
 
 Phase 4 (abuse controls) closed 2026-08-10: in-isolate rate limits with the shared-egress 429 copy, the KV-read domain blocklist, the measured `limits` block with doc-sync-asserted observability, and both log close-outs — on top of the coverage diagnosis that inverted the deep-scan assumption and produced the noscript and logical-cap extraction fixes. Phases 1–3 before it shipped the engine (scan, extraction, robots, proxy, SSRF guard), the full results UI, and the download path (hotlink fallback, unified Range probing, single-image download, client-side ZIP).
 
-Phase 5 (trust and legal) is next. Its hard blocker is the `/bot` page the User-Agent has been advertising since Phase 1. The open items that are not new code: the three by-hand device checks and the keyboard/focus audit, listed below.
+Phase 5 (trust and legal) is next. Its hard blocker is the `/bot` page the User-Agent has been advertising since Phase 1. Still open, none of it new code: the deferred Android ZIP pass (post-deploy, holds Phase 3 open) and the Firefox view-transition click-through — listed below.
 
 ### Done
 
@@ -31,15 +31,18 @@ Phase 5 (trust and legal) is next. Its hard blocker is the `/bot` page the User-
 
 ### Open items (verification, not new code)
 
-- [ ] The three by-hand device checks: **(1)** picker-path ZIP with a
-      human in stock Chrome/Edge — never yet exercised by anyone; the
-      completion line names its path ("· via picker") so the run is
-      unambiguous; **(2)** mid-range Android ZIP pass — the
-      disk-backed-Blob assumption is load-bearing and desktop memory
-      tells us nothing about the phone; **(3)** Firefox click-through of
-      the header view-transition — the unsupported-engine instant cut
-      rests on CSS error handling and has never been watched in a real
-      second engine.
+- [x] Device check (1): picker-path ZIP with a human in stock Chrome —
+      **A2 closed 2026-08-10**: real picker witnessed, cancel mid-write
+      left nothing at the chosen location; the contradiction run
+      diagnosed as secure-context gating, not a bug (details in the
+      Phase 3 client-zip box).
+- [ ] Device check (2): mid-range Android ZIP pass — **deferred to
+      post-deploy** (Phase 7 list; needs a LAN setup now, runs against
+      the real https URL from any phone after deploy). Holds Phase 3
+      open; the interim risk carried is recorded in the Phase 3 box.
+- [ ] Device check (3): Firefox click-through of the header
+      view-transition — the unsupported-engine instant cut rests on CSS
+      error handling and has never been watched in a real second engine.
 - [x] Phase 2 leftover: the keyboard/focus audit — run 2026-08-10 as a
       full recorded walk, findings fixed same day. Verified (desktop
       1440×900, real Chrome): the 17 pre-grid Tab stops match the visual
@@ -102,7 +105,7 @@ Phase 5 (trust and legal) is next. Its hard blocker is the `/bot` page the User-
 - [x] Proxy fallback on hotlink 403 — one retry per tile via a monotonic parent-owned status map; verified by the verify:results fallback scenario: 1 proxy request per failed tile and zero new proxy/origin requests across a filter round trip (the remount case). Live check closed (2026-08-10): referrerless 403s confirmed real across three origins; our referrerless proxy shares the failure for referer-required origins (kept deliberately — DECISIONS: impersonation argument), so its real recovery classes are CORP/ORB blocks and geo/IP splits. Full in-app loop not runnable live: image-protecting sites also page-protect, which caps the encounter rate.
 - [x] Lazy byte-size probing — shipped via proxy HEAD with the shared bounded queue (fetch-queue.ts, count + bytes-in-flight, the substrate ZIP reuses), then **superseded 2026-08-10 by the unified Range probe** (one prefix GET answers size AND dimensions; the gate's HEAD counting converted to Range counting). The probing discipline carried over unchanged and stays verified: 0 probes until selection, 1 per single select, cache across deselect/reselect, 5-range auto-probes / 30-range falls to the explicit action, select-all 0, peak concurrency exactly 6, bar totals never silently undercount, Cancel freezes in-flight probes. Client probe timeout 10s; data: URIs sized locally.
 - [x] Single-image download — a same-origin anchor per tile (proxy download=1 for http(s); data: URIs download natively via the download attribute, no proxy). Verified in the verify:results download checks: a real file lands on disk with exact bytes; the server's disposition name wins over the anchor attribute; pointer and keyboard downloads don't toggle selection; data: downloads make zero proxy calls. Determined: a mid-stream proxy abort makes the browser discard the partial file and mark the download failed — never a silently short file.
-- [x] `client-zip` streaming assembly in the browser (MIT, 2.5.0) — src/lib/zip.ts; verified by the verify:results ZIP scenarios: a real archive parsed from disk (EOCD entry count). Device pass A2 CLOSED (2026-08-10): the picker path is now witnessed by a human in stock Chrome — real picker, and **cancel mid-write left nothing at the chosen location** (the FS-Access abort contract, no longer OPFS-inferred). The same pass surfaced the secure-context boundary: `showSaveFilePicker` exists on localhost/https but NOT on a plain-http LAN address, so the run that silently saved to Downloads was the Blob path working correctly in a pickerless context ("· via browser") — activation expiry ruled out empirically (picker called 0.2–0.6 ms after click, activation active at 2 and 159 selected) and structurally (any picker rejection downloads nothing). Consequence recorded in frontend-plan: a LAN-IP device run exercises the Blob path BY CONSTRUCTION — which is the right test for the Android pass, since a phone uses the Blob path in production and the open assumption (disk-backed Blob) is a Blob-path property. Still owed: the mid-range Android run only. Desktop memory tells us nothing about the phone.
+- [x] `client-zip` streaming assembly in the browser (MIT, 2.5.0) — src/lib/zip.ts; verified by the verify:results ZIP scenarios: a real archive parsed from disk (EOCD entry count). Device pass A2 CLOSED (2026-08-10): the picker path is now witnessed by a human in stock Chrome — real picker, and **cancel mid-write left nothing at the chosen location** (the FS-Access abort contract, no longer OPFS-inferred). The same pass surfaced the secure-context boundary: `showSaveFilePicker` exists on localhost/https but NOT on a plain-http LAN address, so the run that silently saved to Downloads was the Blob path working correctly in a pickerless context ("· via browser") — activation expiry ruled out empirically (picker called 0.2–0.6 ms after click, activation active at 2 and 159 selected) and structurally (any picker rejection downloads nothing). Consequence recorded in frontend-plan: a LAN-IP device run exercises the Blob path BY CONSTRUCTION — which is the right test for the Android pass, since a phone uses the Blob path in production and the open assumption (disk-backed Blob) is a Blob-path property. **Still owed: the mid-range Android run — DEFERRED to post-deploy (2026-08-10, moved to the Phase 7 list).** Reason: it needs a LAN setup now; after deploy it runs against the real https URL from any phone anywhere — cheaper and more representative. **Risk carried in the interim:** the disk-backed-Blob assumption behind MAX_ZIP_BYTES_IN_FLIGHT stays unverified, so a large mobile ZIP could OOM the tab; the failure mode is a lost download and a reload — not data loss, not a security issue. Phase 3 stays OPEN on this one item.
 - [x] Concurrency cap of 6 parallel fetches, bounding BYTES in flight, not just count — MAX_ZIP_BYTES_IN_FLIGHT 64 MB, unknowns admitted at ZIP_UNKNOWN_WEIGHT 16 MB and corrected via setWeight on response headers; a queue slot is held until the member is written, so the budget covers blob residency. Admission logic suite-tested; not re-proven in the gate.
 - [x] Per-file progress — member-granularity counter ("Zipping 213/487 · 2 failed"), not intra-file bytes; verified in the gate.
 - [x] Failures skipped and reported, never fatal — live counts in the bar, completion line "ZIP saved · 6 of 8 (2 skipped)", and a SKIPPED.txt member inside the archive naming each skip and reason (verified inside the downloaded bytes).
@@ -245,6 +248,11 @@ Phase 5 (trust and legal) is next. Its hard blocker is the `/bot` page the User-
       Cloudflare's egress may land some of them in the readable class,
       which would materially change the corpus (frontend-plan.md records
       the limit). Cheap to run; the only way to answer this class.
+- [ ] The mid-range Android ZIP pass (deferred here 2026-08-10 — the
+      other "thing only the deployed site can answer" cheaply: any
+      phone, real https URL, no LAN setup). Script in frontend-plan.
+      This is the item holding Phase 3 open; it verifies the
+      disk-backed-Blob assumption and retires the step-7 grid-jank box.
 
 ### Phase 8 — Post-launch
 
@@ -270,7 +278,7 @@ Phase 5 (trust and legal) is next. Its hard blocker is the `/bot` page the User-
 
 **Static parse coverage is measured, and the assumption inverted.** The feared number — "below 60% on ecommerce means the product needs rethinking" — was tested 2026-08-10 against browser ground truth on 7 live pages. SSR ecommerce lands ≥90%; news, marketing, and docs land 100% in logical images. The one sub-60% reading (a headless-React Shopify collection at 45.6%) was **our cap policy, not static parsing**: the served HTML held 2,998 image URLs the parser had already read, and the candidate-counted cap trimmed them. With the noscript and logical-cap fixes it recounts at 98.1%, and apple.com went 50% → 100% on noscript alone. No rethink is indicated. What static parsing cannot reach is what origins refuse to serve — bot walls (Anubis, challenge pages), which stop headless browsers too. Full table and method in frontend-plan.md; the closure reasoning in DECISIONS.md.
 
-**Large-grid rendering: decided and shipped, one verification open.** The Phase 2 answer is incremental reveal (cap 120, IntersectionObserver append) plus content-visibility on fixed-ratio tiles — not virtualization, not pagination (pagination resets on filter changes and makes select-all ambiguous; see DECISIONS.md). Verified at 220 tiles under 4× CPU throttle in desktop Chrome: 120 tiles / ~1.5k DOM nodes at rest. What remains open is the real mid-range Android verification, which retires with the Phase 3 ZIP device pass; @tanstack/react-virtual stays the escalation path if that device run janks.
+**Large-grid rendering: decided and shipped, one verification open.** The Phase 2 answer is incremental reveal (cap 120, IntersectionObserver append) plus content-visibility on fixed-ratio tiles — not virtualization, not pagination (pagination resets on filter changes and makes select-all ambiguous; see DECISIONS.md). Verified at 220 tiles under 4× CPU throttle in desktop Chrome: 120 tiles / ~1.5k DOM nodes at rest. What remains open is the real mid-range Android verification, which retires with the post-deploy ZIP device pass (deferred 2026-08-10 to the Phase 7 list — it holds Phase 3 open); @tanstack/react-virtual stays the escalation path if that device run janks.
 
 **The proxy is a deliberately open endpoint.** Rate limits and size caps are the only defence, since verifying that a URL came from a prior scan is not possible statelessly. Accepted risk, mitigated rather than eliminated.
 
