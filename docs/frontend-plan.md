@@ -173,9 +173,19 @@ fetched stylesheet, or absent.
 
 Probes: amazon robots-allows the scan but runs a per-request lottery (0,
 some, 117 images across three identical scans); etsy serves a challenge
-page (successful scan, zero images). Exact-vs-logical is its own
+page (successful scan, zero images); behance.net matches etsy's
+signature exactly from the deployed Worker — successful scan, HTTP 200,
+no robots block, zero images — while returning 128 from a laptop on the
+same minute (see "Production vantage" below). Exact-vs-logical is its own
 DECISIONS.md entry; the deep-scan closure ("bot walls, not JavaScript")
 is another.
+
+**behance.net was NEVER IN THE CORPUS** — it was first scanned on
+2026-08-12, at the first production scan. It is recorded here as a probe,
+not as a corpus regression: nothing above was measured against it, so no
+row changes and no coverage percentage moves. Worth stating plainly
+because "Behance returns zero" invites the reading that a scored page
+broke, and the first instinct on seeing it was exactly that.
 
 lovehoney.eu (probed 2026-08-10, post-fixes): **geo/IP edge block, a
 wall sub-class the corpus rows don't show.** Akamai serves a static 403
@@ -203,6 +213,74 @@ in the table above carries that asterisk. The only way to answer this
 class is to re-run the walled probes from the deployed Worker's own
 egress (Phase 7 item in STATUS.md); if Cloudflare's vantage lands them
 readable, the corpus materially changes and gets re-recorded.
+
+### Production vantage: answered 2026-08-12
+
+**THE ASTERISK IS DISCHARGED FOR THE CORPUS. Production coverage is not
+materially worse — six of seven pages match to the image.**
+
+| Page | Local | Production | Verdict |
+|---|---|---|---|
+| astro.build | 159 | 159 | match |
+| en.wikipedia /Photography | 84 | 84 | match |
+| apple.com | 318 | 318 | match |
+| theguardian /international | 716 | 722 | match (page churn) |
+| allbirds /collections | 99 | 99 | match |
+| gymshark /collections | 12 | 12 | match |
+| behance.net gallery | 128 | **0** | **prod empty, local fine** |
+
+**METHOD — the reusable part.** Same URL, same minute, **local Worker vs
+production Worker, identical code** (`wrangler dev --local` against the
+deployed Worker). Not a comparison against the historical numbers in the
+table above: those were measured three days earlier, on collection paths
+whose exact URLs were never recorded, on pages this document already
+notes churn per request (allbirds carousels). Comparing to them would
+have produced a column of small unexplained deltas and no way to tell
+vantage from churn. Holding everything constant except egress makes any
+difference attributable to one variable — which is what turned behance
+from "something is wrong" into a one-line result. Use this shape for any
+future vantage question.
+
+(gymshark reads 12 here against 158 in the corpus table because the
+collection path is a guess — the original was never recorded. It is
+irrelevant to the comparison: BOTH sides scanned the same guessed URL and
+both returned 12. The A/B holds; only the cross-reference to the old row
+does not.)
+
+**behance.net: what is established, and what is not.**
+
+Established. Production receives a materially different body: the
+manifest is `{pageUrl, images: []}` with HTTP 200, no `truncated`, no
+`robotsBlocked`, while the laptop's body is 615,787 chars with 12 `<img>`,
+12 `srcset`, 3 `og:image` and 2 `rel=icon`. Zero images is only possible
+from a body containing none of those, because the extractor reads
+og:image and favicons unconditionally. It is site-wide, not page-specific
+(`behance.net/` itself: local 410, production 0). It is not a challenge
+page locally — the two "blocked/challenge" string hits in that HTML are
+minified New Relic variable names.
+
+Ruled out by elimination. **Request shape**: a laptop `curl` with the
+identical UA and `Accept` gets the full page. **Runtime and TLS
+fingerprint**: the local Worker is the same workerd binary running the
+same code and it gets 128 — only the egress differs. That second one is
+the load-bearing elimination; without it, "workerd's TLS fingerprint
+trips Akamai" would still be live.
+
+**HYPOTHESIS, NOT FINDING — the discriminator is unresolved.** Production
+egressed from colo **MCT (Muscat, Oman)**; the laptop from **KHI, loc=PK**.
+ASN class (datacentre vs residential) and country differ *together*, so
+they are confounded and neither is demonstrated. The weighted read is
+**datacentre-ASN reputation** — Adobe properties run Akamai Bot Manager,
+which penalises Cloudflare's ASN 13335 heavily, and a country block on
+Oman would more likely return a 403 than a stub. That is a guess with a
+reason, not a result, and it is labelled as one because the first draft of
+this diagnosis asserted geography was eliminated and the colo header
+disproved it.
+
+**The single test that separates them:** one fetch of behance.net from a
+**residential IP in Oman**, or one from a **datacentre IP in Pakistan**.
+Either isolates the variable in a single request. Cheap enough that it
+should be done the first time anyone has either vantage to hand.
 
 **Open question — the consent-interstitial class (no specimen yet, do
 not go hunting).** A GDPR/geo consent redirect serving a near-empty

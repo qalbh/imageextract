@@ -527,12 +527,38 @@ Phase 5 (trust and legal): every page has shipped — `/traffic` (the renamed ha
       reads as owed work.
 - [ ] Billing alert configured
 - [ ] Anonymous error telemetry (error class only, never URLs)
-- [ ] Re-scan the walled probes (lovehoney.eu, amazon, etsy, unsplash)
-      from the deployed Worker. The coverage corpus ran from one network
-      location and lovehoney proved geo/IP walls are vantage-dependent —
-      Cloudflare's egress may land some of them in the readable class,
-      which would materially change the corpus (frontend-plan.md records
-      the limit). Cheap to run; the only way to answer this class.
+- [x] Vantage re-scan from the deployed Worker — **done 2026-08-12,
+      forced early by the first production scan. THE CORPUS HOLDS:
+      production coverage is not materially worse, six of seven pages
+      match to the image.** astro.build 159/159, wikipedia 84/84,
+      apple 318/318, guardian 716/722 (churn), allbirds 99/99,
+      gymshark 12/12 — and behance 128 local / **0 production**.
+      No coverage claim in STATUS or frontend-plan needs correcting.
+      **METHOD, which is the reusable part:** same URL, same minute,
+      local Worker vs production Worker, identical code. NOT a
+      comparison against the recorded historical numbers — those ran
+      three days earlier on collection paths never written down, on
+      pages frontend-plan already notes churn per request, so that
+      comparison would have produced unexplained deltas with no way to
+      separate vantage from churn. Holding everything constant except
+      egress makes any difference attributable to one variable.
+      **behance.net is a probe, not a regression — it was never in the
+      corpus** (first scanned 2026-08-12). Same signature as etsy:
+      successful scan, HTTP 200, no robots block, zero images. Recorded
+      beside it in frontend-plan.
+      **The discriminator stays OPEN, labelled a hypothesis.** Request
+      shape and runtime/TLS are eliminated (the local Worker is the same
+      workerd binary on the same code and gets 128 — only egress
+      differs). But production egressed from MCT (Oman) and the laptop
+      from KHI (Pakistan), so ASN class and country are CONFOUNDED.
+      Datacentre-ASN reputation is the weighted read, not the finding.
+      **The one test that settles it:** a single fetch of behance.net
+      from a residential IP in Oman, or from a datacentre IP in
+      Pakistan. Cheap enough that it should happen the first time
+      anyone has either vantage.
+      Still unrun from production: lovehoney.eu, amazon, etsy, unsplash
+      — the original walled four. Not blocking; the corpus question
+      they existed to answer is now answered by the table above.
 - [ ] The mid-range Android ZIP pass (deferred here 2026-08-10 — the
       other "thing only the deployed site can answer" cheaply: any
       phone, real https URL, no LAN setup). Script in frontend-plan.

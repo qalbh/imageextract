@@ -266,11 +266,25 @@ impersonating a browser to defeat an origin's stated wishes is the thing
 we decided not to be). The number now sits next to the choice: it costs
 us the walled giants, and it costs everyone else those too.
 
+**Reinforced 2026-08-12 by the first production scan**, which looked at
+first like a counter-example and is the opposite. behance.net returned
+zero images from the deployed Worker and 128 from a laptop — *the same
+static parse, of the same page, in the same minute, with the same code*.
+Nothing about JavaScript differed between those two scans; only the
+egress IP did. That is the cleanest demonstration this project has that
+the boundary is the wall, not the parser: a headless browser would meet
+the identical wall from the identical egress, at far greater cost, and
+return the identical zero. An empty result therefore says nothing about
+whether a deep scan would have helped — which is exactly why the revisit
+condition below is written in terms of *readable* pages.
+
 **Cost:** JS-only galleries (an app-shell page whose HTML holds no images)
 still scan empty, and walled origins scan empty or thin.
 **Revisit if:** live-scan telemetry shows a class of *readable* pages with
 a large truly-absent residue — that would mean the corpus was
-unrepresentative, not that the walls moved.
+unrepresentative, not that the walls moved. A page that scans empty from
+production and non-empty from anywhere else is a WALL, not evidence for
+this revisit; check a second vantage before counting it.
 
 ## Coverage counts logical images, not exact URLs
 
