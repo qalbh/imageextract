@@ -343,18 +343,39 @@ Phase 5 (trust and legal): every page has shipped — `/traffic` (the renamed ha
       kept as neutral-but-maintained (it would have needed regeneration
       on every hero-copy change). CLS stayed 0 throughout; the subset
       never shipped, so the two-face swap question is moot.
-      **What the measurement actually shows:** LCP is ~100% RENDER
-      DELAY (2,030ms of a 2,480ms LCP; TTFB 452ms, load delay 0, load
-      time 0). The blockers are the two render-blocking stylesheets —
-      SiteHeader.css 25.8 KB and index.css 6.6 KB, Lighthouse-attributed
-      452ms and 302ms — not font bytes. The earlier
-      "H1 waits on the 43 KB display font" attribution in this box was
-      wrong; the H1 waits on CSS.
-      Closing this box means a CSS-delivery decision (inline the
-      critical subset, split the shared chunk, or accept ~2.2s as the
-      slow-4G floor for a 32 KB render-blocking payload) — or revising
-      the budget. Recorded as an open miss, deliberately not left
-      quiet.
+      **The 2.2s figure was itself a MEASUREMENT ARTEFACT (found
+      2026-08-11 while auditing the CSS payload).** Every Lighthouse
+      run above was served by `python -m http.server`, which sends
+      everything UNCOMPRESSED; Lighthouse's own text-compression audit
+      scored 0 and named 50 KiB of savings. Cloudflare compresses by
+      default, so the production critical path is ~13 KB, not ~61 KB.
+      Re-measured against a gzip-serving static server (same build,
+      same throttled profile): **/ = LCP 2.03s, perf 99; /results =
+      LCP 1.65s, perf 100; CLS 0 on both; FCP 1.2s (was 1.8s).** The
+      landing now misses the 2.0s budget by **29 milliseconds**, not
+      250.
+      **What the CSS audit found (no bundling bug):** `SiteHeader.css`
+      is not the header's CSS — it is the whole site's global sheet,
+      named after the first component in the import graph that pulls
+      `global.css` (Layout imports it; Vite names the shared chunk).
+      22.5 KB raw = **5.7 KB gzip / 4.9 KB brotli**, composed of
+      Tailwind preflight 3.7 KB, all 152 site-wide utilities 10.2 KB
+      (the header itself uses 12), the token layer 1.5 KB, `@property`
+      registrations 1.1 KB, and 6.0 KB of hand-written global rules
+      (fonts, view transitions, and ~1.6 KB of results-only component
+      CSS that every page currently carries). The `@theme` block is
+      emitted ONCE — index.css shares zero rules with it — and the
+      radius namespace wipe holds (no `rounded-lg/xl`, only the three
+      named values; the sole numeric survivors are `mt-0`/`p-0`, both
+      genuinely used). So the payload is correctly sized and there is
+      nothing to un-duplicate.
+      **Therefore the remaining 29ms is latency-bound, not byte-bound**
+      — LCP is ~100% render delay (1,577ms) dominated by the RTT to
+      discover and fetch a render-blocking stylesheet, not by its ~5 KB
+      of transfer. Shrinking the CSS would buy single-digit
+      milliseconds; only removing the round trip (inlining critical
+      CSS) or revising the budget would close it. Recorded as an open
+      29ms miss, deliberately not left quiet.
 - [x] 404 page — shipped 2026-08-11: same shape as the static pages
       (wordmark-only header, reading measure, tokens), zero script
       tags in the built 404.html, says the page doesn't exist and
