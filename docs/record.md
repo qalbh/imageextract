@@ -481,6 +481,25 @@ Phase 5 (trust and legal) **CLOSED 2026-08-12**: every page shipped — `/traffi
       as open all morning while the work landed at midday. It is the
       measured instance behind the ledger warning's latency note.
 
+- [x] First 5 landing pages generated from the collection — shipped
+      2026-08-12. `/tools/download-png-images` (format), `download-svg-images`
+      (format + the inline-SVG differentiator), `download-favicon` (source),
+      `download-og-image` (source), `download-shopify-product-images`
+      (use case). **Spread across all three axes deliberately**: with no query
+      data yet, five pages on one axis would only have reported on that axis;
+      the first Search Console read says which axis earns the next fifty-five.
+      Every claim carries a code symbol or a corpus row and is checked by
+      `content-claims.test.ts` (61 assertions across the five). Two pages
+      declare an `assumes` dependency on `collapseVariants` being unbuilt, so
+      variant collapse will turn the suite red naming the paragraphs to
+      rewrite. Verified: verify:landing 25/25 + 8 per page, zero script tags on
+      each, funnel params carried into /results on every page, titles and
+      descriptions unique, all six pages in the built sitemap.
+      Two honesty fixes made during the build rather than after: the meta-bucket
+      funnel lands wider than the favicon and OG titles imply (stated as a limit
+      on both), and the PNG page's claims shipped visible backticks in the built
+      HTML, which produced the schema's fourth rule.
+
 ## Phase 7 — Deploy
 
 - [x] GitHub repository, code pushed — verified 2026-08-10:

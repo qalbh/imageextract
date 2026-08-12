@@ -129,9 +129,6 @@ box, in Phase 3, and everywhere else points at it.
 
 ### Phase 6 — SEO and content
 
-- [ ] Landing pages 2–5 generated from the collection (page 1,
-      `/tools/download-png-images`, shipped 2026-08-12 with the schema).
-      The collection itself is done and recorded.
 - [ ] Google Search Console verified by DNS TXT — approved and reasoned in
       DECISIONS.md ("Google Search Console yes, Web Analytics no"). It is
       the ONLY feedback channel left after the Web Analytics closure, so

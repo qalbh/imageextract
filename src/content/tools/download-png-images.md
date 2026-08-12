@@ -95,7 +95,8 @@ assumes:
       Variant collapse (STATUS.md, Phase 2 — owed correctness) will fold a
       <picture> into ONE tile, at which point the answer must say the PNG is
       reachable behind that tile rather than listed alongside it.
-related: []
+related:
+  - download-svg-images
 ---
 
 ## How the PNGs are found
