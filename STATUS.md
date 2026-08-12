@@ -1,6 +1,6 @@
 # STATUS — imageextract.pics
 
-Last updated: 10 August 2026
+Last updated: 12 August 2026
 
 Living document. Update it at the end of each working session rather than trying to remember what state things were in.
 
@@ -8,11 +8,24 @@ Living document. Update it at the end of each working session rather than trying
 
 ## Where we are right now
 
-**Phases 1, 2, and 4 of 8 complete; Phase 3 open on one deferred device check. Roughly 70% of the way to a launchable product.**
+**Phases 1, 2, 4, 5 and 6 of 8 complete; Phase 3 open on one deferred device check; Phase 7 substantially done — the site is DEPLOYED and live at https://imageextract.pics.**
+
+**Ledger warning, recorded 2026-08-12 after it fired twice in one hour.**
+This document drifts CONSERVATIVE: items get done and the box stays
+unchecked, so the ledger under-reports progress. That is the safe
+direction — it never claims work that does not exist — but it still
+produces WRONG LISTS, and a "what remains before launch" built from
+stale boxes sends effort at finished work while real gaps sit below it.
+Six Phase 7 boxes were closed retroactively that morning; within the
+hour, mail routing and the billing alert were reported as hard blockers
+when both were already done. The phase-boundary read catches this class
+by design. **Nothing catches it BETWEEN boundaries** — so treat any
+mid-phase list as needing its boxes re-confirmed against reality before
+it is used to plan, rather than trusted.
 
 Phase 4 (abuse controls) closed 2026-08-10: in-isolate rate limits with the shared-egress 429 copy, the KV-read domain blocklist, the measured `limits` block with doc-sync-asserted observability, and both log close-outs — on top of the coverage diagnosis that inverted the deep-scan assumption and produced the noscript and logical-cap extraction fixes. Phases 1–3 before it shipped the engine (scan, extraction, robots, proxy, SSRF guard), the full results UI, and the download path (hotlink fallback, unified Range probing, single-image download, client-side ZIP).
 
-Phase 5 (trust and legal): every page has shipped — `/traffic` (the renamed hard blocker), `/privacy`, `/terms` with the takedown section, and `/about` — all claim-verified before writing, none legally reviewed (Phase 7 item). **The phase stays OPEN on one item: the abuse mailbox.** Every shipped page prints an address that does not yet receive mail, and the published-promise rule holds the phase open until it flows (mechanism: Phase 7's mail-routing task). One deferred device item also remains: the post-deploy Android ZIP pass (Phase 7 list — it holds Phase 3 open).
+Phase 5 (trust and legal) **CLOSED 2026-08-12**: every page shipped — `/traffic` (the renamed hard blocker), `/privacy`, `/terms` with the takedown section, and `/about` — all claim-verified before writing, none legally reviewed (still a Phase 7 item). The phase was held open on the abuse mailbox alone, correctly: every page prints the address, and the published-promise rule does not accept a page whose mechanism is pending. It closed when mail FLOWED — support@imageextract.pics verified receiving from an external account. One deferred device item remains elsewhere: the post-deploy Android ZIP pass (Phase 7 list — it holds Phase 3 open).
 
 ### Done
 
@@ -247,13 +260,18 @@ Phase 5 (trust and legal): every page has shipped — `/traffic` (the renamed ha
       one" (accounts) is a CONSCIOUS promise — the deferred sign-in row
       was closed in the same commit, promise-first ordering recorded.
       No last-updated date: no dated promises, no changes section.
-- [ ] Abuse contact address, live and monitored — **the last open
-      Phase 5 item, and it holds the phase open.** Every shipped page
-      prints support@imageextract.pics, so the published-promise rule
-      applies: an address that receives nothing is a promise without a
-      mechanism — "nothing is deployed yet" would have excused the dead
-      UA URL for four phases. Mechanism: Phase 7's mail-routing task.
-      Phase 5 closes when mail FLOWS, not when pages ship.
+- [x] Abuse contact address, live and monitored — **CLOSED
+      2026-08-12, and with it PHASE 5.** Mail to
+      support@imageextract.pics was sent from an external account and
+      confirmed arriving in the Hostinger mailbox; the record split
+      (Hostinger mailbox, Cloudflare-hosted DNS, Email Routing
+      deliberately OFF) is in the Phase 7 mail-routing item.
+      The phase was held open on this alone, and the reason stands as
+      the general case: every shipped page prints the address, so the
+      published-promise rule applies — an address that receives nothing
+      is a promise without a mechanism, and "nothing is deployed yet"
+      would have excused the dead UA URL for four phases. Phase 5
+      closed when mail FLOWED, not when the pages shipped.
       **Superseded 2026-08-12: the one-inbox-two-names plan is dead.**
       It provisioned abuse@ and privacy@ as two names aliasing into one
       mailbox. There is now ONE address — support@imageextract.pics —
@@ -490,8 +508,20 @@ Phase 5 (trust and legal): every page has shipped — `/traffic` (the renamed ha
 - [ ] Legal review of /privacy and /terms — the copy is an accurate
       technical description, claim-verified against source; what it has
       never had is a lawyer's read. Owed before launch.
-- [ ] Mail routing: **support@imageextract.pics exists and receives
-      mail — verify before launch.** One address, used for abuse,
+- [x] Mail routing — **CLOSED 2026-08-12: support@imageextract.pics
+      receives mail, verified by sending from an external account and
+      confirming arrival in the mailbox.**
+      **The mechanism, plainly, because the split is confusing:** the
+      MAILBOX is Hostinger's; the DNS RECORDS live in the Cloudflare
+      zone, because DNS authority moved to Cloudflare while mail
+      hosting stayed put. In the zone: MX mx1/mx2.hostinger.com
+      (priorities 5/10), three DKIM CNAMEs, SPF and DMARC.
+      **Cloudflare Email Routing is NOT involved and must NOT be
+      enabled** — it would take over MX handling and conflict with
+      Hostinger's delivery. Anyone "tidying up" the zone by turning it
+      on breaks the mailbox that Phase 5 waited on.
+      Original wording follows: support@imageextract.pics exists and
+      receives mail — verify before launch. One address, used for abuse,
       privacy, and takedown alike; every shipped page prints it and
       nothing else. It holds Phase 5 open until mail demonstrably
       flows — a bouncing address on a page whose whole defence is good
@@ -558,7 +588,7 @@ Phase 5 (trust and legal): every page has shipped — `/traffic` (the renamed ha
       `main`) in DECISIONS.md "Releases are a direct wrangler deploy,
       not deploy-on-push". Checked, not left blank: an unchecked box
       reads as owed work.
-- [ ] Billing alert configured
+- [x] Billing alert configured — set 2026-08-12, before the first scan
 - [ ] Anonymous error telemetry (error class only, never URLs)
 - [x] Vantage re-scan from the deployed Worker — **done 2026-08-12,
       forced early by the first production scan. THE CORPUS HOLDS:
