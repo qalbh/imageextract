@@ -612,8 +612,8 @@ launch-day sweep.
       the claim was broken
 - [x] No URLs in logs — zero `console.*`/`logger.*` calls in shipped
       server code, backed by TWO audits that found different things.
-      Audit 1 (code, STATUS "Full log audit") cleared every log site.
-      Audit 2 (config, STATUS "Second log close-out") is the one to
+      Audit 1 (code, record.md "Full log audit") cleared every log site.
+      Audit 2 (config, record.md "Second log close-out") is the one to
       cite: **the config sweep found `observability.enabled` ARMED
       while audit 1 claimed nothing enabled it — audit 1 swept `src/`
       and never opened `wrangler.jsonc`.** Disarmed the day it was
@@ -655,7 +655,7 @@ launch-day sweep.
       "The proxy stays referrerless")
 - [ ] Large ZIP completes on a mid-range Android phone — deferred to
       post-deploy (Phase 7: runs against the real https URL from any
-      phone; STATUS records the carried risk: disk-backed-Blob
+      phone; STATUS Phase 3 records the carried risk: disk-backed-Blob
       assumption unverified, worst case a lost download + tab reload)
 - [x] `limits` block set in `wrangler.jsonc` — verified: cpu_ms 30,000
       from a measured 1,570 ms local worst case with the hardware

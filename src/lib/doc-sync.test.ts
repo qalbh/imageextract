@@ -266,3 +266,95 @@ describe('layer 5: the /privacy no-analytics sentence', () => {
     ).toEqual([]);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Layer 6 — the ledger's own structure. STATUS carries OPEN work; docs/record.md
+// carries closed work and its evidence. Split 2026-08-12, when STATUS was 753
+// lines of which 586 were closed boxes and 37 open ones. The dilution had made
+// it fail at FINDING twice in one day while having RECORDED everything
+// correctly, so these three checks target finding, not recording.
+//
+// What layer 6 CANNOT see, stated because a green suite invites the assumption
+// that it can: a box that is DONE in reality and still unticked here. Nothing
+// in the repo disagrees with itself in that case. Conservative drift stays a
+// human discipline — and its measured latency is hours, not phases.
+// ---------------------------------------------------------------------------
+describe('layer 6: the ledger holds only open work', () => {
+  const statusLines = statusMd.split('\n');
+
+  // (a) A closed box in STATUS means someone ticked it and did not move it.
+  // Without this, STATUS re-accumulates the 586 lines the split removed.
+  it('STATUS contains no closed boxes — they belong in docs/record.md', () => {
+    const closed = statusLines
+      .map((line, i) => ({ line, n: i + 1 }))
+      .filter(({ line }) => /^\s*- \[x\]/.test(line))
+      .map(({ line, n }) => `STATUS.md:${n} ${line.trim().slice(0, 60)}`);
+    expect(closed, 'move these to docs/record.md with their evidence, in the commit that closed them').toEqual([]);
+  });
+
+  // (b) The phase table vs the checklists it summarises. This is the 2026-08-12
+  // failure — a header claiming Phase 6 complete while Phase 6's own boxes said
+  // otherwise, 370 lines apart — made impossible instead of merely corrected.
+  // Nothing re-reads a summary line at that distance; a test does.
+  const tableStates = new Map<string, string>();
+  for (const line of statusLines) {
+    const row = /^\|\s*(\d+)\s*—[^|]*\|\s*(complete|open)\s*\|/.exec(line);
+    if (row) tableStates.set(row[1] as string, row[2] as string);
+  }
+
+  const openBoxesByPhase = new Map<string, string[]>();
+  let currentPhase: string | null = null;
+  for (const line of statusLines) {
+    const heading = /^###\s*Phase\s*(\d+)/.exec(line);
+    if (heading) {
+      currentPhase = heading[1] as string;
+      if (!openBoxesByPhase.has(currentPhase)) openBoxesByPhase.set(currentPhase, []);
+      continue;
+    }
+    if (line.startsWith('#')) currentPhase = null;
+    if (currentPhase && /^\s*- \[ \]/.test(line)) {
+      openBoxesByPhase.get(currentPhase)?.push(line.trim().slice(0, 60));
+    }
+  }
+
+  it('the phase table parsed (a reformat must not silently disable this layer)', () => {
+    expect(tableStates.size).toBeGreaterThan(0);
+  });
+
+  it('no phase marked complete has an open box', () => {
+    for (const [phase, state] of tableStates) {
+      if (state !== 'complete') continue;
+      expect(
+        openBoxesByPhase.get(phase) ?? [],
+        `the table calls Phase ${phase} complete, but it still holds open boxes`,
+      ).toEqual([]);
+    }
+  });
+
+  // The same check from the other side, which catches conservative drift at
+  // the PHASE level: a phase whose boxes are all gone is finished, and saying
+  // "open" understates progress exactly the way this ledger habitually does.
+  it('no phase marked open is actually empty', () => {
+    for (const [phase, state] of tableStates) {
+      if (state !== 'open') continue;
+      expect(
+        (openBoxesByPhase.get(phase) ?? []).length,
+        `the table calls Phase ${phase} open, but no open box remains under it — close the phase or write the box`,
+      ).toBeGreaterThan(0);
+    }
+  });
+
+  // (c) A decision that creates work must name the box carrying it. This is the
+  // missing-box failure: variantGroup collapse was "owed, not optional" in two
+  // documents and tracked in none, so it was invisible to every list built from
+  // STATUS. Recording that something is owed is not tracking it.
+  it('every DECISIONS "Tracked:" line names a box that exists in STATUS', () => {
+    const tracked = [...decisionsMd.matchAll(/\*\*Tracked:\*\*\s*STATUS\s*→\s*(.+)/g)].map((m) =>
+      (m[1] as string).trim(),
+    );
+    expect(tracked.length, 'no Tracked: lines found — the convention has been dropped or renamed').toBeGreaterThan(0);
+    for (const box of tracked) {
+      expect(statusMd.includes(box), `DECISIONS tracks "${box}", which appears in no STATUS box`).toBe(true);
+    }
+  });
+});

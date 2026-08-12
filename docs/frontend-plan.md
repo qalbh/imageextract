@@ -226,7 +226,7 @@ this keys on IP geography, which does not. "Readable vs walled" is
 therefore not fully measurable from a laptop, and every classification
 in the table above carries that asterisk. The only way to answer this
 class is to re-run the walled probes from the deployed Worker's own
-egress (Phase 7 item in STATUS.md); if Cloudflare's vantage lands them
+egress (done — docs/record.md, Phase 7 vantage re-scan); if Cloudflare's vantage lands them
 readable, the corpus materially changes and gets re-recorded.
 
 ### Production vantage: answered 2026-08-12
@@ -457,11 +457,15 @@ uniform tiles (262:180 wells since the fidelity pass; the shared shape keeps
 `@tanstack/react-virtual` (MIT).
 
 Done when:
-- [ ] 1,000-image scan scrolls smoothly on a mid-range Android phone —
-      REOPENED (2026-08-10 phase-boundary read): what was actually verified
-      is 220 tiles at 4× CPU throttle in desktop Chrome (verify:results);
-      the real-device claim retires with the POST-DEPLOY ZIP device pass
-      (deferred 2026-08-10 — Phase 7 list; this box stays unchecked)
+- **1,000-image scan scrolls smoothly on a mid-range Android phone** —
+      POINTER, not a box (2026-08-12). What was actually verified here is
+      220 tiles at 4× CPU throttle in desktop Chrome (verify:results); the
+      real-device claim is settled by the single device-run box in
+      **STATUS → Phase 3**, which covers this criterion and the
+      disk-backed-Blob one together because they are one run on one phone.
+      Was a third home for that item — two boxes in STATUS plus this one,
+      with nothing keeping them in agreement, so whichever a reader found
+      first was the answer they got.
 - [x] Filter flips on the full set stay under a perceptible stall
 - [x] Selection and badges behave identically across revealed boundaries
 
@@ -662,7 +666,7 @@ Done when:
       elements outside it, Escape and Apply both close with focus restored
       to the Filters trigger, backdrop click closes), and the
       selection-bar controls took the 2px token ring they were missing.
-      Full record in STATUS.md → Open items.
+      Full record in docs/record.md → Open items.
       **This box stayed unchecked for two days after the work was done** —
       the stale-box class the STATUS ledger warning names.
 
@@ -723,7 +727,7 @@ scale (10/12→8, chip verticals→0); no new step needed.
 **Figma-alignment pass (2026-08-10):**
 - **FIND control removed** from the sidebar per design. The capability stays
   in `results-model.ts` (`query` in `FilterState`, `matchesQuery` tested);
-  the island passes `''`. Reinstating it is one input. STATUS.md item
+  the island passes `''`. Reinstating it is one input. The record.md item
   unchecked accordingly.
 - **List view: DEFERRED, not cancelled** — the design exists (Grid/List
   toggle in the frame); we are holding the feature. DISPLAY holds only
