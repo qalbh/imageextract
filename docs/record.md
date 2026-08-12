@@ -499,6 +499,17 @@ Phase 5 (trust and legal) **CLOSED 2026-08-12**: every page shipped — `/traffi
       funnel lands wider than the favicon and OG titles imply (stated as a limit
       on both), and the PNG page's claims shipped visible backticks in the built
       HTML, which produced the schema's fourth rule.
+      **DEPLOYED and verified live 2026-08-13, version `bd53514f`** — step 5
+      run against the real hostname, not the build. All 13 pages 200 (404 for
+      a miss), zero third-party requests from a real browser on every one, and
+      live script counts identical to the build's (/ = 1, /results = 2, the
+      other eleven 0), so nothing is being injected. The funnel was walked
+      end to end on production: the PNG page's form lands on
+      `/results?format=png&url=…` and the sidebar renders PNG TICKED — 1 of 21
+      images shown, the other formats one click away. That is the visible,
+      removable form the funnel decision requires, confirmed by screenshot
+      rather than inferred from the URL. Live sitemap carries all 11 public
+      URLs; robots.txt still disallows /results and /api/.
 
 ## Phase 7 — Deploy
 
