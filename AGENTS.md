@@ -471,6 +471,25 @@ real Chromium that a push-triggered build would not run).
 4. `npm run build && npx wrangler deploy`
 5. **Verify the deployed site, not just the build**
 
+Step 4 runs from the repo root and deploys the ADAPTER-GENERATED config,
+not `wrangler.jsonc` — the build writes `dist/server/wrangler.json` and
+points wrangler at it through `.wrangler/deploy/config.json`. Expect
+"Using redirected Wrangler configuration" in the output; that line is
+correct, not a warning. `wrangler.jsonc` is the input it is generated
+from, and two of its values are rewritten in the output — the full note,
+including why `assets.directory: "./dist"` does not mean the server
+bundle ships as a public asset, is at the top of `wrangler.jsonc` where
+someone would be misled by it.
+
+Two operational notes from the first deploy, both cost time:
+`npx wrangler login` is an interactive browser flow, so it needs a human
+at the keyboard; and after attaching a new hostname, a local resolver may
+hold a NEGATIVE DNS cache from before the record existed (SOA negative
+TTL here is 1800s), so `curl` fails while the domain is fine — confirm
+against `dig @1.1.1.1` or the authoritative nameservers, and use
+`curl --resolve` / Chrome's `--host-resolver-rules` to verify before
+propagation catches up. A cold resolver is not a broken deploy.
+
 **Step 5 is not ceremony, and step 2 does not cover it.** Verifying the
 build tells you what you produced; only the deployment tells you what a
 visitor receives. The platform is between the two, and it edits the

@@ -3,6 +3,30 @@
 	"compatibility_date": "2026-08-05",
 	"compatibility_flags": ["global_fetch_strictly_public"],
 	"name": "imageextract",
+	// THIS FILE IS NOT THE CONFIG WRANGLER DEPLOYS. Read this before
+	// "fixing" anything below, especially `assets.directory`.
+	// The Astro adapter writes a RESOLVED config to
+	// `dist/server/wrangler.json` at build time and points wrangler at it
+	// via `.wrangler/deploy/config.json` (wrangler's config-redirect
+	// mechanism). `wrangler deploy` from the repo root prints "Using
+	// redirected Wrangler configuration" and uses THAT file. This one is
+	// the INPUT it is generated from: settings here propagate (verified
+	// for routes, limits, kv_namespaces, workers_dev, html_handling), but
+	// two are REWRITTEN in the output and the values here are misleading
+	// if read literally:
+	//   main             "@astrojs/cloudflare/entrypoints/server" → "entry.mjs"
+	//   assets.directory "./dist"                                 → "../client"
+	// So `./dist` does NOT mean the whole dist tree ships as public
+	// assets — only `dist/client` does, and `dist/server` ships as the
+	// Worker. Confirmed at the first deploy by counting the actual
+	// upload: 38 files, all from dist/client, zero source or markdown.
+	// Changing `assets.directory` here to "./dist/client" to "correct"
+	// it would be wrong — the adapter resolves it RELATIVE TO
+	// dist/server, and the value it writes is already right.
+	// (`.wrangler/deploy/config.json` also names a
+	// `dist/server/.prerender/wrangler.json` that the build does not
+	// create. It is regenerated fresh every build, wrangler ignores it,
+	// and the first deploy was clean — not a stale file, not a problem.)
 	"main": "@astrojs/cloudflare/entrypoints/server",
 	// CUSTOM DOMAIN, not a route pattern — chosen because the hostname
 	// belongs entirely to this Worker. There is no second origin in this
