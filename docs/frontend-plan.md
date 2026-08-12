@@ -58,9 +58,24 @@ uniform `aspect-square`.
 
 Done when:
 - [x] `@theme` in `global.css` defines the palette, radius, and type scale
-- [ ] No `text-[11px]`-style arbitrary values left in components
-- [ ] Components reference token-backed utilities only
-- [ ] Tailwind default spacing scale disabled after migration
+- [x] No `text-[11px]`-style arbitrary values left in components —
+      verified 2026-08-12 by sweep over `src/components`, `src/pages` and
+      `src/layouts`: zero matches for `[<n>px]`, `[<n>rem]` or `[#hex]`
+      arbitrary-value utilities
+- [x] Components reference token-backed utilities only — same sweep: no
+      hex value anywhere outside `global.css` (components, pages, layouts
+      and `results.css` checked), and the only survivors of Tailwind's
+      default numeric scale are `p-0` and `mt-0`, both genuinely used
+      (already named as such in the 2026-08-11 CSS audit)
+- [ ] Tailwind default spacing scale disabled after migration — STILL
+      OPEN, and the consequence is concrete rather than tidiness:
+      `global.css` wipes the radius namespace (`--radius-*: initial`) but
+      NOT the spacing one, so Tailwind's entire default scale is live and
+      a stray `p-7` silently renders instead of failing. The radius wipe
+      is the working model — it is why a stray `rounded-lg` generates no
+      CSS at all and `verify-landing` can reject it in markup. Do the
+      same for spacing once `p-0`/`mt-0` have token equivalents or an
+      explicit exemption.
 - [ ] Zero-JS budget unchanged (island hydration scripts only)
 
 ## 2. Route split — static `/`, island on `/results`
@@ -630,10 +645,26 @@ keyboard/focus audit.
 Done when:
 - [x] Grid, filters, and selection usable one-handed at 390 px wide
 - [x] Invert toggle flips tile backgrounds without reloading images
-- [ ] Focus order and visible focus states through form → filters → grid —
-      REOPENED (2026-08-10 phase-boundary read): whole-tile keyboard
-      selection and the focus ring are verified, but the full ordered
-      walk-through was never run; the earlier check overclaimed
+- [x] Focus order and visible focus states through form → filters → grid
+      — REOPENED at the 2026-08-10 phase-boundary read (the earlier check
+      overclaimed: whole-tile selection and the ring were verified, the
+      ordered walk never run), then CLOSED the same day by running it.
+      Recorded walk, desktop 1440×900 in real Chrome: the 17 pre-grid Tab
+      stops match the visual order (header → source input/clear/Re-scan →
+      notice dismiss → format checkboxes → sort radio group as ONE stop,
+      arrow keys confirmed moving within → Source summary → invert
+      switch); all 159 tiles × 2 stops (tile + download anchor) = 318 grid
+      stops reachable; the reveal-cap append fired mid-walk (120→159) with
+      focus UNCHANGED and the appended tiles tabbable; disabled bar buttons
+      correctly skipped in the empty-selection state. Two findings fixed
+      the same day: the 390px filter sheet became a native `<dialog>` via
+      `showModal()` (re-walk: focus enters on open, 40 tabs reach zero
+      elements outside it, Escape and Apply both close with focus restored
+      to the Filters trigger, backdrop click closes), and the
+      selection-bar controls took the 2px token ring they were missing.
+      Full record in STATUS.md → Open items.
+      **This box stayed unchecked for two days after the work was done** —
+      the stale-box class the STATUS ledger warning names.
 
 **Shipped 2026-08-09 — two 390px frames.** Landing (`index.astro`) was already
 mobile-first (1-col capabilities/FAQ, `grid-cols-2` footer, `column-count: 2`

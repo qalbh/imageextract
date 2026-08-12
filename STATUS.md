@@ -8,20 +8,63 @@ Living document. Update it at the end of each working session rather than trying
 
 ## Where we are right now
 
-**Phases 1, 2, 4, 5 and 6 of 8 complete; Phase 3 open on one deferred device check; Phase 7 substantially done — the site is DEPLOYED and live at https://imageextract.pics.**
+**Phases 1, 4 and 5 of 8 complete. Phase 2 is built, with two boxes
+below that are not outstanding work — one a deliberate removal, one an
+owed correctness item that was missing from the ledger entirely. Phase
+3 open on one deferred device check. PHASE 6 IS NOT COMPLETE: the
+content collection and the first five landing pages are UNBUILT, and
+they are the largest remaining piece of work in the project (Known
+risks: "Distribution is the real bottleneck"). Phase 7 substantially
+done — the site is DEPLOYED and live at https://imageextract.pics.**
 
-**Ledger warning, recorded 2026-08-12 after it fired twice in one hour.**
-This document drifts CONSERVATIVE: items get done and the box stays
-unchecked, so the ledger under-reports progress. That is the safe
-direction — it never claims work that does not exist — but it still
-produces WRONG LISTS, and a "what remains before launch" built from
-stale boxes sends effort at finished work while real gaps sit below it.
-Six Phase 7 boxes were closed retroactively that morning; within the
-hour, mail routing and the billing alert were reported as hard blockers
-when both were already done. The phase-boundary read catches this class
-by design. **Nothing catches it BETWEEN boundaries** — so treat any
-mid-phase list as needing its boxes re-confirmed against reality before
-it is used to plan, rather than trusted.
+**Header corrected 2026-08-12.** It read "Phases 1, 2, 4, 5 and 6 of 8
+complete" while Phase 6's own list, twenty lines below it, had two
+unchecked boxes. Phase 6's shipped half is real and is what the claim
+was reading off — robots.txt, sitemap, OG/Twitter meta, brand marks,
+the Lighthouse pass, /404 — but the content half was never started, and
+"complete" hid it. See the ledger warning immediately below, which this
+finding forced a rewrite of.
+
+**Ledger warning, recorded 2026-08-12 after it fired twice in one hour
+— then REWRITTEN the same day, because it named the wrong direction.**
+
+**Drift goes BOTH ways.** The original text said this document drifts
+CONSERVATIVE (boxes stay unchecked after the work is done) and called
+that the safe direction. The first half is real and still happens. The
+second half was wrong, and a warning that names the wrong direction is
+worse than no warning at all: it tells a reader which way *not* to
+check.
+
+*Conservative drift — real, still happens.* Items get done and the box
+stays unchecked, so the ledger under-reports progress. Six Phase 7
+boxes were closed retroactively on the morning of 2026-08-12; within
+the hour, mail routing and the billing alert were reported as hard
+blockers when both were already done.
+
+*Optimistic drift — found 2026-08-12, the instance that forced this
+rewrite.* The header above claimed Phase 6 complete while Phase 6's own
+checklist showed otherwise. A summary line outranks the list it
+summarises in every skim, so the largest remaining item in the project
+sat hidden behind one word. **Summary lines are where this direction
+lives**: they are written once, from a phase that felt finished, and
+then never re-read against the boxes underneath them.
+
+*A MISSING box is worse than a stale one, because it is invisible.* A
+stale box is at least on the list, and the phase-boundary read
+re-confirms it. An item with no box is absent from every list built
+from this document, and nothing will ever prompt anyone to go looking.
+Found the same day: the `variantGroup` collapse is called
+owed-not-optional in both DECISIONS.md and AGENTS.md and had a box in no
+phase (it has one now, in Phase 2). **When a decision records work as
+owed, writing the box is part of recording it.**
+
+The phase-boundary read catches the stale-box class by design. It
+catches neither of the others — nothing re-reads a summary line, and
+nothing can re-confirm a box that was never written. So: re-confirm any
+mid-phase list against reality before planning from it; read summary
+lines *against* the checklists they summarise rather than instead of
+them; and when a decision says something is owed, write the box in the
+same pass.
 
 Phase 4 (abuse controls) closed 2026-08-10: in-isolate rate limits with the shared-egress 429 copy, the KV-read domain blocklist, the measured `limits` block with doc-sync-asserted observability, and both log close-outs — on top of the coverage diagnosis that inverted the deep-scan assumption and produced the noscript and logical-cap extraction fixes. Phases 1–3 before it shipped the engine (scan, extraction, robots, proxy, SSRF guard), the full results UI, and the download path (hotlink fallback, unified Range probing, single-image download, client-side ZIP).
 
@@ -109,7 +152,13 @@ Phase 5 (trust and legal) **CLOSED 2026-08-12**: every page shipped — `/traffi
 - [x] Thumbnails loaded direct from origin (the zero-cost path, `loading="lazy"`)
 - [x] Dimension badges — declared dims from the manifest at first paint, upgraded to measured `naturalWidth`/`naturalHeight` on load
 - [x] Type filter with live counts (faceted; grouped source filter alongside it)
-- [ ] Search across filename and URL (model + tests shipped; the sidebar control was removed per the 2026-08-10 design pass — reinstating it is one input)
+- [x] Search across filename and URL — **capability shipped and tested**
+      (`query` in `FilterState`, `matchesQuery`); the sidebar CONTROL was
+      then deliberately removed in the 2026-08-10 design pass and the
+      island passes `''`. **Checked rather than left blank, per the
+      deploy-on-push precedent: an unchecked box reads as owed work, and
+      this is a design decision, not a gap.** Reinstating the input is one
+      component change if the design pass ever reverses.
 - [x] Sort — six keys since 2026-08-10: Document order / Image size / Width / Height / Name / Type, one row per key with a direction text-toggle and "n of m" known counts (Height was dropped per the declared-dims coverage data, then RESTORED when the unified Range probe made measuring on demand cheap; unknowns sort last under both directions)
 - [x] Selection state, select all, deselect all (global selection, survives filter changes)
 - [x] Invert-background toggle (brought forward from Phase 9 — a white-on-transparent logo is invisible on the surface-coloured tile)
@@ -119,8 +168,19 @@ Phase 5 (trust and legal) **CLOSED 2026-08-12**: every page shipped — `/traffi
 - [x] Error states per failure type (incl. distinct `truncated` wording per reason)
 - [x] Mobile layout (390px landing + results; shared header + compact SOURCE bar on /results; sidebar becomes a bottom sheet; whole-tile keyboard selection + visible focus)
 - [x] `robotsBlocked` state, no override path
-
-### Phase 3 — Download
+- [ ] Collapse variant sets in the grid — one tile per logical image
+      (`variantGroup`), its other candidates reachable behind that tile.
+      **Owed correctness, not polish**: DECISIONS.md "Coverage counts
+      logical images" — a grid showing eight tiles for one product photo
+      misrepresents what was found, in exactly the way exact-URL matching
+      misrepresented coverage before the metric was fixed. AGENTS.md's
+      manifest comment says the same.
+      **Added to the ledger 2026-08-12; the WORK is not new, the BOX is.**
+      The extractor has emitted `variantGroup` since 2026-08-09 and the UI
+      has never read it (verified: zero references in `src/components` and
+      `results-model.ts`) — but it appeared in no phase checklist, so every
+      "what remains" list built from this document silently omitted it for
+      three days. That is the missing-box class in the ledger warning above.
 
 - [x] Proxy fallback on hotlink 403 — one retry per tile via a monotonic parent-owned status map; verified by the verify:results fallback scenario: 1 proxy request per failed tile and zero new proxy/origin requests across a filter round trip (the remount case). Live check closed (2026-08-10): referrerless 403s confirmed real across three origins; our referrerless proxy shares the failure for referer-required origins (kept deliberately — DECISIONS: impersonation argument), so its real recovery classes are CORP/ORB blocks and geo/IP splits. Full in-app loop not runnable live: image-protecting sites also page-protect, which caps the encounter rate.
 - [x] Lazy byte-size probing — shipped via proxy HEAD with the shared bounded queue (fetch-queue.ts, count + bytes-in-flight, the substrate ZIP reuses), then **superseded 2026-08-10 by the unified Range probe** (one prefix GET answers size AND dimensions; the gate's HEAD counting converted to Range counting). The probing discipline carried over unchanged and stays verified: 0 probes until selection, 1 per single select, cache across deselect/reselect, 5-range auto-probes / 30-range falls to the explicit action, select-all 0, peak concurrency exactly 6, bar totals never silently undercount, Cancel freezes in-flight probes. Client probe timeout 10s; data: URIs sized locally.
@@ -346,12 +406,26 @@ Phase 5 (trust and legal) **CLOSED 2026-08-12**: every page shipped — `/traffi
       re-export). vt-wordmark stays on the anchor, so the header morph
       is unchanged; 390px verified no-wrap (203×25 natural in a 58px
       header).
-- [ ] Cloudflare Web Analytics — **coupled to /privacy**: "We use no
-      analytics, advertising, or tracking services" must change in the
-      SAME commit that adds this, and doc-sync layer 5 enforces exactly
-      that (the beacon marker fails the suite while the sentence
-      stands). Dashboard-side auto-injection bypasses the guard — check
-      it by hand at deploy.
+- [x] Cloudflare Web Analytics — **CLOSED as NOT-DOING (2026-08-12): a
+      decision, not outstanding work.** Checked rather than left blank
+      for the deploy-on-push reason — an unchecked box reads as owed,
+      and this is the opposite of owed.
+      Enabling it would make a published sentence false: /privacy serves
+      "We use no analytics, advertising, or tracking services", and
+      doc-sync layer 5 fails the suite while that sentence and any
+      analytics marker coexist. This is not hypothetical — the beacon
+      WAS live and that sentence WAS false on the deployed site for
+      roughly an hour on 2026-08-12, when attaching the custom domain
+      triggered account-level auto-injection. Full incident, including
+      the dashboard path where the setting actually lives (account
+      level, NOT the zone toggle that reported it disabled throughout),
+      in the Phase 7 item below.
+      **If analytics are ever wanted, the order is fixed** and it is the
+      /about-promise order: /privacy changes first, in the same commit,
+      with the doc-sync guard updated deliberately — never the beacon
+      first. Dashboard-side injection bypasses the guard entirely, which
+      is why the rendered-HTML third-party check is now owed after every
+      deploy AND after configuration changes (AGENTS.md → Releasing).
 - [x] Lighthouse pass — **PASSES the budget, and the budget was
       REVISED to 2.1s (2026-08-11) with the old 2.0s figure and the
       reason recorded here and in AGENTS.md → SEO.** Final measurement,
