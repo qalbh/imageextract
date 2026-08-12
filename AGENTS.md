@@ -547,6 +547,20 @@ that what it received was compressed. Generally: before trusting a
 measurement, check that the harness resembles production in the dimension
 you are measuring — and make the resemblance mechanical, not a habit.
 
+**When a decision makes a top-level claim conditional, the claim moves
+in the SAME commit as the decision.** Recording the deviation elsewhere
+is not enough. DECISIONS is where you look if you already suspect
+something; the done-criteria is where you look to find out whether to
+suspect. Found twice in one pass (2026-08-12): "Nothing written to KV"
+survived the blocklist carve-out, so a reader who greps `wrangler.jsonc`,
+finds a KV namespace, and reads the absolute would reasonably conclude
+the claim was broken; and "Rate limits live" survived the decision that
+they are in-isolate budgets with no hard ceiling — and never mentioned
+that limiting is off entirely without `CF-Connecting-IP`. Both
+deviations were correctly recorded in DECISIONS and in the modules. Both
+top-level claims were still wrong, and a claim nobody has reason to
+doubt is the one that never gets checked.
+
 **A published promise needs its mechanism live.** Before a page goes
 public, every mechanism it promises must already work. Two instances,
 both caught late: the User-Agent advertised its explainer URL for four
@@ -556,12 +570,63 @@ OPEN without. Check every new public page's promises against running
 code before it ships — the check is part of writing the page, not a
 launch-day sweep.
 
-- [ ] SSRF guard unit-tested against every reserved range, including a redirect chain into one
-- [ ] Nothing written to KV, R2, D1, or cache
-- [ ] No URLs in logs
-- [ ] `robots.txt` respected with no override path
-- [ ] Rate limits live before public launch
-- [ ] Byte-size probing verified lazy by counting network calls on a large page
+- [x] SSRF guard unit-tested against every reserved range, including a
+      redirect chain into one — `src/lib/ssrf-guard.test.ts`: 33 tests,
+      61 reserved-range assertions covering the full AGENTS list
+      (loopback/private/link-local/CGNAT/TEST-NET 1-3/benchmarking/
+      multicast/reserved, the IPv6 set, IPv4-mapped, and the decimal,
+      octal and hex encodings). The redirect case is explicit and is
+      the one that matters: "rejects a redirect chain whose final hop
+      is a private IP, WITHOUT FETCHING IT", plus the same for a
+      decimal-encoded private IP
+- [x] Nothing written to KV, R2, D1, or cache — **no user data is
+      persisted anywhere**, which is the clause the rule was always
+      protecting. Verified by search: no `.put`/`.write` to any binding
+      exists in shipped source; the only `.delete` calls are in-memory
+      `Map` evictions (DoH verdict cache, rate counters, fetch queue,
+      selection state). The one binding, BLOCKLIST, is **read-only
+      operator config** — `blocklist.ts` calls `kv.get` and nothing
+      else, and the list holds no user data, so it sits OUTSIDE this
+      rule's scope rather than being an exception to it. Worded this
+      way because a reader who greps `wrangler.jsonc`, finds a KV
+      namespace, and reads the old absolute would reasonably conclude
+      the claim was broken
+- [x] No URLs in logs — zero `console.*`/`logger.*` calls in shipped
+      server code, backed by TWO audits that found different things.
+      Audit 1 (code, STATUS "Full log audit") cleared every log site.
+      Audit 2 (config, STATUS "Second log close-out") is the one to
+      cite: **the config sweep found `observability.enabled` ARMED
+      while audit 1 claimed nothing enabled it — audit 1 swept `src/`
+      and never opened `wrangler.jsonc`.** Disarmed the day it was
+      found and now test-pinned (doc-sync layer 4 asserts
+      `observability.enabled === false`, so a regenerated or
+      pasted-over config fails the suite). One runtime dependency,
+      recorded at `errorResponse`'s rethrow: workerd genericises
+      uncaught error messages ("Invalid URL string." — input not
+      echoed); the identical code on Node would log the user's URL
+- [x] `robots.txt` respected with no override path — enforced in
+      `scan.ts` (a block returns a 200 manifest with
+      `robotsBlocked: true` and an empty list, not an error); no
+      `override`/`force`/`ignoreRobots`/`bypass` parameter exists in
+      the scan path or either API route
+- [x] Rate limits live — wired into BOTH endpoints (`scan.ts:21`,
+      `proxy.ts:21`), `RATE_LIMITS = {scan: 30, proxy: 1000}` per
+      fixed 1-hour window, 24 unit tests. **What is actually enforced,
+      stated here rather than left in the module:** counters are
+      IN-ISOLATE, so a real ceiling is a small multiple of nominal and
+      there is NO hard cap — these are budgets, not guarantees
+      (DECISIONS "The hourly allowance is a budget"). And limiting is
+      OFF ENTIRELY if `CF-Connecting-IP` is absent, surfaced by an
+      `x-rate-limit: unenforced` response header (a canary that logs
+      nothing) — **checked live in production 2026-08-12: header
+      absent, so the edge is setting the IP and limiting is
+      enforced**
+- [x] Byte-size probing verified lazy by counting network calls on a
+      large page — verify:results, 220-tile fixture: "zero probes on
+      load and render" (0), "select-all probes nothing" (0), an
+      oversized shift-range probes nothing and offers "Calculate size
+      (24)", and Calculate size probes each remaining image exactly
+      once with queue peak ≤ 6
 - [x] Preview falls back to proxy on hotlink 403 — verified by the
       verify:results fallback scenario (1 proxy request per failed tile;
       zero re-requests across a filter round trip). Live check closed
@@ -580,7 +645,14 @@ launch-day sweep.
       `subrequest-budget.test.ts`; both values and observability=false
       asserted by doc-sync layer 4, so a regenerated file fails the
       suite
-- [ ] Copyright notice and abuse contact shipped
+- [x] Copyright notice and abuse contact shipped — notice above the
+      results grid (`ResultsGrid.tsx`, "Images belong to their
+      creators. Only download what you have the right to use."),
+      restated in the landing FAQ, and the contact
+      (support@imageextract.pics) in the landing footer plus /traffic,
+      /terms, /about and /privacy. "Shipped" is true rather than merely
+      present as of 2026-08-12: the address RECEIVES MAIL, verified
+      from an external account
 
 ## How to work with me
 
