@@ -199,6 +199,10 @@ const steps = [
 					<ul class="mt-sm flex flex-col gap-xs text-caption text-muted">
 						<li><a href="#features" class="hover:text-text">Features</a></li>
 						<li><a href="#how-it-works" class="hover:text-text">How it works</a></li>
+						{/* The single entry point to the tool-variant pages. Sixty cannot
+						    live in this footer, so /tools carries them and this link keeps
+						    every one of them at crawl depth 2 from the homepage. */}
+						<li><a href="/tools" class="hover:text-text">All tools</a></li>
 					</ul>
 				</nav>
 				<nav aria-label="Resources">

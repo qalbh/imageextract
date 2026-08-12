@@ -16,6 +16,8 @@ import {
   invertWithin,
   dimsKnownCounts,
   matchesQuery,
+  parseFormatParam,
+  parseSourceParam,
   proxyUrl,
   selectAll,
   selectRange,
@@ -470,5 +472,69 @@ describe('selectRange (shift-click)', () => {
 
   it('falls back to the target when the anchor is not in the order', () => {
     expect([...selectRange(new Set(), order, 'missing', 'C')]).toEqual(['C']);
+  });
+});
+
+// The landing-page funnel: /tools/<variant> promises a subset, and the promise
+// has to survive the click into /results. These are the parse rules that make
+// the pre-applied filter honest — and, just as importantly, harmless when the
+// link is wrong.
+describe('parseFormatParam', () => {
+  it('parses a single format', () => {
+    expect([...parseFormatParam('png')]).toEqual(['png']);
+  });
+
+  it('parses a comma-separated list, deduped', () => {
+    expect([...parseFormatParam('png,webp,png')].sort()).toEqual(['png', 'webp']);
+  });
+
+  it('is case- and whitespace-insensitive', () => {
+    expect([...parseFormatParam('  PNG , WebP ')].sort()).toEqual(['png', 'webp']);
+  });
+
+  it('accepts jpg for jpeg — the spelling the UI shows and the copy will use', () => {
+    expect([...parseFormatParam('jpg')]).toEqual(['jpeg']);
+    expect([...parseFormatParam('jpeg')]).toEqual(['jpeg']);
+  });
+
+  it('accepts every canonical format, so no sidebar row is unreachable by link', () => {
+    for (const ext of canonicalFormats()) {
+      expect([...parseFormatParam(ext)]).toEqual([ext]);
+    }
+  });
+
+  it('drops unrecognised values and keeps the rest', () => {
+    expect([...parseFormatParam('png,tiff')]).toEqual(['png']);
+  });
+
+  it('yields an empty set (= no constraint) for absent, empty or all-bad input', () => {
+    // A stale or mistyped link must show the whole grid, never an empty one.
+    expect(parseFormatParam(null).size).toBe(0);
+    expect(parseFormatParam('').size).toBe(0);
+    expect(parseFormatParam(' , ').size).toBe(0);
+    expect(parseFormatParam('tiff,bmp').size).toBe(0);
+  });
+});
+
+describe('parseSourceParam', () => {
+  it('accepts every source group id, so no bucket is unreachable by link', () => {
+    for (const group of SOURCE_GROUPS) {
+      expect([...parseSourceParam(group.id)]).toEqual([group.id]);
+    }
+  });
+
+  it('parses a comma-separated list, case-insensitively', () => {
+    expect([...parseSourceParam('css,META')].sort()).toEqual(['css', 'meta']);
+  });
+
+  it('yields an empty set for absent or unrecognised input', () => {
+    expect(parseSourceParam(null).size).toBe(0);
+    expect(parseSourceParam('nope').size).toBe(0);
+  });
+
+  it('does not accept a raw ImageSource — the param is the BUCKET vocabulary', () => {
+    // 'favicon' is a raw source inside the 'meta' bucket. Accepting it here
+    // would create a second, undocumented vocabulary for the same param.
+    expect(parseSourceParam('favicon').size).toBe(0);
   });
 });

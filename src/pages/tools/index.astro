@@ -1,0 +1,44 @@
+---
+import { getCollection } from 'astro:content';
+import Layout from '../../layouts/Layout.astro';
+import SiteHeader from '../../components/SiteHeader.astro';
+
+// The index that keeps every tool page at crawl depth 2 from the homepage:
+// footer → /tools → the page. Sixty entries cannot live in the footer, and a
+// page reachable only from the sitemap is a page search engines discount.
+const pages = (await getCollection('tools')).sort((a, b) => a.data.h1.localeCompare(b.data.h1));
+---
+
+<Layout
+	title="All tools — ImageExtract"
+	description="Every ImageExtract tool page: extract images from a web page by format, by where they live in the markup, or by the kind of site you are scanning."
+>
+	<SiteHeader anchorPrefix="/" />
+	<main class="mx-auto max-w-content px-md py-xl">
+		<article class="tools-article">
+			<h1 class="text-h1 font-semibold text-text">All tools</h1>
+			<p class="mt-md text-body text-muted">
+				Every one of these runs the same scan — one page, read as the server sends it, nothing
+				stored. They differ in what they filter to and what they explain.
+			</p>
+			<ul class="mt-lg mb-xl">
+				{
+					pages.map((page) => (
+						<li class="border-b border-border py-md">
+							<a href={`/tools/${page.id}`} class="text-body font-semibold text-accent hover:underline">
+								{page.data.h1}
+							</a>
+							<p class="mt-xs text-small text-muted">{page.data.metaDescription}</p>
+						</li>
+					))
+				}
+			</ul>
+		</article>
+	</main>
+</Layout>
+
+<style>
+	.tools-article {
+		max-width: calc(var(--container-content) / 2);
+	}
+</style>

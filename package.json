@@ -36,6 +36,7 @@
 		"playwright-core": "^1.62.1",
 		"typescript": "^6.0.3",
 		"vitest": "^4.1.10",
-		"wrangler": "^4.118.0"
+		"wrangler": "^4.118.0",
+		"yaml": "^2.9.0"
 	}
 }

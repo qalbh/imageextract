@@ -131,6 +131,53 @@ export function applyFilters(images: readonly ScanImage[], state: FilterState): 
 }
 
 // ---------------------------------------------------------------------------
+// Funnel params — a /tools/<variant> landing page promises a specific subset
+// ("every PNG on the page"), and the promise has to survive the click. These
+// parse `?format=` / `?source=` on /results into the SAME filter state the
+// sidebar drives, so the pre-applied filter is visible and removable rather
+// than a hidden mode: the visitor sees PNG ticked and can untick it.
+//
+// Failure is deliberately SILENT and open. An unrecognised value is dropped
+// and an all-unrecognised param yields an empty set, which means "no
+// constraint" — a mistyped or stale link shows the whole grid instead of an
+// error or an empty one. A landing page's bad link must never look like a
+// failed scan; the scan is the product, the filter is a convenience.
+// ---------------------------------------------------------------------------
+
+// 'jpg' is accepted for 'jpeg' because that is the label the UI shows
+// (formatLabel maps jpeg → JPG) and therefore the spelling a page's copy and
+// its URL will use. Accepting only the union's internal name would make the
+// documented spelling the broken one.
+const FORMAT_ALIASES: Readonly<Record<string, ImageExt>> = { jpg: 'jpeg' };
+
+function parseParamList(raw: string | null): string[] {
+  if (raw === null) return [];
+  return raw
+    .split(',')
+    .map((part) => part.trim().toLowerCase())
+    .filter((part) => part !== '');
+}
+
+export function parseFormatParam(raw: string | null): ReadonlySet<ImageExt> {
+  const allowed = new Set<string>(canonicalFormats());
+  const out = new Set<ImageExt>();
+  for (const part of parseParamList(raw)) {
+    const ext = FORMAT_ALIASES[part] ?? part;
+    if (allowed.has(ext)) out.add(ext as ImageExt);
+  }
+  return out;
+}
+
+export function parseSourceParam(raw: string | null): ReadonlySet<SourceGroupId> {
+  const allowed = new Set<string>(SOURCE_GROUPS.map((group) => group.id));
+  const out = new Set<SourceGroupId>();
+  for (const part of parseParamList(raw)) {
+    if (allowed.has(part)) out.add(part as SourceGroupId);
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
 // Faceted counts — each group's counts are computed with that group's own
 // selection excluded, so Format counts reflect the active Source (and query)
 // filter and vice-versa. This is what "counts update with the filtered set"

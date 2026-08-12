@@ -138,6 +138,118 @@ async function cssBoundaryChecks(base) {
   ok('/results still gets every results rule', missing.length === 0, missing.join(' ') || 'all present');
 }
 
+// ---------------------------------------------------------------------------
+// Tool-variant landing pages (/tools/<slug>). Discovered from the BUILT output
+// rather than the content collection, deliberately: the collection says what
+// was authored, dist says what a visitor receives, and this gate exists to
+// check the second. Every page gets the same checks the landing page gets,
+// because "there will be sixty of them" is exactly the condition under which
+// per-page vigilance fails.
+//
+// Cost scales linearly — one browser navigation per page for the LCP check. At
+// sixty pages that is roughly a minute; if it ever dominates the gate, sample
+// the LCP check and keep the fetch-based checks exhaustive.
+// ---------------------------------------------------------------------------
+async function toolPageChecks(base, browser) {
+  const toolsDir = join(dist, 'tools');
+  if (!existsSync(toolsDir)) {
+    ok('tool pages: none built (skipped)', true);
+    return;
+  }
+  const slugs = (await readdir(toolsDir, { withFileTypes: true }))
+    .filter((e) => e.isDirectory())
+    .map((e) => e.name);
+  ok('tool pages: at least one is built and reachable', slugs.length > 0, slugs.join(' '));
+
+  const titles = new Map();
+  const descriptions = new Map();
+  const page = await browser.newPage();
+
+  for (const slug of slugs) {
+    const path = `/tools/${slug}`;
+    const html = await (await fetch(base + path)).text();
+
+    // Zero JS. These are search entry points on a 2.1s LCP budget with a 29ms
+    // margin; the landing demo's script and images are not welcome here.
+    const scripts = [...html.matchAll(/<script(\s[^>]*)?>/g)].length;
+    ok(`${path} ships zero script tags`, scripts === 0, `${scripts} found`);
+
+    // Exactly one scan form — the funnel. ScanForm hardcodes the id, so two
+    // forms on a page would produce a duplicate id and an ambiguous prefill.
+    const forms = [...html.matchAll(/id="scan-url"/g)].length;
+    ok(`${path} has exactly one scan form`, forms === 1, `${forms} found`);
+
+    // The results view's CSS must not reach a static page (the 2026-08-11 leak).
+    const leaked = RESULTS_ONLY.filter((s) => html.includes(s));
+    ok(`${path} ships no /results component CSS`, leaked.length === 0, leaked.join(' ') || 'clean');
+
+    // Unique, present meta. Sixty pages sharing a title is a doorway network.
+    const title = html.match(/<title>([^<]*)<\/title>/)?.[1] ?? '';
+    const desc = html.match(/<meta name="description" content="([^"]*)"/)?.[1] ?? '';
+    ok(`${path} has a title and description`, title.length > 0 && desc.length > 0, `${title.length}/${desc.length} chars`);
+    titles.set(slug, title);
+    descriptions.set(slug, desc);
+
+    await page.goto(base + path, { waitUntil: 'load' });
+
+    // The landing page asserts LCP === H1. That rule does NOT transfer here,
+    // and the difference is real rather than a concession: the landing hero is
+    // a display-size H1 with nothing else above the fold, while a prose page's
+    // largest contentful element is legitimately its lead paragraph (48px on
+    // one line loses on AREA to 16px over five). Asserting H1 would force a
+    // design change for no performance gain.
+    //
+    // What the landing check actually protects is that the LCP element needs
+    // no network fetch — no hero image, no embedded media in the critical
+    // path. That property is what is asserted here, so a page that grows a
+    // screenshot still fails.
+    const lcp = await page.evaluate(
+      () =>
+        new Promise((res) => {
+          new PerformanceObserver((l) => {
+            const e = l.getEntries().at(-1);
+            if (e && e.element) res(e.element.tagName);
+          }).observe({ type: 'largest-contentful-paint', buffered: true });
+          setTimeout(() => res('TIMEOUT'), 4000);
+        }),
+    );
+    const MEDIA_LCP = ['IMG', 'VIDEO', 'CANVAS', 'SVG', 'PICTURE'];
+    ok(
+      `${path} LCP element is text, not media`,
+      lcp !== 'TIMEOUT' && !MEDIA_LCP.includes(lcp),
+      `got ${lcp}`,
+    );
+
+    // THE FUNNEL CONTRACT: submitting the page's form must carry its promise
+    // into /results as query params, with no JavaScript involved. A page
+    // titled "every PNG" that funnels into an unfiltered grid has broken its
+    // promise at the point of conversion — this is the check that catches it.
+    const hidden = [...html.matchAll(/<input type="hidden" name="(format|source)" value="([^"]*)"/g)];
+    await page.fill('#scan-url', 'https://example.com');
+    await page.evaluate(() => document.querySelector('form[action="/results"]').submit());
+    await page.waitForURL(/\/results/);
+    const landed = new URL(page.url());
+    const carried = hidden.every(([, name, value]) => landed.searchParams.get(name) === value);
+    ok(
+      `${path} funnel carries its filter into /results`,
+      landed.searchParams.get('url') === 'https://example.com' && carried,
+      `${landed.search} (declared: ${hidden.map(([, n, v]) => `${n}=${v}`).join(' ') || 'none'})`,
+    );
+  }
+
+  await page.close();
+  ok(
+    'tool page titles are unique',
+    new Set(titles.values()).size === titles.size,
+    `${new Set(titles.values()).size}/${titles.size}`,
+  );
+  ok(
+    'tool page descriptions are unique',
+    new Set(descriptions.values()).size === descriptions.size,
+    `${new Set(descriptions.values()).size}/${descriptions.size}`,
+  );
+}
+
 async function browserChecks(base) {
   const launch = process.env.CHROMIUM_PATH
     ? { executablePath: process.env.CHROMIUM_PATH }
@@ -257,6 +369,9 @@ async function browserChecks(base) {
     );
     ok('demo intro still plays at phone widths', mobileArmed);
     await mCtx.close();
+
+    // Reuses this browser rather than launching a second one.
+    await toolPageChecks(base, browser);
   } finally {
     await browser.close();
   }

@@ -9,10 +9,15 @@
 //   compact  — a SOURCE row for /results: label, the URL as a bordered chip
 //              with a clear ×, and a Re-scan URL link. The × clears by
 //              navigating to a bare /results (zero JS).
+//
+// The default variant takes a <slot> for hidden inputs: /tools/<variant> pages
+// append ?format=/?source= that way, so a page promising "every PNG" hands off
+// a PNG-filtered grid without a line of JavaScript.
 interface Props {
 	variant?: 'default' | 'compact';
+	placeholder?: string;
 }
-const { variant = 'default' } = Astro.props;
+const { variant = 'default', placeholder = 'https://example.com' } = Astro.props;
 ---
 
 {
@@ -47,12 +52,13 @@ const { variant = 'default' } = Astro.props;
 		</form>
 	) : (
 		<form method="get" action="/results" class="flex gap-xs">
+			<slot />
 			<input
 				id="scan-url"
 				name="url"
 				type="url"
 				required
-				placeholder="https://example.com"
+				placeholder={placeholder}
 				class="w-full rounded-md border border-border bg-surface px-sm py-xs text-body text-text placeholder:text-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
 			/>
 			<button

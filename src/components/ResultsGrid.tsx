@@ -14,6 +14,8 @@ import {
   invertWithin,
   METRIC_SORTS,
   dimsKnownCounts,
+  parseFormatParam,
+  parseSourceParam,
   selectAll,
   selectRange,
   selectedUrls,
@@ -229,7 +231,22 @@ export default function ResultsGrid() {
   const lastClickedRef = useRef<string | null>(null);
 
   useEffect(() => {
-    const url = new URLSearchParams(window.location.search).get('url');
+    const params = new URLSearchParams(window.location.search);
+    // Pre-applied filters from a /tools/<variant> landing page, so a page that
+    // promises "every PNG" delivers a PNG-filtered grid rather than an
+    // unfiltered one with instructions. Applied as ordinary filter state: the
+    // sidebar renders it ticked and the visitor can untick it.
+    //
+    // Read in the mount effect rather than a lazy useState initializer
+    // deliberately — the island is server-rendered, `window` does not exist
+    // there, and seeding filter state during SSR would hydrate a sidebar whose
+    // checkboxes disagree with the server's markup. Nothing flashes: the grid
+    // is empty until the scan resolves, which is strictly later than this.
+    const preFormats = parseFormatParam(params.get('format'));
+    const preGroups = parseSourceParam(params.get('source'));
+    if (preFormats.size > 0) setFormats(preFormats);
+    if (preGroups.size > 0) setGroups(preGroups);
+    const url = params.get('url');
     if (!url) return;
     // Prefill the static form input so the address being shown matches the
     // scan being run — the input itself ships no JS, so the island does it.

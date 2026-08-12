@@ -563,6 +563,83 @@ thing to reach for, not full CI.
 bottleneck becomes a bus factor), or releases become frequent enough
 that the manual step is the bottleneck rather than the safety.
 
+## The landing-page funnel carries its filter through the click
+
+Decided 2026-08-12, before the first /tools page was written rather than
+after, so the copy could promise what the funnel delivers.
+
+`/results` accepted exactly one query param, `url`. A page titled
+"Download all PNG images from a website" would therefore have handed off
+to an UNFILTERED grid, with copy reading "now use the Format filter" —
+the promise breaking at the point of conversion, which is the worst
+place for it to break. `?format=` and `?source=` now parse into the same
+filter state the sidebar drives (`parseFormatParam` / `parseSourceParam`
+in `results-model.ts`, carried by hidden inputs on the existing native
+GET form, so the funnel stays zero-JS).
+
+The pre-applied filter is deliberately ORDINARY STATE, not a mode: the
+sidebar renders PNG ticked and the visitor can untick it. A hidden
+filter would be a grid that silently lies about what the page contains
+— the same misrepresentation the variantGroup work exists to fix.
+
+Parsing fails SILENT and OPEN. An unrecognised value is dropped; an
+all-unrecognised param yields an empty set, which means no constraint,
+so a stale or mistyped link shows the whole grid rather than an error or
+an empty one. A bad landing-page link must never look like a failed
+scan. `jpg` is accepted for `jpeg` because that is the label the UI
+shows and therefore the spelling copy and URLs will use; the param
+vocabulary for `source=` is the BUCKET ids only, not raw `ImageSource`
+values, so there is one vocabulary rather than two.
+
+The canonical-surface objection was raised and is weaker than it looks:
+`/results` is already `noindex, nofollow`, `Disallow: /results` in
+robots.txt, excluded from the sitemap, and canonical to the bare path,
+so no crawler reaches a param. The param space is for humans arriving
+from a page we wrote.
+
+**Cost:** two more entry points into island state, so a future filter
+control has a URL contract to keep. Bounded by the parsers being pure
+and unit-tested (13 cases incl. every canonical format and group id, so
+no sidebar row is unreachable by link).
+**Revisit if:** a variant page ever needs a filter dimension the sidebar
+does not have — that is a UI decision first, a param second, in that
+order.
+
+## Google Search Console yes, Web Analytics no — and the asymmetry is the point
+
+Decided 2026-08-12. Search Console is verified by a DNS TXT record. It
+injects nothing into any page, runs no script, sets no cookie, and
+observes no visitor: it reports GOOGLE's own logs of queries that
+already happened in Google's product. /privacy's sentence — "We use no
+analytics, advertising, or tracking services" — is about services
+running on this site observing the people who visit it, and Search
+Console is none of those.
+
+**Recorded because it will otherwise read as inconsistent with the Web
+Analytics closure**, decided the same day in the other direction. The
+distinction is mechanical, not a matter of degree: Web Analytics put a
+`beacon.min.js` into all seven pages and made that sentence false on the
+live site for roughly an hour. Search Console adds a DNS record and
+reads a log we do not own. One changes what a visitor's browser does;
+the other does not touch the visitor at all. doc-sync layer 5 sees no
+difference — it greps shipped source for analytics markers, and a DNS
+record is not source — which is exactly why the reasoning belongs here
+rather than resting on a green suite.
+
+It is also load-bearing rather than optional. With Web Analytics closed,
+Search Console is the ONLY feedback channel left, and Phase 8's "expand
+landing pages based on actual search queries" has no other input. The
+first five /tools pages are an experiment spread across three axes
+precisely because we cannot yet measure which axis earns pages; without
+Search Console, pages 6–60 are guesses with no correction mechanism.
+
+**Cost:** Google learns which queries we appear for — which Google
+already knows, being the party that served them. No visitor-side cost,
+which is the whole distinction.
+**Revisit if:** verification ever requires an HTML file or a script tag
+instead of a DNS record — that would change the mechanism, and the
+answer with it.
+
 ## Open questions
 
 | Question | Trigger |

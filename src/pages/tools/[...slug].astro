@@ -1,0 +1,121 @@
+---
+import { getCollection, render } from 'astro:content';
+import Layout from '../../layouts/Layout.astro';
+import SiteHeader from '../../components/SiteHeader.astro';
+import ScanForm from '../../components/ScanForm.astro';
+
+// Tool-variant landing pages. One route, one .md per page — the marginal cost
+// of page sixty is a file, not code.
+//
+// Zero JavaScript, deliberately: the landing demo grid is 116 KB of images and
+// a script, and these pages are search entry points hit with a cold cache on a
+// 2.1s LCP budget whose current margin is 29ms. The scan form is a native GET
+// form, so the whole funnel works with no script at all.
+export async function getStaticPaths() {
+	const pages = await getCollection('tools');
+	return pages.map((page) => ({ params: { slug: page.id }, props: { page } }));
+}
+
+const { page } = Astro.props;
+const { data } = page;
+const { Content } = await render(page);
+
+const related = data.related.length
+	? (await getCollection('tools')).filter((p) => data.related.includes(p.id))
+	: [];
+---
+
+<Layout title={data.metaTitle} description={data.metaDescription}>
+	<SiteHeader anchorPrefix="/" />
+	<main class="mx-auto max-w-content px-md py-xl">
+		<article class="tool-article">
+			<h1 class="text-h1 font-semibold text-text">{data.h1}</h1>
+			<p class="mt-md text-body text-muted">{data.lead}</p>
+
+			<div class="mt-lg">
+				{/* Hidden inputs carry the page's promise through the click: a page
+				    titled "every PNG" hands /results ?format=png, which parses into
+				    the same filter state the sidebar drives (visible and
+				    removable, never a hidden mode). Zero JS — a native GET form
+				    submits these exactly like the URL field. */}
+				<ScanForm placeholder={data.placeholder}>
+					{data.funnel?.format && (
+						<input type="hidden" name="format" value={data.funnel.format.join(',')} />
+					)}
+					{data.funnel?.source && (
+						<input type="hidden" name="source" value={data.funnel.source.join(',')} />
+					)}
+				</ScanForm>
+			</div>
+
+			<h2 class="mt-xl text-h3 font-semibold text-text">What this does</h2>
+			<ul class="mt-sm">
+				{
+					data.claims.map((claim) => (
+						<li class="border-b border-border py-sm text-body text-muted">{claim.text}</li>
+					))
+				}
+			</ul>
+
+			<Content />
+
+			{/* Limits sit ABOVE the FAQ and below the mechanism, so a visitor meets
+			    them before spending a scan finding out. Every page has at least
+			    one — the schema requires it. */}
+			<h2 class="mt-xl text-h3 font-semibold text-text">What it won't do</h2>
+			<ul class="mt-sm">
+				{
+					data.limits.map((limit) => (
+						<li class="border-b border-border py-sm text-body text-muted">{limit.text}</li>
+					))
+				}
+			</ul>
+
+			{
+				data.faq.length > 0 && (
+					<Fragment>
+						<h2 class="mt-xl text-h3 font-semibold text-text">Questions</h2>
+						{data.faq.map((item) => (
+							<Fragment>
+								<h3 class="mt-md text-body font-semibold text-text">{item.q}</h3>
+								<p class="mt-xs text-body text-muted">{item.a}</p>
+							</Fragment>
+						))}
+					</Fragment>
+				)
+			}
+
+			{
+				related.length > 0 && (
+					<Fragment>
+						<h2 class="mt-xl text-h3 font-semibold text-text">Related</h2>
+						<ul class="mt-sm">
+							{related.map((p) => (
+								<li class="py-xs">
+									<a href={`/tools/${p.id}`} class="text-body text-accent hover:underline">
+										{p.data.h1}
+									</a>
+								</li>
+							))}
+						</ul>
+					</Fragment>
+				)
+			}
+
+			<p class="mt-xl mb-xl text-caption text-muted">
+				Images belong to their creators. Only download what you have the right to use. See <a
+					href="/tools"
+					class="text-accent hover:underline">all tools</a
+				> or read <a href="/traffic" class="text-accent hover:underline">what our requests do</a>.
+			</p>
+		</article>
+	</main>
+</Layout>
+
+<style>
+	/* Reading measure, derived from the container token — the /about
+	   precedent, not an invented width. */
+	.tool-article {
+		max-width: calc(var(--container-content) / 2);
+	}
+</style>

@@ -181,6 +181,11 @@ Phase 5 (trust and legal) **CLOSED 2026-08-12**: every page shipped — `/traffi
       `results-model.ts`) — but it appeared in no phase checklist, so every
       "what remains" list built from this document silently omitted it for
       three days. That is the missing-box class in the ledger warning above.
+      **Name the collapse function `collapseVariants`** — copy on
+      /tools/download-png-images declares itself dependent on that symbol
+      being ABSENT (`assumes` in its frontmatter), so shipping it turns
+      `content-claims.test.ts` red with the page and paragraph that need
+      rewriting. Naming it something else silently loses that.
 
 - [x] Proxy fallback on hotlink 403 — one retry per tile via a monotonic parent-owned status map; verified by the verify:results fallback scenario: 1 proxy request per failed tile and zero new proxy/origin requests across a filter round trip (the remount case). Live check closed (2026-08-10): referrerless 403s confirmed real across three origins; our referrerless proxy shares the failure for referer-required origins (kept deliberately — DECISIONS: impersonation argument), so its real recovery classes are CORP/ORB blocks and geo/IP splits. Full in-app loop not runnable live: image-protecting sites also page-protect, which caps the encounter rate.
 - [x] Lazy byte-size probing — shipped via proxy HEAD with the shared bounded queue (fetch-queue.ts, count + bytes-in-flight, the substrate ZIP reuses), then **superseded 2026-08-10 by the unified Range probe** (one prefix GET answers size AND dimensions; the gate's HEAD counting converted to Range counting). The probing discipline carried over unchanged and stays verified: 0 probes until selection, 1 per single select, cache across deselect/reselect, 5-range auto-probes / 30-range falls to the explicit action, select-all 0, peak concurrency exactly 6, bar totals never silently undercount, Cancel freezes in-flight probes. Client probe timeout 10s; data: URIs sized locally.

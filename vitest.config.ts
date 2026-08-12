@@ -75,9 +75,42 @@ const privacyGuard = {
   analyticsHits,
 };
 
+// Tool-variant landing pages (src/content/tools/*.md). Their frontmatter is
+// the claim ledger: every capability sentence carries the code symbol or
+// corpus row behind it, and `assumes` entries name symbols whose ARRIVAL makes
+// copy stale. content-claims.test.ts checks both, so parse here (Node side,
+// where a YAML parser and the filesystem exist) and inject the result — the
+// same shape as __GLOBAL_CSS__ above.
+//
+// `yaml` (ISC, 2.9.0) is a devDependency for exactly this. Astro's own content
+// layer parses these files at build time; this is the test's independent read
+// of the same bytes, which is the point — a guard sharing its subject's parser
+// inherits its blind spots.
+import { parse as parseYaml } from 'yaml';
+const toolsDir = new URL('./src/content/tools', import.meta.url).pathname;
+const toolPages = readdirSync(toolsDir)
+  .filter((name) => name.endsWith('.md'))
+  .map((name) => {
+    const raw = readFileSync(join(toolsDir, name), 'utf8');
+    // Frontmatter is the block between the first two --- fences. A file that
+    // does not open with one is a malformed page, and `data` stays null so the
+    // test reports it rather than silently skipping it.
+    const match = /^---\r?\n([\s\S]*?)\r?\n---/.exec(raw);
+    return {
+      slug: name.replace(/\.md$/, ''),
+      data: match ? (parseYaml(match[1] as string) as Record<string, unknown>) : null,
+      body: match ? raw.slice(match[0].length) : raw,
+    };
+  });
+// The landing page's rendered copy, for the no-verbatim-restatement rule: a
+// tool page may not recycle a sentence that already exists on /.
+const landingSource = readFileSync(new URL('./src/pages/index.astro', import.meta.url), 'utf8');
+
 export default defineConfig({
   define: {
     __GLOBAL_CSS__: JSON.stringify(globalCss),
+    __TOOL_PAGES__: JSON.stringify(toolPages),
+    __LANDING_SOURCE__: JSON.stringify(landingSource),
     // The deployed config, injected so doc-sync can ASSERT it — the
     // observability constraint and the limits numbers are tested, not
     // remembered. A comment does not survive a file rewrite; a failing
