@@ -28,7 +28,7 @@ The site is DEPLOYED and live at https://imageextract.pics.
 | 3 — Download | complete |
 | 4 — Abuse controls | complete |
 | 5 — Trust and legal | complete |
-| 6 — SEO and content | open |
+| 6 — SEO and content | complete |
 | 7 — Deploy | open |
 | 8 — Post-launch | open |
 
@@ -38,9 +38,11 @@ box under its heading below fails the suite. That is the Phase 6 failure of
 further down — made impossible rather than merely corrected.
 
 What each open phase is waiting on, in one line each: **2** the variant
-collapse; **6** Search Console, then landing pages 6-60; **7** legal review
-and error telemetry; **8** post-launch observation, which cannot start
-earlier. Phase 3 closed 2026-08-13.
+collapse; **7** legal review and error telemetry; **8** post-launch
+observation, which could not start earlier. Phases 3 and 6 closed
+2026-08-13 — **6 closed on its SCOPE, not on the content ambition**: the
+~60-page cadence Known risks calls the real bottleneck is Phase 8 work,
+fed by the query data Search Console has only just started collecting.
 
 ## Ledger warning
 
@@ -113,13 +115,6 @@ halves are now in docs/record.md, one settled and one explicitly not.
       `content-claims.test.ts` red with the page and paragraph that need
       rewriting. Naming it something else silently loses that.
 
-### Phase 6 — SEO and content
-
-- [ ] Google Search Console verified by DNS TXT — approved and reasoned in
-      DECISIONS.md ("Google Search Console yes, Web Analytics no"). It is
-      the ONLY feedback channel left after the Web Analytics closure, so
-      pages 6–60 are guesses until it exists.
-
 ### Phase 7 — Deploy
 
 - [ ] Legal review of /privacy and /terms — the copy is an accurate
@@ -131,8 +126,23 @@ halves are now in docs/record.md, one settled and one explicitly not.
 
 - [ ] Monitor subrequest volume and cost for the first month
 - [ ] Watch which sites produce zero results, and why
-- [ ] Expand landing pages based on actual search queries — gated on the
-      Search Console item in Phase 6; there is no other query source.
+- [ ] Confirm the sitemap actually fetched in Search Console — it read
+      "Couldn't fetch" at submission on 2026-08-13. The diagnosis is crawl
+      lag on a days-old property, supported at the time by two
+      observations: the XML was confirmed serving correctly, and URL
+      inspection showed the homepage already indexed. **That diagnosis is
+      unconfirmed until the status flips**, and it has a clean
+      falsification: if it still reads "Couldn't fetch" after a week or so,
+      it is a config gap and not lag, and the sitemap line in robots.txt,
+      the sitemap-index/sitemap-0 split, and the property's URL prefix are
+      where to look. Cheap to check, easy to forget, wrong for weeks if
+      nobody does.
+- [ ] Expand landing pages based on actual search queries — gated on
+      Search Console having collected enough to be useful, which takes
+      WEEKS on a new property, not days. Until then pages 6-60 are
+      guesses, which is an argument for waiting rather than for writing
+      fifty-five pages against an assumption. This is where the ~60-page
+      cadence lives now that Phase 6 has closed on its scope.
 
 ---
 

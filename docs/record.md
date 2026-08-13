@@ -572,6 +572,30 @@ Phase 5 (trust and legal) **CLOSED 2026-08-12**: every page shipped — `/traffi
       rather than inferred from the URL. Live sitemap carries all 11 public
       URLs; robots.txt still disallows /results and /api/.
 
+- [x] Google Search Console verified by DNS TXT — done 2026-08-13, on the
+      AdSense Google account, with
+      `https://imageextract.pics/sitemap-index.xml` submitted. **This was
+      the last open box in Phase 6, which closes with it.** The decision
+      and the asymmetry against the Web Analytics closure are in
+      DECISIONS.md ("Google Search Console yes, Web Analytics no"): a DNS
+      record and a read of Google's own logs, versus a beacon in every
+      page.
+      **Two honest notes, both recorded rather than smoothed over.**
+      (1) The sitemap read **"Couldn't fetch"** on submission. Diagnosed as
+      crawl lag on a property days old rather than a configuration gap,
+      supported at the time by two observations: the XML was confirmed
+      serving correctly, and URL inspection showed the homepage ALREADY
+      INDEXED — a property Google cannot reach does not have an indexed
+      homepage. That diagnosis is nonetheless **unconfirmed until the
+      status flips**, so it is tracked as a Phase 8 box with an explicit
+      falsification condition rather than left as a reassuring sentence.
+      (2) Query data takes **weeks** on a new property before it is useful.
+      Verification starts the clock; it does not deliver the signal. Pages
+      6–60 stay guesses until the data exists, which is an argument for
+      waiting rather than for writing fifty-five pages against an
+      assumption — the whole reason the first five were spread across three
+      axes.
+
 ## Phase 7 — Deploy
 
 - [x] GitHub repository, code pushed — verified 2026-08-10:
