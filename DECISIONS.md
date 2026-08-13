@@ -649,6 +649,38 @@ which is the whole distinction.
 instead of a DNS record — that would change the mechanism, and the
 answer with it.
 
+## Numeric filename prefixes in the ZIP: closed as not-doing
+
+Decided 2026-08-13, closing the last Phase 3 box. The idea was an optional
+toggle that prefixed ZIP members with `001-`, `002-` so the archive preserved
+the order tiles appeared in the grid. Recorded as a DECISION with the box
+CHECKED, the deploy-on-push way — an unchecked box reads as owed work, and
+this is not owed.
+
+**It solves ordering, not collisions.** Filenames are already scan-unique:
+`uniqueFilename` appends `-2`, `-3`… during extraction and data URIs become
+`inline-N.svg`, so an archive cannot contain two members fighting over one
+name. The problem a numeric prefix classically solves does not exist here.
+
+**The ordering it preserves is weak.** Grid order is document order — where
+an image sat in the page's markup. Users select the images they want; they
+do not generally care that a photo was the fourteenth element in the DOM,
+and nothing about document order survives into what they do with the files
+afterwards.
+
+**It costs UI surface in the wrong place.** The sidebar already carries
+format, sort, source and display groups, with a selection bar beneath the
+grid. Adding a preference control for filename cosmetics spends attention
+budget on the least consequential thing on the screen, for a case nobody has
+raised.
+
+**Cost:** archives are ordered by whatever the user's file manager does with
+the names, which for most selections is alphabetical rather than positional.
+**Revisit if:** someone actually asks. That is the only evidence that would
+justify it, and it is cheap to add later — the manifest filenames are already
+what the archive uses, so a prefix is a string change at assembly time, not a
+design.
+
 ## Open questions
 
 | Question | Trigger |

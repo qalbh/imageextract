@@ -540,7 +540,9 @@ blocked with the stated bar line, never truncated. Failures: live counts +
 is labelled "Cancel (discards ZIP)" — consequence before the click; Blob
 path never starts the download, FS-Access abort discards (OPFS-verified:
 fresh file 0 bytes, prior contents untouched). Numeric-prefix filenames
-deferred (polish).
+CLOSED as not-doing 2026-08-13 (DECISIONS.md) — filenames are already
+scan-unique via uniqueFilename, so a prefix would order rather than
+disambiguate, and document order is a weak thing to preserve.
 
 **Device pass, partial result (2026-08-10, desktop only):** a 120-member
 ZIP on desktop completed, saved to Downloads, opened, no tab crash — but

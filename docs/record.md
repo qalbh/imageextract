@@ -174,6 +174,20 @@ Nothing here is read to plan. It is read at an audit, or when someone asks
       risks, not an open box, and `@tanstack/react-virtual` remains the
       escalation if it ever surfaces.
 
+- [x] Optional numeric prefix preserving grid order — **CLOSED as
+      NOT-DOING 2026-08-13, a decision rather than outstanding work**, and
+      checked rather than left blank for the deploy-on-push reason: an
+      unchecked box reads as owed. Full reasoning in DECISIONS.md
+      ("Numeric filename prefixes in the ZIP: closed as not-doing").
+      In short: `uniqueFilename` already makes manifest filenames
+      scan-unique, so a prefix would solve ORDERING rather than collisions;
+      the ordering it preserves is document order, which is where an image
+      sat in the markup and not something users act on; and it would spend
+      sidebar surface — already carrying format, sort, source and display
+      groups — on filename cosmetics nobody has asked for. Revisit if
+      someone actually asks, which is the only evidence that would justify
+      it. **This was the last open box in Phase 3, which closes with it.**
+
 ## Phase 4 — Abuse controls
 
 Phase 4 (abuse controls) closed 2026-08-10: in-isolate rate limits with the shared-egress 429 copy, the KV-read domain blocklist, the measured `limits` block with doc-sync-asserted observability, and both log close-outs — on top of the coverage diagnosis that inverted the deep-scan assumption and produced the noscript and logical-cap extraction fixes. Phases 1–3 before it shipped the engine (scan, extraction, robots, proxy, SSRF guard), the full results UI, and the download path (hotlink fallback, unified Range probing, single-image download, client-side ZIP).

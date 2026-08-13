@@ -25,7 +25,7 @@ The site is DEPLOYED and live at https://imageextract.pics.
 |---|---|
 | 1 — Core engine | complete |
 | 2 — Results UI | open |
-| 3 — Download | open |
+| 3 — Download | complete |
 | 4 — Abuse controls | complete |
 | 5 — Trust and legal | complete |
 | 6 — SEO and content | open |
@@ -38,10 +38,9 @@ box under its heading below fails the suite. That is the Phase 6 failure of
 further down — made impossible rather than merely corrected.
 
 What each open phase is waiting on, in one line each: **2** the variant
-collapse; **3** one DECISION, not work — whether the numeric-prefix toggle is
-built or closed as not-doing; **6** Search Console, then landing pages 6-60;
-**7** legal review and error telemetry; **8** post-launch observation, which
-cannot start earlier.
+collapse; **6** Search Console, then landing pages 6-60; **7** legal review
+and error telemetry; **8** post-launch observation, which cannot start
+earlier. Phase 3 closed 2026-08-13.
 
 ## Ledger warning
 
@@ -113,15 +112,6 @@ halves are now in docs/record.md, one settled and one explicitly not.
       being ABSENT (`assumes` in its frontmatter), so shipping it turns
       `content-claims.test.ts` red with the page and paragraph that need
       rewriting. Naming it something else silently loses that.
-
-### Phase 3 — Download
-
-- [ ] Optional numeric prefix preserving grid order (deferred — polish
-      toggle, not assembly). **Decision owed rather than work owed:** it
-      is the last thing standing between Phase 3 and complete once the
-      scroll half lands. Either build it or close it as not-doing with
-      reasoning, the way deploy-on-push was closed — an unchecked box
-      reads as owed work.
 
 ### Phase 6 — SEO and content
 
