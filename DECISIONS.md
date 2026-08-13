@@ -681,6 +681,46 @@ justify it, and it is cheap to add later — the manifest filenames are already
 what the archive uses, so a prefix is a string change at assembly time, not a
 design.
 
+## The legal pages ship without an outside review
+
+Decided 2026-08-13, closing the last box that called itself a pre-launch
+blocker. Recorded as a decision with the box CHECKED, the deploy-on-push
+way — an unchecked box reads as owed work, and this is accepted rather
+than owed.
+
+**What is vouched for, and it is the larger half.** Every technical claim
+on /privacy and /terms was verified against source before it was written,
+and two were REPAIRED during that pass because the code did not support
+them as drafted (selection triggers probes; the rate counters store the
+endpoint class). The mechanisms those pages describe — 4 KB range probes,
+hostname→verdict DNS caching at 60s, no-referrer on thumbnails, zero
+cookie writes, upstream Set-Cookie stripped, nothing persisted — are
+accurate descriptions of what the Worker does. The no-analytics sentence
+is mechanically guarded by doc-sync layer 5. That part is not a matter of
+opinion and does not need a lawyer.
+
+**What is being accepted, stated plainly so nobody discovers it later.**
+The legal FRAMING is unreviewed: the liability limitation, and the
+takedown route. **The takedown route carries the real exposure**, because
+the tool reaches material on sites we do not control — the copy commits
+to a mechanism (write to support@, credible claims get the domain
+excluded) whose adequacy as a response to a rights claim has never been
+assessed by anyone qualified. The blocklist behind that promise works and
+is live; whether the promise is the right one to make is the unreviewed
+question.
+
+The judgement: the pages are honest, the exposure is small at zero
+traffic and zero revenue, and an outside read is a cost better spent when
+there is something to protect.
+
+**Cost:** if a claim arrives, the response is improvised against unreviewed
+terms rather than prepared ones.
+**Revisit if:** a takedown claim arrives, or the service takes on accounts,
+payments, or data retention. Each of those changes the question rather
+than merely raising the stakes — accounts and payments create obligations
+these pages do not address at all, and retention would contradict the
+sentence the whole privacy position rests on.
+
 ## Open questions
 
 | Question | Trigger |

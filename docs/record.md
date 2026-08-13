@@ -352,9 +352,15 @@ Phase 5 (trust and legal) **CLOSED 2026-08-12**: every page shipped — `/traffi
       coexist). Last-updated derives from git at build — cannot rot
       silently. **NOT legally reviewed — a lawyer's read is owed before
       launch (Phase 7 item).**
+      **[Superseded 2026-08-13: the outside read was CLOSED as not-doing —
+      see the Phase 7 box below and DECISIONS.md "The legal pages ship
+      without an outside review". The technical claims above still stand;
+      it is the legal framing that is accepted unreviewed.]**
 - [x] Terms of use — `/terms` shipped 2026-08-10, same vouch-scope as
       /privacy: **product claims verified against source, NOT legally
-      reviewed** (Phase 7 legal-review item names it). Verified during
+      reviewed** (Phase 7 legal-review item names it — **superseded
+      2026-08-13, closed as not-doing; the takedown section here is the
+      part carrying real exposure**). Verified during
       the pre-write pass: rate limits real and per-network; the
       /traffic cross-reference accurate; the storage sentence
       TIGHTENED ("Nothing you scan or download is stored" — the
@@ -760,6 +766,29 @@ Phase 5 (trust and legal) **CLOSED 2026-08-12**: every page shipped — `/traffi
       Still unrun from production: lovehoney.eu, amazon, etsy, unsplash
       — the original walled four. Not blocking; the corpus question
       they existed to answer is now answered by the table above.
+
+- [x] Legal review of /privacy and /terms — **CLOSED as NOT-DOING
+      2026-08-13, a decision rather than outstanding work.** Checked
+      rather than left blank for the deploy-on-push reason. Full reasoning
+      in DECISIONS.md ("The legal pages ship without an outside review").
+      **Vouched for:** every technical claim on both pages was verified
+      against source before it was written, and two were repaired during
+      that pass because the code did not support them as drafted. Those
+      descriptions are accurate and do not need a lawyer.
+      **Accepted unreviewed:** the liability limitation, and the takedown
+      route. **The takedown route is where the real exposure sits** — the
+      tool reaches material on sites we do not control, and the copy
+      commits to a mechanism (write to support@, credible claims get the
+      domain excluded) whose adequacy as a response to a rights claim has
+      never been assessed by anyone qualified. The blocklist behind that
+      promise works and is live; whether the promise is the right one to
+      make is the open question.
+      Judgement recorded: honest pages, small exposure at zero traffic and
+      zero revenue, an outside read better bought when there is something
+      to protect. Revisit on a takedown claim arriving, or on accounts,
+      payments, or data retention — each changes the question rather than
+      merely raising the stakes.
+      **This was the last box calling itself a pre-launch blocker.**
 
 ## Phase 8 — Post-launch
 

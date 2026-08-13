@@ -38,11 +38,17 @@ box under its heading below fails the suite. That is the Phase 6 failure of
 further down — made impossible rather than merely corrected.
 
 What each open phase is waiting on, in one line each: **2** the variant
-collapse; **7** legal review and error telemetry; **8** post-launch
-observation, which could not start earlier. Phases 3 and 6 closed
-2026-08-13 — **6 closed on its SCOPE, not on the content ambition**: the
-~60-page cadence Known risks calls the real bottleneck is Phase 8 work,
-fed by the query data Search Console has only just started collecting.
+collapse, which is correctness rather than a blocker; **7** error
+telemetry; **8** post-launch observation, which could not start earlier.
+Phases 3 and 6 closed 2026-08-13 — **6 closed on its SCOPE, not on the
+content ambition**: the ~60-page cadence Known risks calls the real
+bottleneck is Phase 8 work, fed by query data Search Console has only
+just started collecting.
+
+**No box here calls itself a pre-launch blocker any more.** The last one
+that did — the legal review — was closed as not-doing on 2026-08-13 with
+its accepted exposure written down (DECISIONS.md). What remains is
+correctness, instrumentation, and observation over time.
 
 ## Ledger warning
 
@@ -117,9 +123,6 @@ halves are now in docs/record.md, one settled and one explicitly not.
 
 ### Phase 7 — Deploy
 
-- [ ] Legal review of /privacy and /terms — the copy is an accurate
-      technical description, claim-verified against source; what it has
-      never had is a lawyer's read. Owed before launch.
 - [ ] Anonymous error telemetry (error class only, never URLs)
 
 ### Phase 8 — Post-launch
