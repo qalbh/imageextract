@@ -151,6 +151,28 @@ Nothing here is read to plan. It is read at an audit, or when someone asks
       headroom would complete identically whether the Blob was disk-backed
       or not, so it cannot discriminate. The discriminating evidence is an
       archive large enough that holding it in RAM would fail.
+      **Size supplied 2026-08-13: the archive was 10 MB — INCONCLUSIVE, and
+      recorded as such rather than tidied into a tick.** The constant's own
+      working puts the tab at killable beyond ~500 MB, so 10 MB is about 2%
+      of the discriminating threshold; the run completes identically in both
+      worlds. `zip.ts` keeps its ASSUMES wording and now carries this
+      negative result beside it, so nobody re-runs a small ZIP and reads it
+      as settlement. Settling it needs one archive of a few hundred MB.
+- [x] Grid scroll smoothness on a real phone — reported 2026-08-13:
+      **smooth**, on the same Android run, at the image count that produced
+      a 10 MB archive. That count was never stated, so what is established
+      is real-device smoothness at a modest scale, not at the 1,000-image
+      figure frontend-plan step 7 phrases the criterion around.
+      **Closed anyway, and the architecture is why**: `TILE_REVEAL_CAP`
+      mounts 120 tiles regardless of manifest length, with
+      `content-visibility` skipping off-screen work, so what scrolling costs
+      is bounded by the reveal window rather than by the total. Manifest
+      size changes how many times the append fires, not how much DOM exists
+      at rest. Desktop had this at 220 tiles under 4× CPU throttle; a real
+      phone now has it at an unstated but real count. The residual — many
+      repeated appends over a 1,000-image manifest — is a risk in Known
+      risks, not an open box, and `@tanstack/react-virtual` remains the
+      escalation if it ever surfaces.
 
 ## Phase 4 — Abuse controls
 

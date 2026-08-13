@@ -33,11 +33,24 @@ export const MAX_ZIP_IMAGES = 500;
 // buffering gets ~a quarter of the remaining ~300 MB → 64 MB, just above the
 // 50 MB single-file announced cap so the queue's always-admit-one rule
 // covers the largest legal member with no special case.
-// ASSUMPTION, load-bearing: the accumulating Blob archive itself is
-// DISK-BACKED on target browsers (Chromium pages blob storage out to disk).
-// If a browser holds it in memory, a 300 MB selection is 300 MB resident and
-// this bound does NOT protect against it — that is the OOM path the
-// mid-range-device pass exists to test, not a side detail.
+// ASSUMPTION, load-bearing and STILL UNVERIFIED: the accumulating Blob
+// archive itself is DISK-BACKED on target browsers (Chromium pages blob
+// storage out to disk). If a browser holds it in memory, a 300 MB selection
+// is 300 MB resident and this bound does NOT protect against it — that is
+// the OOM path, not a side detail.
+//
+// The mid-range-device pass RAN (2026-08-13, real Android phone, live https
+// site) and came back INCONCLUSIVE for this specific assumption, which is
+// worth more written down than a tick would have been. A large selection
+// zipped and downloaded successfully, and the archive was 10 MB. Against
+// this comment's own working — a tab killable beyond ~500 MB — 10 MB is
+// about 2% of the threshold, so it completes identically whether the Blob
+// spilled to disk or sat entirely in RAM. It cannot tell the two apart.
+//
+// What the run DID establish: the whole path works on real mobile hardware.
+// What would settle this: one archive of a few hundred MB on a phone. Until
+// then the risk stands as written — worst case a lost download and a tab
+// reload, not data loss.
 export const MAX_ZIP_BYTES_IN_FLIGHT = 64_000_000;
 
 // Admission weight for members with no known size (unprobed select-all

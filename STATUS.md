@@ -1,6 +1,6 @@
 # STATUS — imageextract.pics
 
-Last updated: 12 August 2026
+Last updated: 13 August 2026
 
 **This file carries what is OPEN. Closed work and its evidence live in
 `docs/record.md`** — the split happened 2026-08-12, when this document had
@@ -38,9 +38,10 @@ box under its heading below fails the suite. That is the Phase 6 failure of
 further down — made impossible rather than merely corrected.
 
 What each open phase is waiting on, in one line each: **2** the variant
-collapse; **3** the mid-range Android device run; **6** the landing-page
-content (the largest remaining item in the project); **7** legal review and
-error telemetry; **8** post-launch observation, which cannot start earlier.
+collapse; **3** one DECISION, not work — whether the numeric-prefix toggle is
+built or closed as not-doing; **6** Search Console, then landing pages 6-60;
+**7** legal review and error telemetry; **8** post-launch observation, which
+cannot start earlier.
 
 ## Ledger warning
 
@@ -82,8 +83,11 @@ entry carrying a `Tracked:` line must name a box that exists here.
 
 *One item, one box.* Before the split the Android device run had THREE homes
 (two boxes in this file, one in frontend-plan) and nothing kept them
-agreeing — whichever you found first was the answer you got. It is now one
-box, in Phase 3, and everywhere else points at it.
+agreeing — whichever you found first was the answer you got. Consolidating it
+paid off immediately: the run came back 2026-08-13 reporting on ONE of the two
+criteria the single box named, and because both were in one place the gap was
+visible instead of being silently closed by whichever home got ticked. Both
+halves are now in docs/record.md, one settled and one explicitly not.
 
 ---
 
@@ -112,17 +116,6 @@ box, in Phase 3, and everywhere else points at it.
 
 ### Phase 3 — Download
 
-- [ ] Grid scroll smoothness on a real phone — **the half of the device
-      run that was not reported on.** The 2026-08-13 run closed the ZIP
-      half (docs/record.md, Phase 3); nothing was said about scrolling a
-      large grid, and the consolidated box covered both, so this half
-      cannot be ticked from that report. Still verified only to 220 tiles
-      at 4× CPU throttle in desktop Chrome.
-      **One sentence closes it** — whether scrolling the full grid before
-      selecting was smooth or janky on that phone, at roughly that image
-      count. The person who ran it almost certainly scrolled; inferring
-      the observation from that is exactly what the evidence rule forbids.
-      Escalation path if it janks stays `@tanstack/react-virtual`.
 - [ ] Optional numeric prefix preserving grid order (deferred — polish
       toggle, not assembly). **Decision owed rather than work owed:** it
       is the last thing standing between Phase 3 and complete once the
@@ -157,7 +150,9 @@ box, in Phase 3, and everywhere else points at it.
 
 **Static parse coverage is measured, and the assumption inverted.** The feared number — "below 60% on ecommerce means the product needs rethinking" — was tested 2026-08-10 against browser ground truth on 7 live pages. SSR ecommerce lands ≥90%; news, marketing, and docs land 100% in logical images. The one sub-60% reading (a headless-React Shopify collection at 45.6%) was **our cap policy, not static parsing**: the served HTML held 2,998 image URLs the parser had already read, and the candidate-counted cap trimmed them. With the noscript and logical-cap fixes it recounts at 98.1%, and apple.com went 50% → 100% on noscript alone. No rethink is indicated. What static parsing cannot reach is what origins refuse to serve — bot walls (Anubis, challenge pages), which stop headless browsers too. Full table and method in frontend-plan.md; the closure reasoning in DECISIONS.md.
 
-**Large-grid rendering: decided and shipped, one verification open.** The Phase 2 answer is incremental reveal (cap 120, IntersectionObserver append) plus content-visibility on fixed-ratio tiles — not virtualization, not pagination (pagination resets on filter changes and makes select-all ambiguous; see DECISIONS.md). Verified at 220 tiles under 4× CPU throttle in desktop Chrome: 120 tiles / ~1.5k DOM nodes at rest. What remains open is the real mid-range Android verification — the single Phase 3 device-run box above; @tanstack/react-virtual stays the escalation path if that run janks.
+**Large-grid rendering: decided, shipped, and now observed on real hardware.** The Phase 2 answer is incremental reveal (cap 120, IntersectionObserver append) plus content-visibility on fixed-ratio tiles — not virtualization, not pagination (pagination resets on filter changes and makes select-all ambiguous; see DECISIONS.md). Verified at 220 tiles under 4× CPU throttle in desktop Chrome, and reported SMOOTH on a real Android phone 2026-08-13 at an unstated but real image count. Residual, small: nobody has scrolled a 1,000-image manifest on a phone, which differs only in how many times the append fires — the mounted DOM is capped at the reveal window either way. @tanstack/react-virtual stays the escalation path.
+
+**The disk-backed-Blob assumption is still unverified, and the device run did not settle it.** `MAX_ZIP_BYTES_IN_FLIGHT` (64 MB) bounds concurrent transfer; the OOM path scales with the TOTAL accumulated archive, which is capped only by `MAX_ZIP_IMAGES` (500). The 2026-08-13 run produced a 10 MB archive — about 2% of the ~500 MB the constant's working calls killable — so it completes identically whether the Blob is disk-backed or resident. Worst case remains a lost download and a tab reload, not data loss. Settling it needs one archive of a few hundred MB on a phone; the negative result is recorded beside the constant so a repeat small test is not mistaken for one.
 
 **The proxy is a deliberately open endpoint.** Rate limits and size caps are the only defence, since verifying that a URL came from a prior scan is not possible statelessly. Accepted risk, mitigated rather than eliminated.
 

@@ -460,9 +460,13 @@ Done when:
 - **1,000-image scan scrolls smoothly on a mid-range Android phone** —
       POINTER, not a box (2026-08-12). What was actually verified here is
       220 tiles at 4× CPU throttle in desktop Chrome (verify:results). The
-      device run happened 2026-08-13 and closed the ZIP half only
-      (docs/record.md, Phase 3); **this criterion was not reported on and
-      remains open** as its own box in **STATUS → Phase 3**.
+      device run happened 2026-08-13: scrolling was reported **smooth** on a
+      real Android phone, at the image count that produced a 10 MB archive
+      (docs/record.md, Phase 3). The 1,000-image figure this criterion is
+      phrased around was not itself tested — the reveal cap makes total
+      manifest size change how often the append fires rather than how much
+      DOM exists at rest, which is why this closed rather than staying open
+      against an asymptote.
       Was a third home for that item — two boxes in STATUS plus this one,
       with nothing keeping them in agreement, so whichever a reader found
       first was the answer they got.
