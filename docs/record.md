@@ -127,6 +127,31 @@ Nothing here is read to plan. It is read at an audit, or when someone asks
 - [x] Filename rule for the ZIP, settled with step 2 and now implemented: the archive uses MANIFEST filenames, which extract.ts already makes scan-unique (uniqueFilename appends -2, -3…; data URIs get inline-N.svg) — no assembly-time dedupe machinery needed. Single downloads use the proxy's disposition name; the browser suffixes disk collisions.
 - [x] `URL.revokeObjectURL` on every object URL — one ZIP URL alive at most, revoked after the click / on new ZIP / on unmount; gate instruments createObjectURL/revokeObjectURL and asserts 1:1.
 
+- [x] Large ZIP completes on a mid-range Android phone — run 2026-08-13
+      against the live https site, closing the item that had held Phase 3
+      open since 2026-08-10 and had accumulated three homes before the
+      2026-08-12 consolidation.
+      **What was observed and reported, verbatim in scope:** a large
+      selection was zipped on a real Android phone, and the archive
+      downloaded successfully.
+      **What was NOT reported and is therefore not claimed here:** the
+      device, the selection size, the archive's byte size, whether the tab
+      survived assembly without reloading, whether the archive opened with
+      the expected member count, and grid scroll behaviour (that half stays
+      open in STATUS — the same run would have exercised it, but nobody
+      said, and inferring it is the failure this rule exists to stop).
+      **Effect on the disk-backed-Blob assumption behind
+      `MAX_ZIP_BYTES_IN_FLIGHT`: supported, not settled.** The end-to-end
+      path is now known to work on real mobile hardware, which retires the
+      "does this even function on a phone" question. It does not validate
+      the assumption at the scale where it is load-bearing, because the
+      in-flight budget (64 MB) bounds CONCURRENT transfer while the OOM
+      path scales with the TOTAL accumulated archive — and the total is the
+      one number not reported. An archive comfortably inside a tab's memory
+      headroom would complete identically whether the Blob was disk-backed
+      or not, so it cannot discriminate. The discriminating evidence is an
+      archive large enough that holding it in RAM would fail.
+
 ## Phase 4 — Abuse controls
 
 Phase 4 (abuse controls) closed 2026-08-10: in-isolate rate limits with the shared-egress 429 copy, the KV-read domain blocklist, the measured `limits` block with doc-sync-asserted observability, and both log close-outs — on top of the coverage diagnosis that inverted the deep-scan assumption and produced the noscript and logical-cap extraction fixes. Phases 1–3 before it shipped the engine (scan, extraction, robots, proxy, SSRF guard), the full results UI, and the download path (hotlink fallback, unified Range probing, single-image download, client-side ZIP).

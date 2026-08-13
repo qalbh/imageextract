@@ -653,10 +653,20 @@ launch-day sweep.
       referer-required origins the referrerless proxy fails too — its real
       recovery classes are CORP/ORB blocks and geo/IP splits (DECISIONS:
       "The proxy stays referrerless")
-- [ ] Large ZIP completes on a mid-range Android phone — deferred to
-      post-deploy (Phase 7: runs against the real https URL from any
-      phone; STATUS Phase 3 records the carried risk: disk-backed-Blob
-      assumption unverified, worst case a lost download + tab reload)
+- [x] Large ZIP completes on a mid-range Android phone — run 2026-08-13
+      against the live https site. **Observed and reported: a large
+      selection was zipped on a real Android phone and the archive
+      downloaded successfully.** That is the whole of the evidence, and
+      the box is checked on exactly it.
+      **Not reported, therefore not claimed:** the device, the number of
+      images selected, the archive's byte size, whether the tab survived
+      assembly without reloading, and whether the archive opened with the
+      expected member count. The disk-backed-Blob assumption behind
+      `MAX_ZIP_BYTES_IN_FLIGHT` is SUPPORTED but not settled by this —
+      how strongly depends on the archive size, which is the unstated
+      number (reasoning in STATUS Phase 3). Written this way because the
+      box text is "completes", the report says it completed, and
+      everything else a reader would assume from a tick is absent
 - [x] `limits` block set in `wrangler.jsonc` — verified: cpu_ms 30,000
       from a measured 1,570 ms local worst case with the hardware
       assumption stated beside the number; subrequests 100 over a

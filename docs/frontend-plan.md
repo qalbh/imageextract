@@ -459,10 +459,10 @@ uniform tiles (262:180 wells since the fidelity pass; the shared shape keeps
 Done when:
 - **1,000-image scan scrolls smoothly on a mid-range Android phone** —
       POINTER, not a box (2026-08-12). What was actually verified here is
-      220 tiles at 4× CPU throttle in desktop Chrome (verify:results); the
-      real-device claim is settled by the single device-run box in
-      **STATUS → Phase 3**, which covers this criterion and the
-      disk-backed-Blob one together because they are one run on one phone.
+      220 tiles at 4× CPU throttle in desktop Chrome (verify:results). The
+      device run happened 2026-08-13 and closed the ZIP half only
+      (docs/record.md, Phase 3); **this criterion was not reported on and
+      remains open** as its own box in **STATUS → Phase 3**.
       Was a third home for that item — two boxes in STATUS plus this one,
       with nothing keeping them in agreement, so whichever a reader found
       first was the answer they got.

@@ -112,20 +112,23 @@ box, in Phase 3, and everywhere else points at it.
 
 ### Phase 3 — Download
 
-- [ ] **The mid-range Android device run — THE one box for this item.**
-      Runs against the real https URL from any phone, no LAN setup; script
-      in `docs/frontend-plan.md` step 8. It settles TWO things that used to
-      be tracked separately: the disk-backed-Blob assumption behind
-      `MAX_ZIP_BYTES_IN_FLIGHT` (a large mobile ZIP could OOM the tab —
-      failure mode is a lost download and a reload, not data loss), and
-      grid scroll smoothness at scale (frontend-plan step 7, verified only
-      to 220 tiles at 4× CPU throttle on desktop). It is what holds Phase 3
-      open.
-      **Consolidated 2026-08-12 from three homes** — "Device check (2)" in
-      this file's Open items, "The mid-range Android ZIP pass" under Phase
-      7, and frontend-plan step 7's grid-jank criterion. All three were the
-      same device run; the other two are now pointers.
-- [ ] Optional numeric prefix preserving grid order (deferred — polish toggle, not assembly)
+- [ ] Grid scroll smoothness on a real phone — **the half of the device
+      run that was not reported on.** The 2026-08-13 run closed the ZIP
+      half (docs/record.md, Phase 3); nothing was said about scrolling a
+      large grid, and the consolidated box covered both, so this half
+      cannot be ticked from that report. Still verified only to 220 tiles
+      at 4× CPU throttle in desktop Chrome.
+      **One sentence closes it** — whether scrolling the full grid before
+      selecting was smooth or janky on that phone, at roughly that image
+      count. The person who ran it almost certainly scrolled; inferring
+      the observation from that is exactly what the evidence rule forbids.
+      Escalation path if it janks stays `@tanstack/react-virtual`.
+- [ ] Optional numeric prefix preserving grid order (deferred — polish
+      toggle, not assembly). **Decision owed rather than work owed:** it
+      is the last thing standing between Phase 3 and complete once the
+      scroll half lands. Either build it or close it as not-doing with
+      reasoning, the way deploy-on-push was closed — an unchecked box
+      reads as owed work.
 
 ### Phase 6 — SEO and content
 
