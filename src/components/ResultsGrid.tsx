@@ -237,6 +237,7 @@ export default function ResultsGrid() {
     if (sheetOpen) sheetRef.current?.showModal();
   }, [sheetOpen]);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const stickyRef = useRef<HTMLDivElement | null>(null);
   // Anchor for shift-click range selection (the last tile toggled).
   const lastClickedRef = useRef<string | null>(null);
 
@@ -322,6 +323,32 @@ export default function ResultsGrid() {
   useEffect(() => {
     setRevealCap(TILE_REVEAL_CAP);
   }, [formats, groups, collapse]);
+
+  // The sticky sidebar scrolls independently, and its offset is transient VIEW
+  // state rather than a preference — so returning the page to the top resets
+  // it. Without this the panel reads as decapitated: scroll the filters down,
+  // send the page home, and the column starts mid-list at "JPG 44" with the
+  // FORMAT heading and the All row hidden above its own fold. Observed in a
+  // screenshot; it was not obvious from reasoning about it.
+  //
+  // Guarded on scrollY alone, never a rect read: this runs on every frame of
+  // every scroll, and getBoundingClientRect() here would force synchronous
+  // layout on a page carrying 120 content-visibility tiles.
+  useEffect(() => {
+    const el = stickyRef.current;
+    if (el === null) return;
+    let queued = false;
+    const onScroll = () => {
+      if (queued) return;
+      queued = true;
+      requestAnimationFrame(() => {
+        queued = false;
+        if (window.scrollY < 8 && el.scrollTop !== 0) el.scrollTop = 0;
+      });
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [state.kind]);
 
   // Incremental reveal: append another batch when the sentinel scrolls near.
   useEffect(() => {
@@ -783,10 +810,15 @@ export default function ResultsGrid() {
                 area, which stays on the body's --color-bg. Below the md
                 breakpoint the same controls open as a bottom sheet. */}
             <aside
-              className="hidden shrink-0 border-r border-border bg-surface p-md md:block"
+              className="hidden shrink-0 border-r border-border bg-surface md:block"
               style={{ width: 'var(--layout-sidebar)' }}
             >
-              <ResultsSidebar instanceId="desktop" {...sidebarProps} />
+              {/* The inner div is what sticks, NOT the aside — see the
+                  .results-sidebar-sticky rule in results.css, which records
+                  why moving it up a level breaks silently. */}
+              <div ref={stickyRef} className="results-sidebar-sticky p-md">
+                <ResultsSidebar instanceId="desktop" {...sidebarProps} />
+              </div>
             </aside>
 
             <div className="min-w-0 flex-1 md:pl-md">

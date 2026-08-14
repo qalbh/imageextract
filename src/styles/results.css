@@ -33,8 +33,15 @@
   /* Horizontal padding of the full-bleed /results shell from md up. THE
      tuning knob for the results margins — change this one value, nothing
      else; the shell's centring max derives from it automatically. Set to
-     the lg spacing step (40); md (24) matched the reference but read tight
-     at the shell edges. Below md the shell keeps --spacing-sm. */
+     60px — DELIBERATELY OFF the spacing scale (8/16/24/40/64/120): md (24)
+     read tight at the shell edges and lg (40) still did, so this is a
+     structural layout constant rather than a spacing token, the same
+     exemption the breakpoints and column counts take. Below md the shell
+     keeps --spacing-sm.
+     Corrected 2026-08-13: this comment read "set to the lg spacing step (40)"
+     while the value was 60, and design-system.md said 40 too — the value
+     moved and neither description followed. doc-sync layer 3 covers the
+     colour table only, so nothing caught it. */
   --layout-results-pad: 60px;
 }
 
@@ -170,6 +177,61 @@
   .results-shell {
     padding-inline: var(--layout-results-pad);
   }
+}
+
+/* Sticky filter sidebar, desktop only (md up — the exact breakpoint where the
+   aside mounts and the bottom sheet stops, so there is no width at which both
+   or neither applies). With several hundred tiles, scrolling back to the top
+   to change a filter is real friction.
+
+   THE INNER DIV IS THE STICKY ELEMENT, AND THAT IS A DECISION, NOT INDIRECTION.
+   Moving `position: sticky` up onto the <aside> is the obvious tidy-up and it
+   is wrong twice over:
+
+   1. IT WOULD DO NOTHING, SILENTLY. The aside is a flex child with the default
+      align-self: stretch, so it is already as tall as the grid column —
+      measured at 3216px against a 49-image scan. An element that fills its
+      container has no room to travel, so sticky computes, applies, and never
+      fires. There is no error and no visual clue; the filters simply scroll
+      away as before. Sticky's failure mode is silence, which is why
+      verify-results asserts the computed position AND that no ancestor
+      scroll container exists.
+   2. IT WOULD SHORTEN THE DIVIDER. The aside's border-r hairline runs the full
+      column height because the aside stretches. Sticky it, cap its height, and
+      the rule stops around 900px down the page with grid beside empty space
+      below it.
+
+   Keeping the aside as the stretching column gives sticky a tall box to travel
+   inside AND leaves the divider full-height. Both properties come from the
+   same structure.
+
+   Offsets derive; no new token was needed. The top is the shell's own
+   horizontal pad, so the sidebar sits in the same rhythm as the margins, and
+   the height stops clear of the selection bar via its existing constant. Both
+   track any future change to either value. */
+.results-sidebar-sticky {
+  position: sticky;
+  top: var(--layout-results-pad);
+  /* The sidebar's content is a near-constant ~900px (all 8 format rows always
+     render, sort is 6 rows, source is collapsed, display is 2 switches), so
+     this overflows at laptop heights on ANY scan — 900px viewport leaves 776px
+     — and not at all above ~1100px. Measured, not estimated. */
+  max-height: calc(100vh - var(--layout-results-pad) - var(--layout-stickybar));
+  overflow-y: auto;
+  /* Reaching the end of the filter list must not chain into scrolling the grid
+     behind it. */
+  overscroll-behavior: contain;
+  /* The only scroll affordance on the site, so it borrows the vocabulary that
+     already exists: a hairline thumb in the same --color-border every border
+     uses, on no track. No new value is introduced.
+     CROSS-BROWSER, stated here because someone checking appearance reads the
+     stylesheet and not the commit: `scrollbar-color` is unsupported in Safari,
+     which draws its own overlay scrollbar instead — invisible at rest, so the
+     resting appearance matches and only the actively-scrolling state differs.
+     On Windows the thin thumb takes ~8px inside the 260px column; the rows
+     have the room. */
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
 }
 
 /* Mobile filter sheet (Frame 2). Structural layout only — every colour is a

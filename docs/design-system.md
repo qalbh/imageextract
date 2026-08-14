@@ -95,7 +95,7 @@ Scale (px): 88 / 48 / 32 / 20 / 16 / 14 / 13 / 11 —
 **Reading surfaces vs scanning surfaces — the rule for picking a width.**
 `--container-content` (1280px) caps READING surfaces: pages where measured
 line length matters — the landing, and any future prose page. The results
-grid is FULL-BLEED (viewport minus `--layout-results-pad`, 40px from `md`,
+grid is FULL-BLEED (viewport minus `--layout-results-pad`, 60px from `md`,
 `--spacing-sm` below) because it is a SCANNING surface: density and tile
 size matter, line length does not. Beyond its derived maximum (sidebar +
 four capped tiles + gaps + pads) the results SHELL centres as a unit —
@@ -127,8 +127,9 @@ anchors top-left and the tiles stay adjacent to the sidebar; uncapped,
 2560px gave 539px gallery tiles) · `--layout-tile-min` 220px is no longer
 a grid floor — retained solely as the content-visibility placeholder in
 `.result-tile` · results shell padding 40px from `md`
-(`--layout-results-pad` — the single tuning knob for the results margins;
-the shell's centring max derives from it) · tile reveal cap **120**
+(`--layout-results-pad` — 60px, the single tuning knob for the results
+margins; the shell's centring max derives from it, and so does the sticky
+sidebar's top offset) · tile reveal cap **120**
 (`TILE_REVEAL_CAP` in `src/lib/results-model.ts`).
 
 **Tile corners:** on results tiles the **dimension chip is top-right**, the

@@ -860,6 +860,111 @@ async function main() {
     await zx.close();
 
     // ---------------------------------------------------------------------
+    // Sticky filter sidebar. Its failure mode is SILENCE: `position: sticky`
+    // on a flex child that is already full-height computes fine and never
+    // fires, and an `overflow` added to any ancestor kills it with no error
+    // and no visual clue. Both are asserted rather than eyeballed.
+    // ---------------------------------------------------------------------
+    const sb = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    await sb.route('**/*', (route) =>
+      route.request().resourceType() === 'image' ? route.abort() : route.continue(),
+    );
+    await sb.route('**/api/scan*', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(fixture) }),
+    );
+    await sb.goto(`${base}/results?url=${encodeURIComponent('https://example.com/')}`, { waitUntil: 'load' });
+    await sb.waitForSelector('li.result-tile', { timeout: 15000 });
+
+    const stickyState = await sb.evaluate(() => {
+      const el = document.querySelector('.results-sidebar-sticky');
+      if (!el) return { missing: true };
+      const cs = getComputedStyle(el);
+      // Walk to the root: ANY scrolling ancestor between the sticky element
+      // and the viewport disables it silently.
+      const blockers = [];
+      for (let n = el.parentElement; n && n !== document.documentElement; n = n.parentElement) {
+        const s = getComputedStyle(n);
+        for (const axis of ['overflow', 'overflowX', 'overflowY']) {
+          if (['hidden', 'auto', 'scroll', 'clip'].includes(s[axis])) {
+            blockers.push(`${n.tagName.toLowerCase()}.${(n.className || '').toString().split(' ')[0]}:${axis}=${s[axis]}`);
+          }
+        }
+      }
+      return {
+        position: cs.position,
+        top: cs.top,
+        overflowY: cs.overflowY,
+        blockers,
+        asideStretches: (document.querySelector('aside')?.getBoundingClientRect().height ?? 0) > el.getBoundingClientRect().height,
+      };
+    });
+    ok(
+      'sticky sidebar: position is sticky and NO ancestor scroll container disables it',
+      stickyState.position === 'sticky' && stickyState.blockers.length === 0,
+      `position=${stickyState.position} top=${stickyState.top} blockers=[${(stickyState.blockers ?? []).join(', ')}]`,
+    );
+    ok(
+      'sticky sidebar: the aside still stretches past it, so sticky has room to travel',
+      stickyState.asideStretches === true,
+      'the flex-stretch structure the rule depends on',
+    );
+
+    // The behaviour itself: scroll the grid a long way and the filters stay.
+    const beforeTop = await sb.evaluate(() => document.querySelector('.results-sidebar-sticky').getBoundingClientRect().top);
+    await sb.evaluate(() => scrollTo(0, 2000));
+    await sb.waitForTimeout(400);
+    const afterTop = await sb.evaluate(() => document.querySelector('.results-sidebar-sticky').getBoundingClientRect().top);
+    const formatVisible = await sb.evaluate(() => {
+      const all = [...document.querySelectorAll('aside label')].find((l) => /^All/.test(l.textContent.trim()));
+      const r = all?.getBoundingClientRect();
+      return r ? r.top >= 0 && r.bottom <= innerHeight : false;
+    });
+    ok(
+      'sticky sidebar: filters stay on screen after scrolling 2000px into the grid',
+      afterTop >= 0 && afterTop < 200 && formatVisible,
+      `top ${Math.round(beforeTop)}px → ${Math.round(afterTop)}px, All row in viewport: ${formatVisible}`,
+    );
+
+    // The lowest control must be REACHABLE at a laptop height — the whole
+    // reason the column scrolls independently.
+    const reach = await sb.evaluate(() => {
+      const el = document.querySelector('.results-sidebar-sticky');
+      el.scrollTop = el.scrollHeight;
+      const last = [...el.querySelectorAll('[role=switch]')].pop();
+      const r = last.getBoundingClientRect();
+      return { label: last.getAttribute('aria-label'), bottom: Math.round(r.bottom), vh: innerHeight, inView: r.bottom <= innerHeight && r.top >= 0 };
+    });
+    ok(
+      'sticky sidebar: the lowest control is reachable at a 900px viewport',
+      reach.inView === true,
+      `"${reach.label}" bottom at ${reach.bottom}px of ${reach.vh}px`,
+    );
+    // Returning the page to the top must reset the sidebar's OWN offset.
+    // Without it the panel reads as decapitated — scrolled filters plus a
+    // page at top shows the column starting mid-list at "JPG 44" with the
+    // FORMAT heading above its own fold. Found by screenshot, not reasoning.
+    await sb.evaluate(() => scrollTo(0, 1800));
+    await sb.waitForTimeout(300);
+    await sb.evaluate(() => {
+      const el = document.querySelector('.results-sidebar-sticky');
+      el.scrollTop = el.scrollHeight;
+    });
+    await sb.waitForTimeout(200);
+    await sb.evaluate(() => scrollTo(0, 0));
+    await sb.waitForTimeout(500);
+    const reset = await sb.evaluate(() => {
+      const el = document.querySelector('.results-sidebar-sticky');
+      const heading = [...el.querySelectorAll('*')].find((n) => n.textContent.trim() === 'Format');
+      return { scrollTop: el.scrollTop, headingVisible: heading ? heading.getBoundingClientRect().top >= 0 : null };
+    });
+    ok(
+      'sticky sidebar: page back to top resets the column, so it never reads decapitated',
+      reset.scrollTop === 0,
+      `sidebar scrollTop ${reset.scrollTop}, FORMAT heading in view: ${reset.headingVisible}`,
+    );
+    await sb.close();
+
+    // ---------------------------------------------------------------------
     // Variant collapse. 9 entries, 4 logical images: the grid used to show
     // 200 tiles for 40 pictures on a responsive page while the image cap
     // counted logical images, so the cap and the UI disagreed about what an
