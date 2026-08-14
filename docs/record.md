@@ -146,6 +146,37 @@ Nothing here is read to plan. It is read at an audit, or when someone asks
       count caveat, one-image selection, the stated discard, inline
       expand/collapse, and the DISPLAY toggle restoring all 9 entries), 82
       model assertions, suite 463.
+      **VERIFIED IN PRODUCTION 2026-08-13, deploy `adcc9c43`** — walked on the
+      live site against a real page (en.wikipedia.org/wiki/Photography, 49
+      logical images), not the fixture. The funnel from
+      /tools/download-png-images landed on `?format=png` with PNG ticked, the
+      Group-versions switch on, and 11 of 14 tiles carrying a "2 versions"
+      chip, which is filter-before-collapse working on real markup: the group
+      survives the PNG filter and shows its PNG members. Expanding put the two
+      members in place at indices 6 and 7; selecting the NON-representative
+      and collapsing left the tile `aria-pressed="false"` with an accent
+      checkbox border, the dash glyph, and a chip reading "1 of 2 selected" —
+      the partial state surviving the round trip on real data. Selecting the
+      representative too gave "2 of 2 selected" and raised the note. Every
+      count agreed with the tiles: 49 tiles / SHOWING 49 OF 49 / sidebar All
+      49 / 49 IMAGES FOUND / SELECT ALL (49), and 14 / PNG-row 14 / SELECT ALL
+      (14) under the filter, with the page total correctly staying 49.
+      **One path is COVERED BUT NOT LIVE: the mixed-format group.** Wikipedia
+      serves srcset widths and no `<picture>` fallbacks, so every real group
+      was single-format — the "a picture offered in two formats counts in
+      both" caveat rendered without ever being needed, and the row-sum
+      divergence it exists to explain was never exercised outside the
+      synthetic fixture. A Shopify storefront (WebP with a JPG fallback is the
+      house style) is where to confirm it. Recorded rather than left implied,
+      because "verified in production" would otherwise cover a case it does
+      not.
+      **A method note, recorded in `verify-results.mjs` where the next probe
+      gets written:** a substring regex over `innerText` is no longer a safe
+      way to read a count on /results. Collapse put count strings inside TILES
+      as well as the chrome, so `/\d+ selected/i` matches a chip's "1 of 2
+      selected" before it reaches the bar. It misreported twice during this
+      walk; both times the application was right and the instrument was wrong.
+      Scope reads to `.selection-bar`, the chip button, or `aside`.
 
 ## Phase 3 — Download
 

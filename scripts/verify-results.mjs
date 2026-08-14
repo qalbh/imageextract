@@ -14,6 +14,19 @@
 //
 // Browser: playwright-core ships NO browser. Provide one via CHROMIUM_PATH, or
 // have Google Chrome installed (falls back to channel:"chrome").
+//
+// WRITING A PROBE AGAINST THIS PAGE — read this before reaching for a regex.
+// A substring match over document.body.innerText is no longer a safe way to
+// read a COUNT here. Variant collapse (2026-08-13) put count strings inside
+// TILES as well as in the chrome: a grouped tile's chip renders
+// "1 of 2 selected", so /\d+ selected/i matches the CHIP before it reaches the
+// selection bar and reports 2 where the bar says 1. That happened twice during
+// the live post-deploy walk, and both times the application was right and the
+// probe was wrong — the numbers only looked wrong because they were being read
+// out of the wrong element.
+// Scope the read to the element you mean: `.selection-bar` for bar counts,
+// `li.result-tile button[aria-expanded]` for the chip, `aside` for the sidebar
+// facets. The assertions below do this; keep it that way.
 
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
@@ -177,6 +190,14 @@ function serve() {
 // case that makes "sizes" the wrong word and makes format rows stop summing),
 // one srcset group of 3, and two ungrouped singles. 9 entries, 4 logical
 // images — the exact mismatch collapse exists to close.
+//
+// COVERED HERE, NOT IN PRODUCTION: the mixed-format group is SYNTHETIC. The
+// live post-deploy walk (2026-08-13) ran against a Wikipedia article, which
+// serves srcset widths but no <picture> fallbacks, so every real group was
+// single-format — the "counts in both" caveat rendered without ever being
+// needed, and the row-sum divergence it explains was never exercised on a real
+// page. A Shopify storefront (WebP with a JPG fallback is the house style) is
+// where to confirm it against real markup.
 function variantFixture() {
   const mk = (id, filename, ext, source, width, height, variantGroup) => ({
     id,
