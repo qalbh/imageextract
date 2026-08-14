@@ -348,11 +348,23 @@ describe('layer 6: the ledger holds only open work', () => {
   // missing-box failure: variantGroup collapse was "owed, not optional" in two
   // documents and tracked in none, so it was invisible to every list built from
   // STATUS. Recording that something is owed is not tracking it.
-  it('every DECISIONS "Tracked:" line names a box that exists in STATUS', () => {
+  // Two different things, because the convention needs a DONE state — learned
+  // by using it (2026-08-13): when tracked work ships, the pointer moves to
+  // docs/record.md rather than being deleted, so the line still reads as
+  // resolved. Zero STATUS-pointing entries is therefore legitimate (everything
+  // tracked has shipped); zero Tracked: lines at all is the convention being
+  // silently dropped, which is what this guards.
+  it('the Tracked: convention still exists in DECISIONS', () => {
+    expect(
+      [...decisionsMd.matchAll(/\*\*Tracked:\*\*/g)].length,
+      'no Tracked: lines at all — the convention has been dropped or renamed',
+    ).toBeGreaterThan(0);
+  });
+
+  it('every DECISIONS "Tracked:" line still pointing at STATUS names a live box', () => {
     const tracked = [...decisionsMd.matchAll(/\*\*Tracked:\*\*\s*STATUS\s*→\s*(.+)/g)].map((m) =>
       (m[1] as string).trim(),
     );
-    expect(tracked.length, 'no Tracked: lines found — the convention has been dropped or renamed').toBeGreaterThan(0);
     for (const box of tracked) {
       expect(statusMd.includes(box), `DECISIONS tracks "${box}", which appears in no STATUS box`).toBe(true);
     }

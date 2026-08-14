@@ -24,7 +24,7 @@ The site is DEPLOYED and live at https://imageextract.pics.
 | Phase | State |
 |---|---|
 | 1 — Core engine | complete |
-| 2 — Results UI | open |
+| 2 — Results UI | complete |
 | 3 — Download | complete |
 | 4 — Abuse controls | complete |
 | 5 — Trust and legal | complete |
@@ -37,10 +37,9 @@ box under its heading below fails the suite. That is the Phase 6 failure of
 2026-08-12 — a summary line contradicting its own checklist 370 lines
 further down — made impossible rather than merely corrected.
 
-What each open phase is waiting on, in one line each: **2** the variant
-collapse, which is correctness rather than a blocker; **7** error
-telemetry; **8** post-launch observation, which could not start earlier.
-Phases 3 and 6 closed 2026-08-13 — **6 closed on its SCOPE, not on the
+What each open phase is waiting on, in one line each: **7** error telemetry; **8** post-launch
+observation, which could not start earlier. Phases 2, 3 and 6 closed
+2026-08-13 — **6 closed on its SCOPE, not on the
 content ambition**: the ~60-page cadence Known risks calls the real
 bottleneck is Phase 8 work, fed by query data Search Console has only
 just started collecting.
@@ -99,27 +98,6 @@ halves are now in docs/record.md, one settled and one explicitly not.
 ---
 
 ## Remaining work
-
-### Phase 2 — Results UI
-
-- [ ] Collapse variant sets in the grid — one tile per logical image
-      (`variantGroup`), its other candidates reachable behind that tile.
-      **Owed correctness, not polish**: DECISIONS.md "Coverage counts
-      logical images" — a grid showing eight tiles for one product photo
-      misrepresents what was found, in exactly the way exact-URL matching
-      misrepresented coverage before the metric was fixed. AGENTS.md's
-      manifest comment says the same.
-      **Added to the ledger 2026-08-12; the WORK is not new, the BOX is.**
-      The extractor has emitted `variantGroup` since 2026-08-09 and the UI
-      has never read it (verified: zero references in `src/components` and
-      `results-model.ts`) — but it appeared in no phase checklist, so every
-      "what remains" list built from this document silently omitted it for
-      three days. That is the missing-box class in the ledger warning above.
-      **Name the collapse function `collapseVariants`** — copy on
-      /tools/download-png-images declares itself dependent on that symbol
-      being ABSENT (`assumes` in its frontmatter), so shipping it turns
-      `content-claims.test.ts` red with the page and paragraph that need
-      rewriting. Naming it something else silently loses that.
 
 ### Phase 7 — Deploy
 

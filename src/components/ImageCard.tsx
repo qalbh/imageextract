@@ -31,6 +31,12 @@ export default function ImageCard({
   onToggle,
   onMeasured,
   onImageError,
+  variantCount,
+  selectedCount = 0,
+  expanded = false,
+  partial = false,
+  onToggleExpand,
+  isVariant = false,
 }: {
   image: ScanImage;
   selected: boolean;
@@ -42,8 +48,22 @@ export default function ImageCard({
   onToggle: (id: string, shift: boolean) => void;
   onMeasured: (id: string, width: number, height: number) => void;
   onImageError: (image: ScanImage) => void;
+  /** Variant collapse. `variantCount` > 1 means this tile stands for a group
+   *  (a <picture>, or an <img> with a srcset) and shows the version chip.
+   *  `partial` is the honest state after expanding, ticking a smaller
+   *  version, and collapsing again: those ids stay selected, so the tile
+   *  says so rather than dropping them. */
+  variantCount?: number;
+  selectedCount?: number;
+  expanded?: boolean;
+  partial?: boolean;
+  onToggleExpand?: (unit: string) => void;
+  /** Rendered as a member of an expanded group rather than as a tile in its
+   *  own right — used only to label it for screen readers. */
+  isVariant?: boolean;
 }) {
   const [measured, setMeasured] = useState<{ w: number; h: number } | null>(null);
+  const grouped = (variantCount ?? 1) > 1;
   const isIcon = ICON_SOURCES.has(image.source);
   // The proxy src is derived, not stored — the parent map holds only status.
   const src = fallback === 'proxy' ? proxyUrl(image.url) : image.url;
@@ -69,7 +89,11 @@ export default function ImageCard({
       role="button"
       tabIndex={0}
       aria-pressed={selected}
-      aria-label={`${selected ? 'Deselect' : 'Select'} ${image.filename}`}
+      aria-label={
+        isVariant ? `${selected ? 'Deselect' : 'Select'} version ${image.filename}`
+        : grouped ? `${selected ? 'Deselect' : 'Select'} largest version of ${image.filename}, ${variantCount} versions available`
+        : `${selected ? 'Deselect' : 'Select'} ${image.filename}`
+      }
       onClick={(event) => onToggle(image.id, event.shiftKey)}
       onKeyDown={(event) => {
         // Only when the TILE itself is focused — the download anchor inside
@@ -136,12 +160,16 @@ export default function ImageCard({
         <span
           aria-hidden="true"
           className={`tile-check absolute left-xs top-xs flex items-center justify-center rounded-md border ${
-            selected ? 'border-accent bg-accent text-surface' : 'border-muted bg-surface text-transparent'
+            selected ? 'border-accent bg-accent text-surface'
+            : partial ? 'border-accent bg-surface text-accent'
+            : 'border-muted bg-surface text-transparent'
           }`}
         >
           <svg viewBox="0 0 20 20" width="12" height="12" fill="none" aria-hidden="true">
+            {/* A dash, not a tick, for partial: some version of this picture is
+                selected but not the one this tile stands for. */}
             <path
-              d="M4.5 10.5l3.5 3.5 7.5-8"
+              d={partial && !selected ? 'M5 10h10' : 'M4.5 10.5l3.5 3.5 7.5-8'}
               stroke="currentColor"
               strokeWidth="2.5"
               strokeLinecap="round"
@@ -161,6 +189,30 @@ export default function ImageCard({
           >
             {chip}
           </span>
+        )}
+
+        {/* Version chip, BOTTOM-LEFT — the third corner slot, added with
+            variant collapse (design-system.md "Tile corners"). Both top
+            corners were already spoken for and the 56px footer is full at
+            2-up. It is a real button: the tile toggles selection, this
+            toggles the group open, so it stops propagation.
+            "versions" not "sizes" — a <picture> group is mixed-FORMAT by
+            design (a WebP source beside a JPG fallback), so "sizes" would be
+            false exactly where responsive markup is most common. */}
+        {grouped && onToggleExpand && (
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              onToggleExpand(image.variantGroup ?? image.id);
+            }}
+            aria-expanded={expanded}
+            aria-label={`${expanded ? 'Collapse' : 'Expand'} ${variantCount} versions of ${image.filename}`}
+            className="tile-chip absolute bottom-xs left-xs inline-flex items-center gap-xs rounded-md bg-overlay-strong px-xs font-mono text-label text-surface hover:bg-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          >
+            {selectedCount > 0 ? `${selectedCount} of ${variantCount} selected` : `${variantCount} versions`}
+            <span aria-hidden="true">{expanded ? '▲' : '▼'}</span>
+          </button>
         )}
       </div>
 

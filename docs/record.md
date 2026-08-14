@@ -114,6 +114,39 @@ Nothing here is read to plan. It is read at an audit, or when someone asks
 - [x] Mobile layout (390px landing + results; shared header + compact SOURCE bar on /results; sidebar becomes a bottom sheet; whole-tile keyboard selection + visible focus)
 - [x] `robotsBlocked` state, no override path
 
+- [x] Collapse variant sets in the grid — **shipped 2026-08-13**
+      (`collapseVariants` in `results-model.ts`, the identifier STATUS pinned
+      so the two `assumes` guards would fire on it). One tile per logical
+      image showing the largest version, the rest behind a "N versions" chip
+      that expands them in place; ON by default, with a Group-versions switch
+      in DISPLAY for anyone hunting a specific breakpoint. Closes the
+      mismatch DECISIONS.md "Coverage counts logical images" named: the image
+      cap counted logical images while the grid counted entries, so a page of
+      40 responsive photos at 5 breakpoints read as 200 tiles.
+      **Design decisions, each with its reason.** "Versions", not "sizes" — a
+      <picture> group is mixed-FORMAT by design, so "sizes" is false exactly
+      where responsive markup is most common. Selecting a collapsed tile takes
+      the LARGEST version only, and the grid says so in a line that appears
+      when it applies rather than a permanent notice. Partial selection is a
+      real state (expand, tick a smaller version, collapse: the tile shows
+      indeterminate and the chip reads "1 of 4 selected") because dropping
+      those ids would be silent data loss of exactly the kind this feature
+      exists to stop. Filtering runs BEFORE grouping, so filtering to PNG
+      shows a mixed picture's PNG rather than hiding it.
+      **What it deliberately did not touch:** selection stays a set of real
+      manifest ids, so the ZIP, the size probes, the dimension probes and the
+      hotlink-fallback map are untouched — collapse is a view transform.
+      **Two bugs the RENDERED page caught that the tests did not:** the
+      selection bar read "9 images found · Select all (9)" over four tiles,
+      and the sort sub-labels put a representative numerator over an entry
+      denominator. Both were unit-mismatches invisible in a green suite —
+      the argument for looking at the thing.
+      Verified: 43/43 in verify:results (9 new checks — default collapse,
+      largest-representative, the versions chip, tile-unit bar counts, the
+      count caveat, one-image selection, the stated discard, inline
+      expand/collapse, and the DISPLAY toggle restoring all 9 entries), 82
+      model assertions, suite 463.
+
 ## Phase 3 — Download
 
 - [x] Proxy fallback on hotlink 403 — one retry per tile via a monotonic parent-owned status map; verified by the verify:results fallback scenario: 1 proxy request per failed tile and zero new proxy/origin requests across a filter round trip (the remount case). Live check closed (2026-08-10): referrerless 403s confirmed real across three origins; our referrerless proxy shares the failure for referer-required origins (kept deliberately — DECISIONS: impersonation argument), so its real recovery classes are CORP/ORB blocks and geo/IP splits. Full in-app loop not runnable live: image-protecting sites also page-protect, which caps the encounter rate.

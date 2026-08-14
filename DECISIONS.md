@@ -303,14 +303,23 @@ one product photo is misrepresenting what was found, in exactly the way
 exact-URL matching misrepresented coverage. Still deferred, but it is
 owed, not optional.
 
-**Tracked:** STATUS → Collapse variant sets in the grid
+**Tracked:** docs/record.md → Collapse variant sets in the grid — SHIPPED
+2026-08-13.
 
 A decision that creates work names the box that carries it, and doc-sync
-layer 6 asserts the named box exists in STATUS. Added 2026-08-12 after this
+layer 6 asserts a STATUS-pointing box exists. Added 2026-08-12 after this
 very entry produced three days of invisible work: "owed, not optional" was
 recorded here and in AGENTS.md, and appeared in no checklist, so every
 "what remains" list built from STATUS omitted it. Recording that something
 is owed is not the same as tracking it.
+
+**When the work ships, the pointer moves to the record rather than being
+deleted** — that is how this line reads as resolved instead of as a
+convention someone quietly dropped. Layer 6 accordingly checks two
+different things: that the convention still EXISTS in this file at all, and
+that any entry still pointing at STATUS names a live box. Zero
+STATUS-pointing entries is a legitimate state; zero `Tracked:` lines is
+not.
 
 **Cost:** none — this is a measurement and presentation rule.
 **Revisit if:** never; exact-URL identity was simply the wrong unit.

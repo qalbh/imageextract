@@ -16,6 +16,13 @@ import {
   invertWithin,
   dimsKnownCounts,
   matchesQuery,
+  collapseVariants,
+  singleTiles,
+  sortTiles,
+  tileSelectionState,
+  variantUnitOf,
+  type KnownDims,
+  type VariantTile,
   parseFormatParam,
   parseSourceParam,
   proxyUrl,
@@ -536,5 +543,178 @@ describe('parseSourceParam', () => {
     // 'favicon' is a raw source inside the 'meta' bucket. Accepting it here
     // would create a second, undocumented vocabulary for the same param.
     expect(parseSourceParam('favicon').size).toBe(0);
+  });
+});
+
+// Variant collapse: one tile per logical image. The extractor has emitted
+// variantGroup since 2026-08-09 and the UI ignored it, so the cap counted
+// logical images while the grid counted entries — the mismatch this closes.
+describe('collapseVariants', () => {
+  const dims = (map: Record<string, KnownDims>) => (i: ScanImage) => map[i.id] ?? {};
+  const grouped = (id: string, group: string | undefined, over: Partial<ScanImage> = {}) =>
+    img({ id, source: 'srcset', ext: 'jpeg', ...(group === undefined ? {} : { variantGroup: group }), ...over });
+
+  it('collapses a group to one tile holding every member', () => {
+    const list = [grouped('a', 'g1'), grouped('b', 'g1'), grouped('c', 'g1')];
+    const tiles = collapseVariants(list, dims({ a: { w: 100, h: 50 }, b: { w: 400, h: 200 }, c: { w: 200, h: 100 } }));
+    expect(tiles).toHaveLength(1);
+    expect(tiles[0]!.members.map((m) => m.id)).toEqual(['a', 'b', 'c']);
+  });
+
+  it('picks the largest known AREA as the representative', () => {
+    const list = [grouped('a', 'g1'), grouped('b', 'g1'), grouped('c', 'g1')];
+    const tiles = collapseVariants(list, dims({ a: { w: 100, h: 50 }, b: { w: 400, h: 200 }, c: { w: 200, h: 100 } }));
+    expect(tiles[0]!.image.id).toBe('b');
+  });
+
+  it('falls back to largest known WIDTH when heights are missing (the srcset case)', () => {
+    // srcset `w` descriptors give width only, which is most of a real group.
+    const list = [grouped('a', 'g1'), grouped('b', 'g1')];
+    const tiles = collapseVariants(list, dims({ a: { w: 320 }, b: { w: 1280 } }));
+    expect(tiles[0]!.image.id).toBe('b');
+  });
+
+  it('prefers a member with dimensions over one without', () => {
+    const list = [grouped('a', 'g1'), grouped('b', 'g1')];
+    expect(collapseVariants(list, dims({ b: { w: 800 } }))[0]!.image.id).toBe('b');
+  });
+
+  it('prefers the img-sourced member when nothing has dimensions', () => {
+    // Inside a <picture> the fallback <img> is the canonical one.
+    const list = [grouped('a', 'g1', { source: 'picture' }), grouped('b', 'g1', { source: 'img' })];
+    expect(collapseVariants(list, dims({}))[0]!.image.id).toBe('b');
+  });
+
+  it('falls back to document order when every tiebreak is exhausted', () => {
+    const list = [grouped('a', 'g1', { source: 'srcset' }), grouped('b', 'g1', { source: 'srcset' })];
+    expect(collapseVariants(list, dims({}))[0]!.image.id).toBe('a');
+  });
+
+  it('leaves ungrouped images as their own single-member tiles', () => {
+    // A lone <img src>, a favicon, a CSS background: no variantGroup at all.
+    const list = [grouped('a', undefined), grouped('b', undefined)];
+    const tiles = collapseVariants(list, dims({}));
+    expect(tiles).toHaveLength(2);
+    expect(tiles.every((t) => t.members.length === 1)).toBe(true);
+  });
+
+  it('keeps groups in document order of first appearance, interleaved with singles', () => {
+    const list = [grouped('a', 'g1'), grouped('b', undefined), grouped('c', 'g1'), grouped('d', 'g2')];
+    expect(collapseVariants(list, dims({})).map((t) => t.image.id)).toEqual(['a', 'b', 'd']);
+  });
+
+  it('represents a group by its largest PASSING member — filtering runs first', () => {
+    // The PNG page's promise: filter to PNG and a mixed <picture> shows its
+    // PNG, not the larger WebP that was filtered out.
+    const all = [
+      grouped('webp', 'g1', { ext: 'webp' }),
+      grouped('png-sm', 'g1', { ext: 'png' }),
+      grouped('png-lg', 'g1', { ext: 'png' }),
+    ];
+    const d = dims({ webp: { w: 2000, h: 1000 }, 'png-sm': { w: 200, h: 100 }, 'png-lg': { w: 800, h: 400 } });
+    const onlyPng = applyFilters(all, { query: '', formats: new Set(['png']), groups: new Set() });
+    const tiles = collapseVariants(onlyPng, d);
+    expect(tiles).toHaveLength(1);
+    expect(tiles[0]!.image.id).toBe('png-lg');
+    expect(tiles[0]!.members).toHaveLength(2);
+  });
+
+  it('singleTiles produces the uncollapsed view in the same shape', () => {
+    const list = [grouped('a', 'g1'), grouped('b', 'g1')];
+    expect(singleTiles(list).map((t) => t.image.id)).toEqual(['a', 'b']);
+  });
+});
+
+describe('variantUnitOf', () => {
+  it('is the group for a grouped image and the id for an ungrouped one', () => {
+    expect(variantUnitOf(img({ id: 'a', source: 'img', ext: 'png', variantGroup: 'g1' }))).toBe('g1');
+    expect(variantUnitOf(img({ id: 'a', source: 'img', ext: 'png' }))).toBe('a');
+  });
+});
+
+describe('tileSelectionState', () => {
+  const tile = (ids: string[], repId: string): VariantTile => ({
+    image: img({ id: repId, source: 'img', ext: 'png' }),
+    members: ids.map((id) => img({ id, source: 'img', ext: 'png' })),
+  });
+
+  it('is checked when the representative is selected — the primary action reads as selected', () => {
+    const s = tileSelectionState(tile(['a', 'b', 'c'], 'a'), new Set(['a']));
+    expect(s).toEqual({ checked: true, partial: false, selectedCount: 1 });
+  });
+
+  it('is PARTIAL when a non-representative member is selected but the rep is not', () => {
+    // Expand, tick a smaller version, collapse: those ids stay selected, and
+    // dropping them would be silent data loss.
+    const s = tileSelectionState(tile(['a', 'b', 'c'], 'a'), new Set(['b']));
+    expect(s).toEqual({ checked: false, partial: true, selectedCount: 1 });
+  });
+
+  it('counts every selected member for the "n of m" chip', () => {
+    expect(tileSelectionState(tile(['a', 'b', 'c'], 'a'), new Set(['a', 'c'])).selectedCount).toBe(2);
+  });
+
+  it('is neither checked nor partial when nothing is selected', () => {
+    expect(tileSelectionState(tile(['a', 'b'], 'a'), new Set())).toEqual({
+      checked: false,
+      partial: false,
+      selectedCount: 0,
+    });
+  });
+});
+
+describe('collapse-aware counts', () => {
+  const mixed = [
+    img({ id: 'a', ext: 'webp', variantGroup: 'g1', source: 'picture' }),
+    img({ id: 'b', ext: 'png', variantGroup: 'g1', source: 'img' }),
+    img({ id: 'c', ext: 'png', variantGroup: 'g2', source: 'img' }),
+    img({ id: 'd', ext: 'png', variantGroup: 'g2', source: 'srcset' }),
+    img({ id: 'e', ext: 'ico', source: 'favicon' }),
+  ];
+  const none: FilterState = { query: '', formats: new Set(), groups: new Set() };
+
+  it('counts entries when collapse is off', () => {
+    expect(formatAllCount(mixed, none, false)).toBe(5);
+    expect(formatCounts(mixed, none, false).get('png')).toBe(3);
+  });
+
+  it('counts tiles when collapse is on', () => {
+    // g1 + g2 + the favicon = 3 tiles.
+    expect(formatAllCount(mixed, none, true)).toBe(3);
+  });
+
+  it('counts a mixed-format group in EVERY format it holds — why rows stop summing to All', () => {
+    const counts = formatCounts(mixed, none, true);
+    expect(counts.get('png')).toBe(2); // g1 (its png member) + g2
+    expect(counts.get('webp')).toBe(1); // g1 again
+    expect(counts.get('ico')).toBe(1);
+    // 2 + 1 + 1 = 4 rows against 3 actual tiles. The sidebar says so.
+    expect(counts.get('png')! + counts.get('webp')! + counts.get('ico')!).toBeGreaterThan(
+      formatAllCount(mixed, none, true),
+    );
+  });
+
+  it('source counts stay exact under collapse — a group never spans buckets', () => {
+    const counts = groupCounts(mixed, none, true);
+    expect(counts.get('page')).toBe(2);
+    expect(counts.get('meta')).toBe(1);
+    expect(counts.get('page')! + counts.get('meta')!).toBe(formatAllCount(mixed, none, true));
+  });
+});
+
+describe('sortTiles', () => {
+  const tiles: VariantTile[] = [
+    { image: img({ id: 'small', source: 'img', ext: 'png' }), members: [img({ id: 'small', source: 'img', ext: 'png' })] },
+    { image: img({ id: 'big', source: 'img', ext: 'png' }), members: [img({ id: 'big', source: 'img', ext: 'png' })] },
+  ];
+  const dimsOf = (i: ScanImage): KnownDims => (i.id === 'big' ? { w: 900, h: 900 } : { w: 10, h: 10 });
+
+  it('orders tiles by their representatives', () => {
+    expect(sortTiles(tiles, 'imagesize', 'largest', dimsOf).map((t) => t.image.id)).toEqual(['big', 'small']);
+    expect(sortTiles(tiles, 'imagesize', 'smallest', dimsOf).map((t) => t.image.id)).toEqual(['small', 'big']);
+  });
+
+  it('preserves each tile\'s members through the sort', () => {
+    expect(sortTiles(tiles, 'imagesize', 'largest', dimsOf)[0]!.members).toHaveLength(1);
   });
 });

@@ -59,6 +59,8 @@ export default function ResultsSidebar({
   onCancelMeasure,
   filteredCount,
   invert,
+  collapse,
+  onCollapse,
   onInvert,
 }: {
   // Distinguishes the two mounted instances (desktop aside + mobile sheet) so
@@ -84,6 +86,8 @@ export default function ResultsSidebar({
   onCancelMeasure: () => void;
   filteredCount: number;
   invert: boolean;
+  collapse: boolean;
+  onCollapse: (next: boolean) => void;
   onInvert: (value: boolean) => void;
 }) {
   return (
@@ -93,6 +97,15 @@ export default function ResultsSidebar({
         <SectionLabel>Format</SectionLabel>
         <ul className="flex flex-col">
           <li>
+            {/* Someone notices the arithmetic before they notice a label: with
+                collapse on the rows exceed All, because a <picture> offering
+                one photo as WebP and JPG is one tile counted under both. The
+                line has to explain that, not merely name the unit. */}
+            <p className="pb-xs text-caption text-muted">
+              {collapse
+                ? 'Counting groups — a picture offered in two formats counts in both.'
+                : 'Counting images.'}
+            </p>
             <label className="flex cursor-pointer items-center justify-between gap-xs py-xs">
               <span className="flex items-center gap-xs">
                 <input
@@ -255,10 +268,23 @@ export default function ResultsSidebar({
         </ul>
       </details>
 
-      {/* Display — the pill switch; list view is deferred, so this section
-          holds only Invert background. */}
+      {/* Display — the pill switches; list view is deferred. Both are display
+          MODES rather than filters, which is why they are switches and the
+          format/source/sort controls are checkboxes and radios
+          (design-system.md "Controls follow one rule"). */}
       <div className="pt-md">
         <SectionLabel>Display</SectionLabel>
+        <div className="flex items-center justify-between gap-xs py-xs">
+          <span className="text-small text-text">Group versions</span>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={collapse}
+            aria-label="Group versions of the same image into one tile"
+            onClick={() => onCollapse(!collapse)}
+            className="toggle"
+          />
+        </div>
         <div className="flex items-center justify-between gap-xs py-xs">
           <span className="text-small text-text">Invert background</span>
           <button

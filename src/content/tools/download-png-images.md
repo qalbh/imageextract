@@ -79,22 +79,17 @@ faq:
   - q: The site serves WebP to my browser. Can I still get the PNG?
     a: >-
       Often, yes. We read the page's markup rather than what your browser chose
-      to load, so the PNG fallback inside a <picture> element or a srcset list
-      is listed alongside the WebP the browser actually picked.
+      to load, so a <picture> element's PNG fallback is found even when your
+      browser took the WebP. One picture is one tile, with its other versions
+      behind the "2 versions" chip in the corner — open it and the PNG is
+      there. Filtering to PNG does the same job in one step: the tile then
+      shows its PNG rather than the WebP.
   - q: Does changing the filter re-scan the page?
     a: >-
       No. The scan reads everything once and the filtering happens in your
       browser, so widening from PNG to every format is instant and costs no
       extra request to the site.
-assumes:
-  - absent: collapseVariants
-    affects: faq[2] — "The site serves WebP to my browser"
-    because: >-
-      That answer is true because every declared variant is currently its own
-      tile, so the PNG fallback appears beside the WebP the browser picked.
-      Variant collapse (STATUS.md, Phase 2 — owed correctness) will fold a
-      <picture> into ONE tile, at which point the answer must say the PNG is
-      reachable behind that tile rather than listed alongside it.
+assumes: []
 related:
   - download-svg-images
 ---

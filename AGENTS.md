@@ -131,9 +131,11 @@ type ScanResult = {
     // 'declared'; the UI renders declared values muted and flips to 'measured'
     // on load. variantGroup: shared id for every candidate of ONE logical
     // image — a whole <picture> (all its <source>s + fallback <img>) or a
-    // standalone <img>'s src+srcset. Collapsing variants in the UI is
-    // deferred but OWED — correctness, not polish (DECISIONS: "Coverage
-    // counts logical images"). The scan cap counts variantGroup units.
+    // standalone <img>'s src+srcset. The UI COLLAPSES on it (shipped
+    // 2026-08-13, `collapseVariants` in results-model.ts): one tile per
+    // logical image showing the largest version, the rest behind a
+    // "N versions" chip, toggleable in DISPLAY. The scan cap counts
+    // variantGroup units, so tiles and the cap finally share a unit.
     width?: number; height?: number; dimensionSource?: 'declared' | 'measured';
     variantGroup?: string;
   }>;

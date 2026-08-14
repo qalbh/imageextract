@@ -29,9 +29,9 @@ claims:
       corpus: allbirds
       figure: 90.7%
   - text: >-
-      Every responsive size a store declares for a photo is listed, not only
-      the one your screen happened to load, so the largest available version is
-      there to pick.
+      Every responsive size a store declares for a photo is found, not only the
+      one your screen happened to load — grouped into one tile that stands for
+      the largest, with the rest one click behind it.
     evidence:
       code: IMAGE_SOURCES
   - text: >-
@@ -42,9 +42,10 @@ claims:
       code: probeMeta
 limits:
   - text: >-
-      A store's CDN serves the same photo at many sizes, and each is currently
-      its own tile. Expect several tiles per product photo, sort by size, and
-      take the largest.
+      A store's CDN serves the same photo at many sizes. Those are grouped into
+      one tile showing the largest, with a chip reading "6 versions" — selecting
+      the tile takes that largest version, and opening the chip lets you pick a
+      smaller one instead.
   - text: >-
       Only what the page itself carries is read. A collection that loads more
       products as you scroll has the first batch in its HTML and the rest in
@@ -70,17 +71,18 @@ faq:
       collection tile never shows. Collection page for a broad sweep of the
       catalogue at whatever size the grid uses. They answer different
       questions, and the product page is the one people usually want.
-  - q: Why does one photo appear several times?
+  - q: The store shows one photo — why does the chip say six versions?
     a: >-
       Shopify generates a set of sizes for every image and declares them all so
-      browsers can pick. The page lists everything declared, so one photo
-      arrives as several entries at different widths. Sorting by image size
-      groups the big ones together.
+      browsers can pick whichever suits the screen. All of them are found, and
+      they are grouped into a single tile so the grid shows pictures rather than
+      breakpoints. The chip opens the group if you want a specific width.
   - q: How do I get the highest-resolution version?
     a: >-
-      Sort by Image size, largest first, and measure if the dimensions are not
-      already known. The largest declared variant is the best the store serves
-      publicly — there is no hidden original behind it.
+      Selecting a tile already takes it: a grouped tile represents its largest
+      version, so the default selection is the best the store serves publicly.
+      There is no hidden original behind it. If dimensions are unknown, Measure
+      reads them from the file headers and the grouping updates to match.
   - q: Does this work on stores with a custom domain?
     a: >-
       Yes. Shopify stores mostly run on their own domains, and nothing here
@@ -90,16 +92,7 @@ faq:
       No, but Shopify is the platform the coverage was measured on. Any store
       that renders its catalogue into HTML behaves the same way; stores that
       build the grid entirely in JavaScript return much less.
-assumes:
-  - absent: collapseVariants
-    affects: limits[0] and faq[1] — the "several tiles per photo" answers
-    because: >-
-      Both currently tell the visitor to expect one tile per size variant and
-      to sort by size to find the original. Variant collapse folds a photo's
-      variants into ONE tile with the others behind it, at which point that
-      advice is wrong twice over: the tile count changes and picking the
-      largest stops being a sort-and-scan job. Rewrite both to describe the
-      collapsed tile.
+assumes: []
 related:
   - download-png-images
 ---

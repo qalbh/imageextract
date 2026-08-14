@@ -131,9 +131,24 @@ a grid floor — retained solely as the content-visibility placeholder in
 the shell's centring max derives from it) · tile reveal cap **120**
 (`TILE_REVEAL_CAP` in `src/lib/results-model.ts`).
 
-**Tile corners:** on results tiles the **dimension chip is top-right** and the
-**selection checkbox is top-left** — opposite corners. There is **no source
-badge** on the tile; source is a sidebar filter, which is where it does its work.
+**Tile corners:** on results tiles the **dimension chip is top-right**, the
+**selection checkbox is top-left**, and the **version chip is bottom-left**.
+There is **no source badge** on the tile; source is a sidebar filter, which is
+where it does its work.
+
+**The third slot, added 2026-08-13 with variant collapse — and the reasoning
+is recorded so a fourth gets the same scrutiny.** The version chip ("6
+versions", the control that expands a grouped tile) went bottom-left because
+both top corners were already committed and the 56px `.tile-footer` is full at
+2-up on a phone (filename, format tag, and the 28px download square). Bottom-
+left was the only free corner that could hold a 20px `.tile-chip` without
+colliding or shrinking something else. It reuses the existing chip vocabulary
+exactly — same height, same `--radius-md`, same `--spacing-xs` inset, the
+`--color-overlay-strong` ground the measured dimension chip uses — so it adds a
+POSITION, not a new visual language. **Bottom-right is the last free corner.**
+Anything proposed for it should have to answer why it cannot live in the
+footer, the sidebar, or the selection bar first, because a tile with something
+in all four corners is a tile with no image left in it.
 
 ## Results view
 

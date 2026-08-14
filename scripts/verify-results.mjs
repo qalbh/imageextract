@@ -173,6 +173,38 @@ function serve() {
   });
 }
 
+// Variant-collapse fixture: one <picture> group of 4 (mixed WebP + PNG, the
+// case that makes "sizes" the wrong word and makes format rows stop summing),
+// one srcset group of 3, and two ungrouped singles. 9 entries, 4 logical
+// images — the exact mismatch collapse exists to close.
+function variantFixture() {
+  const mk = (id, filename, ext, source, width, height, variantGroup) => ({
+    id,
+    url: `https://probe.test/${filename}`,
+    filename,
+    ext,
+    source,
+    ...(width === undefined ? {} : { width }),
+    ...(height === undefined ? {} : { height }),
+    ...(width === undefined ? {} : { dimensionSource: 'declared' }),
+    ...(variantGroup === undefined ? {} : { variantGroup }),
+  });
+  return {
+    pageUrl: 'https://probe.test/variants',
+    images: [
+      mk('g1a', 'hero-2400.webp', 'webp', 'picture', 2400, 1200, 'g1'),
+      mk('g1b', 'hero-1200.webp', 'webp', 'picture', 1200, 600, 'g1'),
+      mk('g1c', 'hero-800.png', 'png', 'img', 800, 400, 'g1'),
+      mk('g1d', 'hero-400.png', 'png', 'srcset', 400, 200, 'g1'),
+      mk('g2a', 'prod-1000.jpeg', 'jpeg', 'srcset', 1000, undefined, 'g2'),
+      mk('g2b', 'prod-500.jpeg', 'jpeg', 'srcset', 500, undefined, 'g2'),
+      mk('g2c', 'prod-250.jpeg', 'jpeg', 'img', 250, undefined, 'g2'),
+      mk('s1', 'logo.svg', 'svg', 'inline-svg'),
+      mk('s2', 'icon.ico', 'ico', 'favicon'),
+    ],
+  };
+}
+
 async function main() {
   if (!existsSync(dist)) {
     console.error('dist/client not found — run `astro build` first (npm run verify:results does this).');
@@ -805,6 +837,95 @@ async function main() {
       '501 selected',
     );
     await zx.close();
+
+    // ---------------------------------------------------------------------
+    // Variant collapse. 9 entries, 4 logical images: the grid used to show
+    // 200 tiles for 40 pictures on a responsive page while the image cap
+    // counted logical images, so the cap and the UI disagreed about what an
+    // image is.
+    // ---------------------------------------------------------------------
+    const vc = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    await vc.route('**/*', (route) =>
+      route.request().resourceType() === 'image' ? route.abort() : route.continue(),
+    );
+    const vcFixture = variantFixture();
+    await vc.route('**/api/scan*', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(vcFixture) }),
+    );
+    await vc.goto(`${base}/results?url=${encodeURIComponent(vcFixture.pageUrl)}`, { waitUntil: 'load' });
+    await vc.waitForSelector('li.result-tile', { timeout: 15000 });
+
+    const vcTiles = () => vc.locator('li.result-tile').count();
+    ok(
+      'collapse: ON by default — 9 entries render as 4 logical tiles',
+      (await vcTiles()) === 4,
+      `${await vcTiles()} tiles from ${vcFixture.images.length} entries`,
+    );
+
+    // The representative is the largest, and the chip says "versions" rather
+    // than "sizes" because a <picture> group is mixed-FORMAT by design.
+    const chipTexts = await vc.locator('li.result-tile button[aria-expanded]').allTextContents();
+    ok(
+      'collapse: grouped tiles show a versions chip; singles show none',
+      chipTexts.length === 2 && chipTexts.every((t) => /versions/.test(t)) && !chipTexts.some((t) => /sizes/.test(t)),
+      chipTexts.map((t) => t.trim()).join(' | '),
+    );
+    ok(
+      'collapse: the tile represents the LARGEST version',
+      (await vc.locator('li.result-tile').first().textContent())?.includes('hero-2400.webp') === true,
+    );
+
+    // Every count the chrome shows must be in the same unit as the grid.
+    const barFound = await vc.locator('text=/\\d+ images found/i').first().textContent();
+    const selectAllLabel = await vc.getByRole('button', { name: /Select all/ }).textContent();
+    ok(
+      'collapse: the bar counts TILES, not entries — no contradicting the grid under it',
+      /4 images found/i.test(barFound ?? '') && /\(4\)/.test(selectAllLabel ?? ''),
+      `${(barFound ?? '').trim()} · ${(selectAllLabel ?? '').trim()}`,
+    );
+    ok(
+      'collapse: the count caveat explains why rows exceed All, not just which unit',
+      (await vc.locator('text=/a picture offered in two formats counts in both/').count()) > 0,
+    );
+
+    // Selecting a collapsed tile takes ONE image — the largest — and says so.
+    await vc.locator('li.result-tile').first().click();
+    await vc.waitForTimeout(200);
+    ok(
+      'collapse: selecting a grouped tile selects exactly one image, the largest',
+      (await vc.locator('text=/^1 selected/i').count()) > 0 &&
+        (await vc.locator('li.result-tile button[aria-expanded]').first().textContent())?.includes('1 of 4') === true,
+    );
+    ok(
+      'collapse: the discard is STATED, not silent',
+      (await vc.locator('text=/Collapsed tiles contribute their largest version/').count()) > 0,
+    );
+
+    // Expansion is inline and reversible.
+    await vc.locator('li.result-tile button[aria-expanded]').first().click();
+    await vc.waitForTimeout(200);
+    const expandedTiles = await vcTiles();
+    await vc.locator('li.result-tile button[aria-expanded="true"]').first().click();
+    await vc.waitForTimeout(200);
+    ok(
+      'collapse: expanding shows the group in place and collapsing restores it',
+      expandedTiles === 7 && (await vcTiles()) === 4,
+      `${expandedTiles} expanded → ${await vcTiles()} collapsed`,
+    );
+
+    // Turning it off restores the raw list — the specialist path.
+    await vc.getByRole('switch', { name: /Group versions/ }).click();
+    await vc.waitForTimeout(300);
+    const rawTiles = await vcTiles();
+    const rawFound = await vc.locator('text=/\\d+ images found/i').first().textContent().catch(() => '');
+    ok(
+      'collapse: the DISPLAY toggle restores every entry as its own tile',
+      rawTiles === 9 &&
+        (await vc.locator('text=/Counting images/').count()) > 0 &&
+        (await vc.locator('li.result-tile button[aria-expanded]').count()) === 0,
+      `${rawTiles} tiles, ${(rawFound ?? '').trim()}`,
+    );
+    await vc.close();
   } finally {
     await browser.close();
     server.close();

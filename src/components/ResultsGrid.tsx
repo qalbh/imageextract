@@ -16,6 +16,11 @@ import {
   dimsKnownCounts,
   parseFormatParam,
   parseSourceParam,
+  collapseVariants,
+  singleTiles,
+  sortTiles,
+  tileSelectionState,
+  variantUnitOf,
   selectAll,
   selectRange,
   selectedUrls,
@@ -137,6 +142,11 @@ export default function ResultsGrid() {
   // `query` in FilterState, so the island passes a constant ''.
   const [formats, setFormats] = useState<ReadonlySet<ImageExt>>(() => new Set());
   const [groups, setGroups] = useState<ReadonlySet<SourceGroupId>>(() => new Set());
+  // Variant collapse: ON by default. One tile per logical image is right for
+  // almost everyone; someone hunting a specific breakpoint turns it off in
+  // DISPLAY. `expanded` holds the variant-group ids opened in place.
+  const [collapse, setCollapse] = useState(true);
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set());
   const [sortKey, setSortKey] = useState<SortKey>('document');
   const [sortDir, setSortDir] = useState<SortDirection>('largest');
   const [selected, setSelected] = useState<ReadonlySet<string>>(() => new Set());
@@ -277,6 +287,16 @@ export default function ResultsGrid() {
     [images, formats, groups],
   );
 
+  // Filter runs on ENTRIES, then collapse groups them: a group shows when ANY
+  // member passes, represented by the largest PASSING member — so filtering to
+  // PNG shows a mixed <picture>'s PNG rather than hiding the picture. The
+  // representative is frozen for the render for the same reason the sort is
+  // (see below); measureEpoch recomputes it after an explicit Measure batch.
+  const tiles = useMemo(
+    () => (collapse ? collapseVariants(filtered, dimsOf) : singleTiles(filtered)),
+    [filtered, collapse, measureEpoch],
+  );
+
   // Frozen sort: this memo deliberately omits `measured` from its deps.
   // Measured dimensions arriving on image load refresh the badges (they re-run
   // widthOf during render) but must NOT reorder tiles under the pointer.
@@ -284,18 +304,24 @@ export default function ResultsGrid() {
   // order with the newest widths.
   // measureEpoch is the deliberate exception: one bump per settled Measure
   // batch re-sorts with the new dimensions.
-  const sorted = useMemo(
-    () => sortImages(filtered, sortKey, sortDir, dimsOf),
-    [filtered, sortKey, sortDir, measureEpoch],
+  const sortedTiles = useMemo(
+    () => sortTiles(tiles, sortKey, sortDir, dimsOf),
+    [tiles, sortKey, sortDir, measureEpoch],
   );
+  // The representative list. Every downstream consumer — selection, shift
+  // ranges, probes, measure candidates — keeps working on ScanImage[] and
+  // never learns about grouping: collapse is a view transform, and ids stay
+  // real manifest ids, which is what keeps the ZIP and the probe maps intact.
+  const sorted = useMemo(() => sortedTiles.map((tile) => tile.image), [sortedTiles]);
 
-  const visible = useMemo(() => sorted.slice(0, revealCap), [sorted, revealCap]);
+  const visibleTiles = useMemo(() => sortedTiles.slice(0, revealCap), [sortedTiles, revealCap]);
+  const visible = useMemo(() => visibleTiles.map((tile) => tile.image), [visibleTiles]);
 
   // Applying a filter resets the reveal window to the first cap of the filtered
   // set (sort reorders the same set, so it keeps the window).
   useEffect(() => {
     setRevealCap(TILE_REVEAL_CAP);
-  }, [formats, groups]);
+  }, [formats, groups, collapse]);
 
   // Incremental reveal: append another batch when the sentinel scrolls near.
   useEffect(() => {
@@ -304,30 +330,30 @@ export default function ResultsGrid() {
     const io = new IntersectionObserver(
       (entries) => {
         if (entries.some((entry) => entry.isIntersecting)) {
-          setRevealCap((cap) => Math.min(cap + TILE_REVEAL_CAP, sorted.length));
+          setRevealCap((cap) => Math.min(cap + TILE_REVEAL_CAP, sortedTiles.length));
         }
       },
       { rootMargin: '400px' },
     );
     io.observe(el);
     return () => io.disconnect();
-  }, [sorted.length]);
+  }, [sortedTiles.length]);
 
   // Faceted counts — Format honours the active Source filter and vice-versa.
   // The shown format rows are fixed from the full supported set so they never
   // reflow (canonicalFormats).
   const filterState: FilterState = { query: '', formats, groups };
   const formatOrder = useMemo(() => canonicalFormats(), []);
-  const fmtCounts = useMemo(() => formatCounts(images, filterState), [images, groups]);
-  const allFmtCount = useMemo(() => formatAllCount(images, filterState), [images, groups]);
-  const grpCounts = useMemo(() => groupCounts(images, filterState), [images, formats]);
-  const dimsCounts = useMemo(() => dimsKnownCounts(filtered, dimsOf), [filtered, dimsOf]);
+  const fmtCounts = useMemo(() => formatCounts(images, filterState, collapse), [images, groups, collapse]);
+  const allFmtCount = useMemo(() => formatAllCount(images, filterState, collapse), [images, groups, collapse]);
+  const grpCounts = useMemo(() => groupCounts(images, filterState, collapse), [images, formats, collapse]);
+  const dimsCounts = useMemo(() => dimsKnownCounts(sorted, dimsOf), [sorted, dimsOf]);
   // Measure candidates: filtered entries whose ACTIVE metric is unknown and
   // not already terminally probed. naturalWidth measurements from scrolling
   // shrink this live, for free.
   const measureCandidates = useMemo(() => {
     if (!METRIC_SORTS.has(sortKey)) return [] as ScanImage[];
-    return filtered.filter((img) => {
+    return sorted.filter((img) => {
       const d = dimsOf(img);
       const unknown =
         sortKey === 'width' ? d.w === undefined
@@ -335,7 +361,7 @@ export default function ResultsGrid() {
         : d.w === undefined || d.h === undefined;
       return unknown && !dimProbesRef.current.has(img.id) && !pendingSizesRef.current.has(img.id);
     });
-  }, [filtered, sortKey, dimsOf, dimProbes, pendingSizes]);
+  }, [sorted, sortKey, dimsOf, dimProbes, pendingSizes]);
 
   const onMeasured = useCallback((id: string, w: number, h: number) => {
     measuredRef.current.set(id, { w, h });
@@ -373,6 +399,37 @@ export default function ResultsGrid() {
       }),
     [],
   );
+
+  const onToggleExpand = useCallback((unit: string) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(unit)) next.delete(unit);
+      else next.add(unit);
+      return next;
+    });
+  }, []);
+
+  // The note below the grid header appears only while it is TRUE: a collapsed
+  // tile standing for several versions is selected, so four other versions
+  // exist that the selection does not include. Stating the rule where it
+  // applies beats a permanent line nobody reads.
+  const collapsedSelectionActive = useMemo(
+    () =>
+      collapse &&
+      sortedTiles.some((tile) => tile.members.length > 1 && tileSelectionState(tile, selected).checked),
+    [collapse, sortedTiles, selected],
+  );
+
+  // Every count the chrome shows must be in the SAME unit as the grid, or the
+  // bar contradicts the tiles it sits under. Caught by looking at the rendered
+  // page: "9 images found · Select all (9)" read out over four tiles, and the
+  // sort sub-labels put a representative numerator over an entry denominator.
+  const totalCount = useMemo(() => {
+    if (!collapse) return images.length;
+    const units = new Set<string>();
+    for (const img of images) units.add(variantUnitOf(img));
+    return units.size;
+  }, [images, collapse]);
 
   const imageById = useMemo(() => new Map(images.map((img) => [img.id, img])), [images]);
 
@@ -635,9 +692,11 @@ export default function ResultsGrid() {
     measuring,
     onMeasure: handleMeasure,
     onCancelMeasure: handleCancelMeasure,
-    filteredCount: filtered.length,
+    filteredCount: sortedTiles.length,
     invert,
     onInvert: setInvert,
+    collapse,
+    onCollapse: setCollapse,
   };
 
   switch (state.kind) {
@@ -734,26 +793,90 @@ export default function ResultsGrid() {
               <p className="mb-sm text-right font-mono text-label uppercase text-muted">
                 Showing {visible.length} of {sorted.length}
               </p>
+              {/* Stated, not assumed: a collapsed tile contributes ONE image.
+                  Lives here rather than in the selection bar because the
+                  mobile bar's height is load-bearing — the filter sheet's
+                  max-height derives from it (design-system.md), so a fourth
+                  row there would move two other things. */}
+              {collapsedSelectionActive && (
+                <p className="mb-sm text-small text-muted">
+                  Collapsed tiles contribute their largest version. Expand a tile to choose a
+                  different size.
+                </p>
+              )}
               {sorted.length === 0 ? (
                 <p className="py-lg text-small text-muted">No images match these filters.</p>
               ) : (
                 <ul className="results-grid">
-                  {visible.map((image) => (
-                    <ImageCard
-                      key={image.id}
-                      image={image}
-                      selected={selected.has(image.id)}
-                      invert={invert}
-                      fallback={fallbacks.get(image.id)}
-                      probedDims={measured.get(image.id)}
-                      onToggle={handleTileToggle}
-                      onMeasured={onMeasured}
-                      onImageError={onImageError}
-                    />
-                  ))}
+                  {visibleTiles.map((tile) => {
+                    const unit = variantUnitOf(tile.image);
+                    const isOpen = expanded.has(unit);
+                    const sel = tileSelectionState(tile, selected);
+                    const card = (image: ScanImage, variant: boolean) => (
+                      <ImageCard
+                        key={image.id}
+                        image={image}
+                        selected={selected.has(image.id)}
+                        invert={invert}
+                        fallback={fallbacks.get(image.id)}
+                        probedDims={measured.get(image.id)}
+                        onToggle={handleTileToggle}
+                        onMeasured={onMeasured}
+                        onImageError={onImageError}
+                        isVariant={variant}
+                      />
+                    );
+                    // Expanded: the group's members take the collapsed tile's
+                    // place, in document order, so the set stays where the eye
+                    // left it. Members are rendered REGARDLESS of the reveal
+                    // cap — a group is a bounded handful and hiding half of an
+                    // expansion behind a scroll would be nonsense.
+                    if (isOpen) {
+                      return tile.members.map((member, i) =>
+                        i === 0 ? (
+                          <ImageCard
+                            key={member.id}
+                            image={member}
+                            selected={selected.has(member.id)}
+                            invert={invert}
+                            fallback={fallbacks.get(member.id)}
+                            probedDims={measured.get(member.id)}
+                            onToggle={handleTileToggle}
+                            onMeasured={onMeasured}
+                            onImageError={onImageError}
+                            variantCount={tile.members.length}
+                            selectedCount={sel.selectedCount}
+                            expanded
+                            onToggleExpand={onToggleExpand}
+                            isVariant
+                          />
+                        ) : (
+                          card(member, true)
+                        ),
+                      );
+                    }
+                    return (
+                      <ImageCard
+                        key={tile.image.id}
+                        image={tile.image}
+                        selected={sel.checked}
+                        partial={sel.partial}
+                        invert={invert}
+                        fallback={fallbacks.get(tile.image.id)}
+                        probedDims={measured.get(tile.image.id)}
+                        onToggle={handleTileToggle}
+                        onMeasured={onMeasured}
+                        onImageError={onImageError}
+                        variantCount={tile.members.length}
+                        selectedCount={sel.selectedCount}
+                        expanded={false}
+                        onToggleExpand={onToggleExpand}
+                      />
+                    );
+                  })}
                 </ul>
               )}
-              {revealCap < sorted.length && <div ref={sentinelRef} aria-hidden="true" />}
+              {revealCap < sortedTiles.length && <div ref={sentinelRef} aria-hidden="true" />}
             </div>
           </div>
 
@@ -762,9 +885,9 @@ export default function ResultsGrid() {
               pins to the viewport bottom while the grid scrolls. */}
           <div className="sticky bottom-0 z-30 mt-md">
             <SelectionBar
-              total={images.length}
+              total={totalCount}
               selectedCount={selected.size}
-              filteredCount={filtered.length}
+              filteredCount={sortedTiles.length}
               copied={copied}
               activeFilterCount={activeFilterCount}
               filtersOpen={sheetOpen}

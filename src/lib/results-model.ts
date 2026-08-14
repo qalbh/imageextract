@@ -178,41 +178,204 @@ export function parseSourceParam(raw: string | null): ReadonlySet<SourceGroupId>
 }
 
 // ---------------------------------------------------------------------------
+// Variant collapse — one tile per LOGICAL image.
+//
+// A page with 40 responsive photos at 5 srcset breakpoints emits 200 entries
+// that are 40 pictures. The grid read as noisy rather than thorough, and the
+// manifest already knew the grouping: MAX_IMAGES counts logical units, so the
+// cap and the UI disagreed about what an image is. DECISIONS.md "Coverage
+// counts logical images" calls this correctness, not polish, for the same
+// reason exact-URL matching was the wrong coverage metric.
+//
+// Two structural facts from the extractor shape everything here. Only `img`,
+// `srcset`, `picture` and `lazy` carry a variantGroup, and all four live in
+// the `page` source bucket — so collapse NEVER spans source buckets and the
+// source facet is untouched. But a <picture> is mixed-FORMAT by design (a
+// WebP source beside a JPG fallback), so a group routinely spans formats,
+// which is why the count labels have to explain themselves.
+//
+// This is a VIEW transform and nothing more: tiles carry real manifest
+// images, selection stays a set of real ids, and every id-keyed map
+// downstream (sizes, dimension probes, hotlink fallbacks, the ZIP) is
+// untouched by it.
+// ---------------------------------------------------------------------------
+
+export interface VariantTile {
+  /** The member shown when collapsed — the largest, by the rule below. */
+  image: ScanImage;
+  /** Every member that passed the filter, in document order, rep included. */
+  members: ScanImage[];
+}
+
+/** The unit key the image-cap counts by: its group, or itself when ungrouped. */
+export function variantUnitOf(img: ScanImage): string {
+  return img.variantGroup ?? img.id;
+}
+
+// Deterministic representative: largest known AREA, then largest known WIDTH,
+// then the `img`-sourced member (inside a <picture> that is the fallback, the
+// one the page treats as canonical), then document order. Deliberately total —
+// srcset members often carry width but no height, and CSS-sourced members
+// carry neither, so every step has to break its own ties.
+function preferredRep(a: ScanImage, b: ScanImage, dimsOf: (img: ScanImage) => KnownDims): boolean {
+  const da = dimsOf(a);
+  const db = dimsOf(b);
+  const areaA = da.w !== undefined && da.h !== undefined ? da.w * da.h : undefined;
+  const areaB = db.w !== undefined && db.h !== undefined ? db.w * db.h : undefined;
+  if (areaA !== undefined || areaB !== undefined) {
+    if (areaA === undefined) return false;
+    if (areaB === undefined) return true;
+    if (areaA !== areaB) return areaA > areaB;
+  }
+  if (da.w !== undefined || db.w !== undefined) {
+    if (da.w === undefined) return false;
+    if (db.w === undefined) return true;
+    if (da.w !== db.w) return da.w > db.w;
+  }
+  if (a.source !== b.source) return a.source === 'img';
+  return false; // stable: keep the earlier member
+}
+
+/**
+ * Group the FILTERED entries into tiles. Filtering runs first on purpose: a
+ * group shows when ANY member passes, represented by the largest PASSING
+ * member — so filtering to PNG shows the group's PNG rather than hiding a
+ * picture that has one.
+ *
+ * The representative is chosen from whatever dimensions are known at call
+ * time and is FROZEN for that render, like the sort key: a tile whose
+ * identity changed when naturalWidth resolved would swap image under the
+ * pointer. A settled Measure batch bumps measureEpoch and recomputes, which
+ * is the same deliberate exception the frozen sort already makes.
+ */
+export function collapseVariants(
+  images: readonly ScanImage[],
+  dimsOf: (img: ScanImage) => KnownDims,
+): VariantTile[] {
+  const byUnit = new Map<string, VariantTile>();
+  for (const img of images) {
+    const unit = variantUnitOf(img);
+    const tile = byUnit.get(unit);
+    if (tile === undefined) {
+      byUnit.set(unit, { image: img, members: [img] });
+      continue;
+    }
+    tile.members.push(img);
+    if (preferredRep(img, tile.image, dimsOf)) tile.image = img;
+  }
+  return [...byUnit.values()];
+}
+
+/** Every entry as its own tile — the uncollapsed view, same shape. */
+export function singleTiles(images: readonly ScanImage[]): VariantTile[] {
+  return images.map((img) => ({ image: img, members: [img] }));
+}
+
+/**
+ * Checkbox state for a tile. The tile is CHECKED when its representative is
+ * selected — clicking a collapsed tile selects the largest version and that
+ * has to read as plainly selected, not as partial.
+ *
+ * `partial` covers the case a destructive design would have hidden: expand a
+ * group, tick a smaller version, collapse again. Those ids stay selected, so
+ * the tile shows indeterminate and the chip says "1 of 3 selected". Dropping
+ * the non-representative selections on collapse would be silent data loss of
+ * exactly the kind this feature exists to stop.
+ */
+export function tileSelectionState(
+  tile: VariantTile,
+  selected: ReadonlySet<string>,
+): { checked: boolean; partial: boolean; selectedCount: number } {
+  let selectedCount = 0;
+  for (const member of tile.members) if (selected.has(member.id)) selectedCount += 1;
+  const checked = selected.has(tile.image.id);
+  return { checked, partial: !checked && selectedCount > 0, selectedCount };
+}
+
+/** Sort tiles by their representatives, reusing the tested image comparator. */
+export function sortTiles(
+  tiles: readonly VariantTile[],
+  key: SortKey,
+  direction: SortDirection,
+  dimsOf: (img: ScanImage) => KnownDims,
+): VariantTile[] {
+  const byId = new Map(tiles.map((tile) => [tile.image.id, tile]));
+  return sortImages(
+    tiles.map((tile) => tile.image),
+    key,
+    direction,
+    dimsOf,
+  ).map((img) => byId.get(img.id) as VariantTile);
+}
+
+// ---------------------------------------------------------------------------
 // Faceted counts — each group's counts are computed with that group's own
 // selection excluded, so Format counts reflect the active Source (and query)
 // filter and vice-versa. This is what "counts update with the filtered set"
 // means once two filter groups coexist.
+//
+// `collapse` makes a count answer "how many TILES would ticking this show",
+// which is the question a visitor is actually asking. The consequence is
+// stated in the sidebar rather than hidden: with collapse on, format rows no
+// longer sum to All, because a picture offered in two formats counts in both.
 // ---------------------------------------------------------------------------
-export function formatCounts(images: readonly ScanImage[], state: FilterState): Map<ImageExt, number> {
+function countUnits(images: readonly ScanImage[], collapse: boolean): number {
+  if (!collapse) return images.length;
+  const units = new Set<string>();
+  for (const img of images) units.add(variantUnitOf(img));
+  return units.size;
+}
+export function formatCounts(
+  images: readonly ScanImage[],
+  state: FilterState,
+  collapse = false,
+): Map<ImageExt, number> {
   const base: FilterState = { query: state.query, formats: new Set(), groups: state.groups };
-  const counts = new Map<ImageExt, number>();
+  const byFormat = new Map<ImageExt, ScanImage[]>();
   for (const img of images) {
-    if (matchesFilters(img, base)) counts.set(img.ext, (counts.get(img.ext) ?? 0) + 1);
+    if (!matchesFilters(img, base)) continue;
+    const bucket = byFormat.get(img.ext);
+    if (bucket === undefined) byFormat.set(img.ext, [img]);
+    else bucket.push(img);
   }
+  const counts = new Map<ImageExt, number>();
+  for (const [ext, bucket] of byFormat) counts.set(ext, countUnits(bucket, collapse));
   return counts;
 }
 
 // The faceted "All" row: total of the set filtered by everything except the
 // format selection.
-export function formatAllCount(images: readonly ScanImage[], state: FilterState): number {
+export function formatAllCount(
+  images: readonly ScanImage[],
+  state: FilterState,
+  collapse = false,
+): number {
   const base: FilterState = { query: state.query, formats: new Set(), groups: state.groups };
-  let n = 0;
-  for (const img of images) if (matchesFilters(img, base)) n += 1;
-  return n;
+  return countUnits(
+    images.filter((img) => matchesFilters(img, base)),
+    collapse,
+  );
 }
 
 export function groupCounts(
   images: readonly ScanImage[],
   state: FilterState,
+  collapse = false,
 ): Map<SourceGroupId, number> {
   const base: FilterState = { query: state.query, formats: state.formats, groups: new Set() };
-  const counts = new Map<SourceGroupId, number>();
+  const byGroup = new Map<SourceGroupId, ScanImage[]>();
   for (const img of images) {
-    if (matchesFilters(img, base)) {
-      const group = sourceGroupOf(img.source);
-      counts.set(group, (counts.get(group) ?? 0) + 1);
-    }
+    if (!matchesFilters(img, base)) continue;
+    const group = sourceGroupOf(img.source);
+    const bucket = byGroup.get(group);
+    if (bucket === undefined) byGroup.set(group, [img]);
+    else bucket.push(img);
   }
+  const counts = new Map<SourceGroupId, number>();
+  // A variantGroup never spans source buckets (only img/srcset/picture/lazy
+  // carry one, all of them `page`), so a collapsed source count is exact —
+  // unlike the format facet, no group is counted twice here.
+  for (const [group, bucket] of byGroup) counts.set(group, countUnits(bucket, collapse));
   return counts;
 }
 

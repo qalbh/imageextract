@@ -81,14 +81,25 @@ const claim = z
 //
 // This generalises on purpose: sixty pages will accumulate more of these, and
 // each one is three lines rather than a comment nobody re-reads.
+//
+// WHAT IT DOES NOT DO, stated here because this is where someone evaluating
+// whether to trust the mechanism will read: it verifies that a SYMBOL is
+// absent. It cannot verify that `affects` names every paragraph that symbol's
+// arrival invalidates — that field is a human prediction, and on the first
+// real firing it under-declared by one paragraph. The guarantee is "this page
+// needs re-reading", not "these lines need editing".
 const assumption = z
   .object({
     // The exported identifier whose ARRIVAL invalidates the copy. Pick the
     // name the future implementation will actually use, and record that name
     // wherever the work is tracked so the implementer collides with it.
     absent: z.string().min(1),
-    // Which part of the page goes stale — precise enough to edit without
-    // re-reading the whole file.
+    // Which part of the page goes stale. Write it as precisely as you can —
+    // but see the limitation above and do NOT trust it as a checklist when the
+    // guard fires. Proven on the first real firing (2026-08-13, variant
+    // collapse): the Shopify page named limits[0] and faq[1], while faq[2]
+    // ("How do I get the highest-resolution version?") was invalidated too and
+    // went unnamed. RE-READ THE WHOLE PAGE; this field is the starting point.
     affects: z.string().min(1),
     // What the copy will have to say instead. Written now, while the reasoning
     // is in someone's head, not later under a red suite.
