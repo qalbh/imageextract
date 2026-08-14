@@ -810,7 +810,7 @@ export default function ResultsGrid() {
                 area, which stays on the body's --color-bg. Below the md
                 breakpoint the same controls open as a bottom sheet. */}
             <aside
-              className="hidden shrink-0 border-r border-border bg-surface md:block"
+              className="results-sidebar-column hidden shrink-0 border-r border-border bg-surface md:block"
               style={{ width: 'var(--layout-sidebar)' }}
             >
               {/* The inner div is what sticks, NOT the aside — see the

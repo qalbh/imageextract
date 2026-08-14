@@ -209,6 +209,42 @@
    horizontal pad, so the sidebar sits in the same rhythm as the margins, and
    the height stops clear of the selection bar via its existing constant. Both
    track any future change to either value. */
+/* The sidebar column must reach the END of the page, not the end of the grid.
+
+   WHY, because a negative margin derived from two tokens reads as a hack
+   otherwise. The <aside> is the sticky child's containing block, and a sticky
+   element can never be pushed past its container's bottom edge. The grid ends
+   roughly 88px above the page does — the selection bar and its margin sit
+   below the shell — so at maximum scroll the aside's bottom rose ABOVE where
+   the pinned controls end and dragged them with it: computed top went from
+   60px to -4px and the FORMAT heading clipped off the top of the column. The
+   panel background and divider stopped 88px short of the bar at the same
+   moment, which is the visible half of the same fact.
+
+   Extending the aside's box under the bar gives sticky the room it needs, so
+   the controls stay at their offset all the way to the page end. Both terms
+   are the real constants — the bar's own height and the shell's bottom gap —
+   so the rule tracks a change to either instead of pinning a number that
+   silently goes wrong. Measured before shipping: scrollHeight, maxScroll and
+   the flex row are byte-identical with and without it at 1440x900 and
+   2560x1440, so this paints further without extending the document.
+
+   WHAT THIS DOES NOT FIX, recorded so it is not re-proposed: the ~60px top
+   transition as the panel pins (the white edge travels from 60 to 0 while the
+   controls stop at 60). That is inherent — the panel's top is where it is.
+   Three alternatives were built and pixel-sampled on the live site
+   (2026-08-14): background+border moved onto the sticky div; divider left on
+   the aside with only the background moved; and the aside itself made sticky
+   at viewport height. ALL THREE traded the transient edge for a PERMANENT
+   60px band of page background above the panel at every scroll position, and
+   none of them changed the bottom behaviour at all, because the cause is the
+   container ending rather than where the properties live. The current
+   arrangement measured cleanest: full-bleed white at every row from y=5 to
+   y=895 at deep scroll. */
+.results-sidebar-column {
+  margin-bottom: calc(-1 * (var(--layout-stickybar) + var(--spacing-md)));
+}
+
 .results-sidebar-sticky {
   position: sticky;
   top: var(--layout-results-pad);

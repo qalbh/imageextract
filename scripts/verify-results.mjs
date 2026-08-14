@@ -939,6 +939,47 @@ async function main() {
       reach.inView === true,
       `"${reach.label}" bottom at ${reach.bottom}px of ${reach.vh}px`,
     );
+    // AT MAXIMUM SCROLL the controls must still be at their offset. A sticky
+    // element cannot be pushed past its container's bottom, and the grid ends
+    // ~88px above the page does, so without the column extending under the
+    // selection bar the aside's bottom rises through the pinned controls and
+    // drags them up — computed top goes negative and the FORMAT heading clips
+    // away. Fails as silently as the flex-stretch case: nothing errors, the
+    // filters just leave.
+    // Scroll to the bottom REPEATEDLY until the height settles: hitting the
+    // end fires the reveal observer, which appends another batch and makes the
+    // page taller, so a single scrollTo lands mid-page and the assertion below
+    // would pass without ever reaching the case it exists for. (It did exactly
+    // that on the first run — column bottom 7042 in a 900px viewport.)
+    let settled = 0;
+    for (let i = 0; i < 40; i += 1) {
+      const before = await sb.evaluate(() => document.documentElement.scrollHeight);
+      await sb.evaluate(() => scrollTo(0, document.documentElement.scrollHeight));
+      await sb.waitForTimeout(250);
+      const after = await sb.evaluate(() => document.documentElement.scrollHeight);
+      if (after === before) {
+        settled += 1;
+        if (settled >= 2) break;
+      } else settled = 0;
+    }
+    await sb.waitForTimeout(400);
+    const atEnd = await sb.evaluate(() => {
+      const el = document.querySelector('.results-sidebar-sticky');
+      const aside = document.querySelector('.results-sidebar-column');
+      return {
+        stickyTop: Math.round(el.getBoundingClientRect().top),
+        offset: parseInt(getComputedStyle(el).top, 10),
+        asideBottom: Math.round(aside.getBoundingClientRect().bottom),
+        viewportH: innerHeight,
+        tiles: document.querySelectorAll('li.result-tile').length,
+      };
+    });
+    ok(
+      'sticky sidebar: at MAX scroll the controls are still at their offset, not dragged up',
+      atEnd.stickyTop === atEnd.offset,
+      `top ${atEnd.stickyTop}px vs offset ${atEnd.offset}px, column bottom ${atEnd.asideBottom} of ${atEnd.viewportH}, all ${atEnd.tiles} tiles revealed`,
+    );
+
     // Returning the page to the top must reset the sidebar's OWN offset.
     // Without it the panel reads as decapitated — scrolled filters plus a
     // page at top shows the column starting mid-list at "JPG 44" with the
